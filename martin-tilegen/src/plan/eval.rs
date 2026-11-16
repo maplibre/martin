@@ -255,7 +255,7 @@ impl Plan {
         &self,
         layer: &PlannedLayer,
         view: Option<&FeatureView<'_, SourceStr>>,
-        id: Option<u64>,
+        id: Option<i64>,
         errors: &mut [u64],
         out: &'o mut Vec<u8>,
     ) -> Option<&'o [u8]> {
@@ -267,9 +267,10 @@ impl Plan {
             }
         }
         if let Some(order) = layer.id_order {
-            match (id, order) {
-                (Some(id), IdOrder::Ascending) => out.extend(std::iter::once(0).chain(id.to_be_bytes())),
-                (Some(id), IdOrder::Descending) => out.extend(std::iter::once(0).chain((!id).to_be_bytes())),
+            let ascending = id.map(|id| (id.cast_unsigned() ^ (1 << 63)).to_be_bytes());
+            match (ascending, order) {
+                (Some(id), IdOrder::Ascending) => out.extend(std::iter::once(0).chain(id)),
+                (Some(id), IdOrder::Descending) => out.extend(std::iter::once(0).chain(id.map(|byte| !byte))),
                 (None, _) => out.push(1),
             }
         }
@@ -375,7 +376,7 @@ impl Evaluator<'_> {
             }
             plan.computed(attrs, &feature.props, view, errors, props, bands);
             let id = match layer.id {
-                PlannedId::Keep => feature.id,
+                PlannedId::Keep => feature.id.and_then(|id| u64::try_from(id).ok()),
                 PlannedId::Drop => None,
                 PlannedId::Expr(expr) => view.and_then(|view| plan.eval(&expr, view, errors)),
             };

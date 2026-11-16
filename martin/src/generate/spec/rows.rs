@@ -304,7 +304,7 @@ pub async fn read_row<B: TestBackend>(backend: &B, table: &TestTable, key: RowKe
         let plan = table.plan()?;
         let mut out = None;
         each_row(&scan, &plan, |crs, feature| {
-            if feature.id != Some(key) {
+            if row_key(feature) != Some(key) {
                 return Ok(ControlFlow::Continue(()));
             }
             let paths = paths_of(&plan, &table, crs, feature)?;
@@ -334,7 +334,7 @@ async fn sweep<B: TestBackend>(
         let mut seen = 0;
         each_row(&scan, &plan, |crs, feature| {
             seen += 1;
-            if let Some(key) = feature.id {
+            if let Some(key) = row_key(feature) {
                 let paths = paths_of(&plan, &table, crs, feature)?;
                 let open = |(path, hit): (&String, &Option<ReadRow>)| hit.is_none() && paths.contains(path);
                 if wanted.iter().zip(&hits).any(open) {
@@ -395,7 +395,7 @@ fn each_row(
 fn paths_of(plan: &Plan, table: &TestTable, crs: Crs, feature: &SourceFeature) -> GenerateResult<Vec<String>> {
     Ok(plan
         .paths_of(0, &table.facts, crs, feature)
-        .map_err(|err| match (err, feature.id) {
+        .map_err(|err| match (err, row_key(feature)) {
             (TileGenError::Wkb(error), Some(key)) => GenerateError::CaseGeometry {
                 source_id: table.source.clone(),
                 key,
@@ -406,6 +406,11 @@ fn paths_of(plan: &Plan, table: &TestTable, crs: Crs, feature: &SourceFeature) -
         .iter()
         .map(ToString::to_string)
         .collect())
+}
+
+/// The key of `feature`, `None` when its id is missing or negative.
+fn row_key(feature: &SourceFeature) -> Option<RowKey> {
+    RowKey::try_from(feature.id?).ok()
 }
 
 /// `feature` of `table` with key `key` as a row on `paths`.

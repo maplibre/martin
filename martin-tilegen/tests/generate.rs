@@ -50,7 +50,7 @@ fn source() -> MemorySource {
                         Geometry::Lines(vec![LineString::from(vec![(x, y), (x + 5.0, y + 4.0), (x + 9.0, y)])])
                     };
                     SourceFeature {
-                        id: Some(u64::from(p * 100 + i)),
+                        id: Some(i64::from(p * 100 + i)),
                         geometry,
                         props: vec![
                             (KeyId::new(0), Prop::Str(format!("f{p}-{i}").into())),
@@ -459,7 +459,7 @@ fn two_layers_from_one_table_do_not_depend_on_the_thread_count() {
                         Geometry::Lines(vec![LineString::from(vec![(x, y), (x + 3.0, y + 2.0)])])
                     };
                     SourceFeature {
-                        id: Some(u64::from(partition * 100 + i)),
+                        id: Some(i64::from(partition * 100 + i)),
                         geometry,
                         props: vec![
                             (KeyId::new(0), Prop::Str(format!("f{partition}-{i}").into())),
@@ -814,7 +814,7 @@ fn sorted_features_stay_whole_in_the_tiles_they_span() {
 #[test]
 fn sort_by_wins_over_the_encoders_own_sorts() {
     let point = |id: u32, rank| SourceFeature {
-        id: Some(u64::from(id)),
+        id: Some(i64::from(id)),
         geometry: Geometry::Points(vec![Coord {
             x: 10.0 + f64::from(id) * 20.0,
             y: 10.0,

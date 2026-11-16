@@ -20,7 +20,7 @@ const GRID: LayerGrid = LayerGrid {
     buffer: 64,
 };
 
-fn feature(id: u64, geometry: Geometry, rank: i64) -> SourceFeature {
+fn feature(id: i64, geometry: Geometry, rank: i64) -> SourceFeature {
     SourceFeature {
         id: Some(id),
         geometry,
@@ -39,14 +39,14 @@ fn batches() -> Vec<FeatureBatch> {
                 x: f64::from(i) * 4.5 - 90.0,
                 y: f64::from(i) * 2.0 - 40.0,
             };
-            feature(u64::from(i), Geometry::Points(vec![c]), i64::from(i % 7))
+            feature(i64::from(i), Geometry::Points(vec![c]), i64::from(i % 7))
         })
         .collect();
     let lines = (0..30u32)
         .map(|i| {
             let (x, y) = (f64::from(i) * 6.0 - 100.0, f64::from(i) * 2.5 - 35.0);
             let line = LineString::from(vec![(x, y), (x + 20.0, y + 9.0), (x + 41.0, y - 3.0)]);
-            feature(u64::from(100 + i), Geometry::Lines(vec![line]), i64::from(i % 5))
+            feature(i64::from(100 + i), Geometry::Lines(vec![line]), i64::from(i % 5))
         })
         .chain([feature(
             130,
