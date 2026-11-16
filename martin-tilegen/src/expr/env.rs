@@ -110,7 +110,7 @@ fn is_latin<'c, 'v>(ftx: &mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>,
     Ok(CowVal::owned(CelBool::from(latin)))
 }
 
-/// `removeLatin()`: the string without its Latin letters, `null` when only blanks are left.
+/// `removeLatin()`: the string without its Latin letters, `null` when dropping them leaves only blanks.
 fn remove_latin<'c, 'v>(ftx: &mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>, ExecutionError> {
     Ok(match text_operand(ftx)?.and_then(text::remove_latin) {
         Some(rest) => CowVal::owned(CelString::from(rest)),
@@ -305,6 +305,8 @@ mod tests {
     #[case::trailing_symbols(Some("Japan - 日本~+"), Value::from("日本~+"))]
     #[case::slashes(Some("Japan / 日本 / Japan"), Value::from("日本"))]
     #[case::null(None, Value::Null)]
+    #[case::empty(Some(""), Value::from(""))]
+    #[case::blank(Some("  "), Value::from(""))]
     fn remove_latin_matches_planetiler(#[case] name: Option<&str>, #[case] expected: Value) {
         let expr = CompiledExpr::compile("name.removeLatin()", &["name"], false).unwrap();
         let keys = ExprKeys::columns(&["name"]);

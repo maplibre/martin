@@ -680,8 +680,9 @@ Martin adds these functions to CEL:
 - `text.isLatin()` is `true` when `text` holds only Latin letters and characters that are no letters, such as digits,
   punctuation and spaces, as Planetiler's `containsOnlyLatinCharacters`. It is `false` for `null` and `''`.
 - `text.removeLatin()` drops the Latin letters from `text`, then brackets left empty and the spaces, dots, slashes
-  and dashes at both ends, as Planetiler's `removeLatinCharacters`. It returns `null` when only blanks are left or
-  for `null`, so `'日本 (Japan)'.removeLatin()` is `'日本'`.
+  and dashes at both ends, as Planetiler's `removeLatinCharacters`. It returns `null` for `null` and when dropping
+  Latin letters leaves only blanks, so `'日本 (Japan)'.removeLatin()` is `'日本'`. A `text` without Latin letters is
+  only trimmed, so `''.removeLatin()` is `''`.
 - `area(unit)` returns the area of the feature's whole geometry, `0.0` for points and lines, as Planetiler's
   `feature.area(unit)` measures it: on a sphere of the earth's average radius, without holes, so `area('km2')` is
   about 12364 for a square of 1 degree at the equator. `unit` takes Planetiler's area units: `m2`, `km2`, `ha`,
