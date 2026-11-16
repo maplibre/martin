@@ -84,6 +84,33 @@ fn proximity(expected: &Expected, output: &Output) -> usize {
 }
 
 fn issues(expected: &[Expected], mut actual: Vec<Output>) -> Vec<String> {
+    let mut issues = Vec::new();
+    let mut expected: Vec<&Expected> = expected.iter().collect();
+    expected.retain(|want| {
+        let Some(zoom) = want.at_zoom.filter(|_| {
+            want.layer.is_none()
+                && want.geometry.is_none()
+                && want.min_zoom.is_none()
+                && want.max_zoom.is_none()
+                && want.tags.is_none()
+        }) else {
+            return true;
+        };
+        match actual
+            .iter()
+            .position(|got| !(got.zooms.min..=got.zooms.max).contains(&zoom))
+        {
+            Some(hidden) => drop(actual.remove(hidden)),
+            None => issues.push(format!(
+                "no feature at z{zoom}, got {:?}",
+                actual.iter().map(|o| &o.layer).collect::<Vec<_>>()
+            )),
+        }
+        false
+    });
+    if !issues.is_empty() {
+        return issues;
+    }
     if expected.len() != actual.len() {
         let layers = actual.iter().map(|o| o.layer.as_str()).collect::<Vec<_>>();
         return vec![format!(
@@ -92,7 +119,6 @@ fn issues(expected: &[Expected], mut actual: Vec<Output>) -> Vec<String> {
             actual.len()
         )];
     }
-    let mut issues = Vec::new();
     for want in expected {
         let best = (0..actual.len()).max_by_key(|&i| proximity(want, &actual[i])).unwrap();
         let got = actual.remove(best);
