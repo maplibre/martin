@@ -58,6 +58,39 @@ async fn a_zipped_ocean_shapefile_and_monaco_render_into_one_tileset() {
 }
 
 #[tokio::test]
+async fn a_source_id_in_shapefile_and_osm_is_refused() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        formatdoc! {"
+            shapefile:
+              sources:
+                water:
+                  path: {shapefile}
+                  layers:
+                    ocean: {{}}
+            osm:
+              sources:
+                water:
+                  path: {osm}
+                  tags: [natural]
+                  layers:
+                    lakes: {{}}
+        ", shapefile = fixture("shapefile/ocean.zip").display(), osm = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let stderr = MartinCp::bulk()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(dir.path().join("out.mbtiles"))
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(stderr.lines().last().unwrap_or_default(), @"ERROR Source id `water` is both a `shapefile` and an `osm` source; give them different ids");
+}
+
+#[tokio::test]
 async fn shapefile_and_database_sources_in_one_run_are_refused() {
     let dir = temp_dir();
     let config = dir.path().join("config.yaml");
