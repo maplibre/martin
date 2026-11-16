@@ -689,8 +689,8 @@ Martin adds these functions to CEL:
 
   Limitations are that you cannot use it within a `where` clause (because no direct SQL equivalent), and you cannot use it within `thinning` keys.
 
-Timestamps are not available. A `where` calling `matches`, `regex.replace`, `min`, `isLatin` or `removeLatin` has
-no SQL equivalent.
+Timestamps are not available. A `where` calling `matches`, `regex.replace`, `max`, `min`, `isLatin` or
+`removeLatin` has no SQL equivalent.
 
 OpenMapTiles' `name:latin` is the first name written only in Latin letters, and `name:nonlatin` the rest of a
 name that is not:
