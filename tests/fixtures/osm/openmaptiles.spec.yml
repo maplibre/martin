@@ -4625,7 +4625,7 @@ examples:
     tags:
       construction: motorway
       highway: construction
-      name: D4 II/118 – Milín
+      name: D4 II/118 - Milín
       oneway: 'yes'
     osm_id: 215
     osm_type: way
@@ -4640,7 +4640,7 @@ examples:
     min_zoom: 6
     tags:
       class: motorway_construction
-      name: D4 II/118 – Milín
+      name: D4 II/118 - Milín
 - name: TransportationTest.testPrimaryRoadConstruction
   input:
     source: osm

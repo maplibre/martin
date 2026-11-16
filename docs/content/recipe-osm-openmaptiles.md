@@ -75,7 +75,7 @@ The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md), t
 | Run                                  | PBF    | Features  | Tiles | Size    | Time   | Memory |
 |--------------------------------------|--------|-----------|-------|---------|--------|--------|
 | Martin, Berlin, 2026-11-11           | 100 MB | 1,724,829 | 912   | 45.4 MB | 1m 8s  | 8.4 GB |
-| Planetiler 0.10.2, the same extract  | 100 MB | –         | 942   | 41.8 MB | 1m 19s | 5.0 GB |
+| Planetiler 0.10.2, the same extract  | 100 MB | -         | 942   | 41.8 MB | 1m 19s | 5.0 GB |
 
 Measured on 24 threads, with the extract and the ocean polygons in the page cache. Martin unpacks the ocean polygons
 in 6 s and keeps whole tiles of the `--bbox`. Planetiler's time includes 23 s of Natural Earth and lake centerline
