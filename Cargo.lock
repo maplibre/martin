@@ -3313,9 +3313,9 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "fsst-rs"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03b614a2a7f2efc50d76c1e47d64b57c55acf6e0e718b0cae78236d147c487d0"
+checksum = "e5913457b566e8b6b401c99cd6eb4f32bfe9ce19e34f9790d39b019ec00c65db"
 dependencies = [
  "rustc-hash 2.1.3",
 ]
@@ -3935,15 +3935,6 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.29.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b4af2b5ecf2650278fe33b0e49b68c8c484d2306475c127628316dea740cf5c"
-dependencies = [
- "hotpath-macros 0.29.2",
-]
-
-[[package]]
-name = "hotpath"
 version = "0.31.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4baf9bc6956d262f9a3d32b8fbfe0982ceed74dfc0d875dc85024c215ffe1b9b"
@@ -3963,7 +3954,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.31.2",
+ "hotpath-macros",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -3986,12 +3977,6 @@ name = "hotpath-drain"
 version = "0.31.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3ece2eee10c28b08fe868496b5706a5b1e722978bfeeb87dee2f4b29d3c8f9e"
-
-[[package]]
-name = "hotpath-macros"
-version = "0.29.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08c0a42eb299ebb7ec6b9161489e5bf132603a34ca12cecadb8490937aa0492a"
 
 [[package]]
 name = "hotpath-macros"
@@ -5016,9 +5001,9 @@ dependencies = [
 
 [[package]]
 name = "json-patch"
-version = "4.2.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7421438de105a0827e44fadd05377727847d717c80ce29a229f85fd04c427b72"
+checksum = "aa295c8f71b9bad32d060e0e145f96dcba0cc6c6171e129646140d1c96b05617"
 dependencies = [
  "jsonptr",
  "serde",
@@ -5040,9 +5025,9 @@ dependencies = [
 
 [[package]]
 name = "jsonptr"
-version = "0.7.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5a3cc660ba5d72bce0b3bb295bf20847ccbb40fd423f3f05b61273672e561fe"
+checksum = "72c22d99362c7aac7d77efab6b49c2181674b165d7e6e7c755b3432ded64bf51"
 dependencies = [
  "serde",
  "serde_json",
@@ -5630,7 +5615,7 @@ dependencies = [
  "geo",
  "geo-types",
  "geojson 1.0.0",
- "hotpath 0.31.2",
+ "hotpath",
  "insta",
  "serde_json",
  "stats_alloc",
@@ -5722,7 +5707,7 @@ dependencies = [
  "fnv",
  "futures",
  "geojson 1.0.0",
- "hotpath 0.31.2",
+ "hotpath",
  "humantime-serde",
  "image",
  "indexmap 2.14.2",
@@ -5820,7 +5805,7 @@ dependencies = [
  "geo-traits",
  "geo-types",
  "geojson 1.0.0",
- "hotpath 0.31.2",
+ "hotpath",
  "humantime",
  "image",
  "insta",
@@ -5921,7 +5906,7 @@ dependencies = [
  "brotli 9.1.1",
  "bytes",
  "flate2",
- "hotpath 0.31.2",
+ "hotpath",
  "rstest",
  "serde",
  "serde_json",
@@ -5943,7 +5928,7 @@ dependencies = [
  "geo",
  "geo-traits",
  "geo-types",
- "hotpath 0.31.2",
+ "hotpath",
  "insta",
  "lasso",
  "map-tile-toolkit",
@@ -6017,7 +6002,7 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath 0.31.2",
+ "hotpath",
  "indicatif",
  "insta",
  "itertools 0.15.0",
@@ -6181,9 +6166,9 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.22.1"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b52f949e09b007dd7ab2f4033c63dc8cbe5b80a1c9402711a42b135d985f22"
+checksum = "b88c217d3f4c3be17490693b242a8fb77d6cfe37929c07b5c4abcc2e4df9175a"
 dependencies = [
  "bitvec",
  "bytemuck",
@@ -6197,7 +6182,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath 0.29.2",
+ "hotpath",
  "integer-encoding",
  "num-traits",
  "num_enum",
@@ -7664,7 +7649,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.3",
  "rustls",
- "socket2 0.6.5",
+ "socket2 0.5.10",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
@@ -7703,7 +7688,7 @@ dependencies = [
  "cfg_aliases 0.2.2",
  "libc",
  "once_cell",
- "socket2 0.6.5",
+ "socket2 0.5.10",
  "tracing",
  "windows-sys 0.61.2",
 ]
@@ -9697,7 +9682,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
