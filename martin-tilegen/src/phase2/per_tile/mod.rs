@@ -13,10 +13,10 @@ use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 use mlt_core::PropValueRef;
 
 use crate::expr::{ExprKeys, PropSlots};
+use crate::phase2::assemble::RecordOrigin;
 use crate::phase2::per_tile::thinning::Thinning;
 use crate::plan::{Plan, PlannedOp, PlannedTileOp};
 use crate::props::{KeyId, KeyNames};
-use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
 use crate::{LayerGrid, TileGenResult};
 
@@ -90,7 +90,7 @@ pub(crate) struct Merged {
 
 /// One layer's decoded records and properties in a tile, which [`TileFeature`]s point into.
 pub(crate) struct LayerTile<'r, 'a> {
-    pub(crate) decoded: &'r [(Seq, Record<'a>)],
+    pub(crate) decoded: &'r [(RecordOrigin, Record<'a>)],
     /// Operations that keep only some of a feature's properties append those here.
     pub(crate) props: RefCell<Vec<(KeyId, PropValueRef<'a>)>>,
     pub(crate) names: &'r KeyNames,
@@ -118,9 +118,11 @@ impl LayerTile<'_, '_> {
                 Ok((first.kind, first.id))
             }
             Shape::Records => {
-                for (_, piece) in &self.decoded[feature.records()] {
+                for (origin, piece) in &self.decoded[feature.records()] {
                     match piece.kind {
-                        GeomKind::Fill | GeomKind::FillRange { .. } => push_square(out, self.grid),
+                        GeomKind::Fill | GeomKind::FillRange { .. } => {
+                            push_square(out, self.grid.extent, origin.fill_buffer);
+                        }
                         GeomKind::Point | GeomKind::GriddedPoint { .. } | GeomKind::Line | GeomKind::Polygon => {
                             piece.append_geometry(out)?;
                         }
@@ -252,10 +254,10 @@ fn paths<'g>(parts: &'g [u32], mut vertices: &'g [Vertex]) -> impl Iterator<Item
     })
 }
 
-/// The tile and its buffer as one square polygon, which a fill stands for.
-pub(crate) fn push_square(geom: &mut GeomBuf, grid: LayerGrid) {
+/// The tile of `extent` units and `buffer` units around it as one square polygon, which a fill stands for.
+pub(crate) fn push_square(geom: &mut GeomBuf, extent: u32, buffer: u32) {
     #[expect(clippy::cast_possible_wrap, reason = "extent + buffer are far below i32::MAX")]
-    let (lo, hi) = (-(grid.buffer as i32), (grid.extent + grid.buffer) as i32);
+    let (lo, hi) = (-(buffer as i32), (extent + buffer) as i32);
     geom.polygons.push(1);
     geom.parts.push(4);
     geom.vertices.extend([[lo, lo], [hi, lo], [hi, hi], [lo, hi]]);

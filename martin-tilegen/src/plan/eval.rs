@@ -8,8 +8,8 @@ use std::sync::atomic::Ordering;
 use tracing::warn;
 
 use super::{
-    AttributesDef, Case, IdOrder, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedTable, PlannedValue,
-    PlannedZoom,
+    AttributesDef, Case, IdOrder, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedOutput,
+    PlannedTable, PlannedValue, PlannedZoom,
 };
 use crate::expr::{Areas, ExprKeys, ExprRef, FeatureView, PropSlots, Role};
 use crate::phase2::Rounded;
@@ -56,11 +56,11 @@ pub(super) struct Keys {
     tables: Vec<KeyInterner>,
     /// What expressions know of each table's keys before any feature is read.
     names: Vec<(ExprKeys, u32)>,
-    layers: Vec<KeyInterner>,
+    outputs: Vec<KeyInterner>,
 }
 
 impl Keys {
-    pub(super) fn new(tables: &[PlannedTable], layers: &[PlannedLayer]) -> Self {
+    pub(super) fn new(tables: &[PlannedTable], outputs: &[PlannedOutput]) -> Self {
         let keys: Vec<_> = tables
             .iter()
             .map(|table| {
@@ -83,7 +83,7 @@ impl Keys {
                 })
                 .collect(),
             tables: keys,
-            layers: layers.iter().map(|layer| KeyInterner::new(&layer.keys)).collect(),
+            outputs: outputs.iter().map(|output| KeyInterner::new(&output.keys)).collect(),
         }
     }
 }
@@ -119,23 +119,23 @@ impl Plan {
             .zip(&tallies.0)
             .filter(|(_, errors)| **errors > 0)
             .map(|(expr, &errors)| ExprErrors {
-                layer: self.layers[expr.layer].info.name.clone(),
+                layer: self.layers[expr.layer].name.clone(),
                 expr: expr.source.clone(),
                 errors,
             })
             .collect()
     }
 
-    /// The keys whose values had kinds no single column holds, in plan order, then by key.
+    /// The keys whose values had kinds no single column holds, in output layer order, then by key.
     pub(crate) fn mixed_kinds(&self, kinds: &LayerKinds) -> Vec<MixedKinds> {
         let mut mixed = Vec::new();
-        for (index, layer) in self.layers.iter().enumerate() {
-            let keys = &self.keys.layers[index];
+        for (index, output) in self.outputs.iter().enumerate() {
+            let keys = &self.keys.outputs[index];
             for (key, kind) in kinds.layer(index).iter().enumerate() {
                 if kind.mixed {
                     let key = KeyId::new(u32::try_from(key).expect("fewer than 2^32 property keys"));
                     mixed.push(MixedKinds {
-                        layer: layer.info.name.clone(),
+                        layer: output.info.name.clone(),
                         key: keys.name(key).unwrap_or_default(),
                     });
                 }
@@ -144,18 +144,18 @@ impl Plan {
         mixed
     }
 
-    /// The keys whose integers a float column rounded, with `rounded` by layer index.
+    /// The keys whose integers a float column rounded, with `rounded` by output layer index.
     pub(crate) fn rounded_values(&self, rounded: &[Rounded]) -> Vec<RoundedValues> {
         let mut values = Vec::new();
-        for (index, layer) in self.layers.iter().enumerate() {
+        for (index, output) in self.outputs.iter().enumerate() {
             let Some(layer_rounded) = rounded.get(index) else {
                 continue;
             };
             let mut keys: Vec<_> = layer_rounded.iter().collect();
             keys.sort_unstable_by_key(|&(key, _)| key.index());
             values.extend(keys.into_iter().map(|(key, count)| RoundedValues {
-                layer: layer.info.name.clone(),
-                key: self.keys.layers[index].name(key).unwrap_or_default(),
+                layer: output.info.name.clone(),
+                key: self.keys.outputs[index].name(key).unwrap_or_default(),
                 values: count,
             }));
         }
@@ -164,7 +164,7 @@ impl Plan {
 
     /// The keys of each output layer. Call once no more keys can appear, i.e. after rendering.
     pub(crate) fn key_names(&self) -> Vec<KeyNames> {
-        self.keys.layers.iter().map(KeyInterner::names).collect()
+        self.keys.outputs.iter().map(KeyInterner::names).collect()
     }
 
     /// A failed evaluation or conversion is counted, logged the first time, and counts as `null`.
@@ -183,7 +183,7 @@ impl Plan {
                 if !self.warned[index].swap(true, Ordering::Relaxed) {
                     warn!(
                         "layer `{}`: `{}` failed and counts as null: {err}",
-                        self.layers[planned.layer].info.name, planned.source
+                        self.layers[planned.layer].name, planned.source
                     );
                 }
                 R::Out::default()
@@ -262,7 +262,7 @@ impl Plan {
     #[expect(clippy::too_many_arguments, reason = "the evaluator's scratch, borrowed apart")]
     fn computed(
         &self,
-        layer: usize,
+        output: usize,
         attrs: &PlannedAttrs,
         feature: &[(KeyId, Prop<SourceStr>)],
         view: Option<&FeatureView<'_, SourceStr>>,
@@ -274,7 +274,7 @@ impl Plan {
         for attr in &attrs.computed {
             if let Some(value) = self.attr(attr, feature, view, errors) {
                 props.push(attr.key, value.as_ref());
-                kinds.add(layer, attr.key, value.as_ref());
+                kinds.add(output, attr.key, value.as_ref());
             }
         }
         if attrs.bands.is_empty() {
@@ -289,7 +289,7 @@ impl Plan {
             let Some(value) = self.attr(attr, feature, view, errors) else {
                 continue;
             };
-            kinds.add(layer, attr.key, value.as_ref());
+            kinds.add(output, attr.key, value.as_ref());
             for (from, band) in bands.iter_mut() {
                 if attr.zooms.contains(from) {
                     band.push(attr.key, value.as_ref());
@@ -356,7 +356,7 @@ pub struct Evaluator<'p> {
     names: Vec<(ExprKeys, u32)>,
     /// Failed evaluations by expression of the plan.
     errors: Vec<u64>,
-    /// The kinds of the values each layer's keys took.
+    /// The kinds of the values each output layer's keys took.
     kinds: LayerKinds,
 }
 
@@ -422,15 +422,15 @@ impl Evaluator<'_> {
             let attrs = &case.attrs;
             props.clear();
             for (key, value) in &feature.props {
-                let output = (&plan.keys.tables[index], &plan.keys.layers[layer_index]);
+                let output = (&plan.keys.tables[index], &plan.keys.outputs[layer.output]);
                 if let Some(key) = output_key(&mut dynamic[layer_index], layer, output, *key)
                     && (attrs.overrides.is_empty() || attrs.overrides.binary_search(&key).is_err())
                 {
                     props.push(key, value.as_ref());
-                    kinds.add(layer_index, key, value.as_ref());
+                    kinds.add(layer.output, key, value.as_ref());
                 }
             }
-            plan.computed(layer_index, attrs, &feature.props, view, errors, props, bands, kinds);
+            plan.computed(layer.output, attrs, &feature.props, view, errors, props, bands, kinds);
             let id = match layer.id {
                 PlannedId::Keep => feature.id.and_then(|id| u64::try_from(id).ok()),
                 PlannedId::Drop => None,
@@ -492,7 +492,7 @@ impl<'a> LayerFeature<'a> {
 
 impl Debug for LayerFeature<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let names = &self.plan.keys.layers[usize::from(self.layer.render.index)];
+        let names = &self.plan.keys.outputs[self.layer.output];
         let Feature {
             id,
             geom: _,
@@ -509,7 +509,7 @@ impl Debug for LayerFeature<'_> {
             .map(|(zoom, props)| (zoom, NamedProps { props, names }))
             .collect();
         f.debug_struct("LayerFeature")
-            .field("layer", &self.layer.info.name)
+            .field("layer", &self.layer.name)
             .field("id", id)
             .field("zooms", zooms)
             .field("simplify", simplify)

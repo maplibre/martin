@@ -610,7 +610,8 @@ impl<'a> LayerPaths<'a, '_> {
         }
         for attr in case.attrs.computed.iter().chain(&case.attrs.banded) {
             if let PlannedValue::Expr(expr) = attr.value {
-                let key = self.layer.keys.get(attr.key.index()).map_or("?", String::as_str);
+                let keys = &self.plan.outputs[self.layer.output].keys;
+                let key = keys.get(attr.key.index()).map_or("?", String::as_str);
                 out.push((format!("attributes.{key}"), expr.index));
             }
         }
@@ -924,7 +925,7 @@ impl<'a> LayerPaths<'a, '_> {
             .into_iter()
             .map(|(source, part)| {
                 part.map_err(|reason| Untranslatable {
-                    layer: self.layer.info.name.clone(),
+                    layer: self.layer.name.clone(),
                     expr: source.to_owned(),
                     reason,
                 })
@@ -933,7 +934,7 @@ impl<'a> LayerPaths<'a, '_> {
             .map(Condition::and);
         Path {
             branch: Branch {
-                layer: self.layer.info.name.clone(),
+                layer: self.layer.name.clone(),
                 path,
                 rows,
                 shape: None,

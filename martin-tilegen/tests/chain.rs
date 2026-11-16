@@ -138,32 +138,6 @@ fn a_chain_refuses_a_partition_past_its_last() {
 }
 
 #[test]
-fn chained_sources_cannot_share_a_layer_name() {
-    let grid = LayerGrid {
-        extent: 4096,
-        buffer: 64,
-    };
-    let err = SourceChain::new(vec![
-        (
-            Box::new(MemorySource { batches: Vec::new() }) as Box<dyn FeatureSource + Send>,
-            vec![TableDef {
-                columns: Vec::new(),
-                layers: vec![LayerDef::new("water", 0..=4, grid)],
-            }],
-        ),
-        (
-            Box::new(MemorySource { batches: Vec::new() }),
-            vec![TableDef {
-                columns: Vec::new(),
-                layers: vec![LayerDef::new("water", 0..=4, grid)],
-            }],
-        ),
-    ])
-    .unwrap_err();
-    insta::assert_snapshot!(err, @"layer name `water` is used more than once");
-}
-
-#[test]
 fn a_chain_reader_reads_each_source_through_that_sources_own_readers() {
     struct Pooled;
 
@@ -586,6 +560,112 @@ fn chained_sources_render_into_one_tileset() {
     [
         "places",
         "ocean",
+    ]
+    "#);
+}
+
+#[test]
+fn chained_sources_write_layers_of_one_name_into_one_layer() {
+    struct Metadata(Arc<Mutex<Vec<String>>>);
+
+    impl TileSink for Metadata {
+        fn tile_order(&self) -> TileOrder {
+            TileOrder::Tms
+        }
+
+        fn write_all(
+            &mut self,
+            batches: &mut dyn Iterator<Item = TileGenResult<Vec<EncodedTile>>>,
+        ) -> TileGenResult<()> {
+            for batch in batches {
+                batch?;
+            }
+            Ok(())
+        }
+
+        fn finish(self, metadata: &tilejson::TileJSON) -> TileGenResult<()> {
+            let layers = metadata.vector_layers.iter().flatten();
+            *self.0.lock().unwrap() = layers
+                .map(|layer| {
+                    format!(
+                        "{} {:?} z{:?}-{:?}",
+                        layer.id, layer.fields, layer.minzoom, layer.maxzoom
+                    )
+                })
+                .collect();
+            Ok(())
+        }
+    }
+
+    let grid = LayerGrid {
+        extent: 4096,
+        buffer: 64,
+    };
+    let point = |id, x, value: &str| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Point(Coord { x, y: 10.0 }),
+        props: vec![(KeyId::new(0), Prop::Str(value.into()))],
+    };
+    let chain = SourceChain::new(vec![
+        (
+            Box::new(MemorySource {
+                batches: vec![FeatureBatch {
+                    table: 0,
+                    partition: 0,
+                    first_row: 0,
+                    crs: Crs::Wgs84,
+                    features: vec![point(1, 10.0, "lake")],
+                }],
+            }) as Box<dyn FeatureSource + Send>,
+            vec![TableDef {
+                columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+                layers: vec![LayerDef::new("water", 1..=3, grid)],
+            }],
+        ),
+        (
+            Box::new(MemorySource {
+                batches: vec![FeatureBatch {
+                    table: 0,
+                    partition: 0,
+                    first_row: 0,
+                    crs: Crs::Wgs84,
+                    features: vec![point(2, 20.0, "Atlantic")],
+                }],
+            }),
+            vec![TableDef {
+                columns: vec![ColumnDef::Value("name".to_owned(), None)],
+                layers: vec![LayerDef::new("water", 0..=2, grid)],
+            }],
+        ),
+    ])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let layers = Arc::new(Mutex::new(Vec::new()));
+    generate(
+        &chain,
+        chain.plan(),
+        Metadata(Arc::clone(&layers)),
+        &GenerateConfig {
+            threads: 2,
+            sort: SortConfig {
+                temp_dirs: vec![dir.path().to_path_buf()],
+                buffer_bytes: 16 << 10,
+                max_fan_in: 4,
+            },
+            format: TileFormat::Mvt,
+            encoding: Encoding::Uncompressed,
+            batch_tiles: 4,
+            window: 2,
+            mvt_preserve_ring_start: false,
+            mvt_keep_unused_keys: false,
+        },
+        tilejson::tilejson! { tiles: vec![] },
+        &Progress::default(),
+    )
+    .unwrap();
+    insta::assert_debug_snapshot!(layers.lock().unwrap(), @r#"
+    [
+        "water {\"kind\": \"String\", \"name\": \"String\"} zSome(0)-Some(3)",
     ]
     "#);
 }
