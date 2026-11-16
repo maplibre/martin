@@ -63,6 +63,7 @@ osmflow = { workspace = true, optional = true }
 pmtiles.workspace = true
 radsort.workspace = true
 rayon.workspace = true
+regex.workspace = true
 serde_json = { workspace = true, optional = true }
 shapefile = { workspace = true, optional = true }
 strum.workspace = true
