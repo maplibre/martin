@@ -729,7 +729,32 @@ fn lower_layer(
         sort_by: shared.sort_by.clone(),
         id_order: None,
         per_tile: shared.per_tile.clone(),
+        hidden: hidden_attributes(layer),
     }))
+}
+
+/// The names of the attributes the layer or any of its rules hides, each once.
+fn hidden_attributes(layer: &Layer) -> Vec<String> {
+    let layer_attrs = match &layer.attributes {
+        Attributes::Columns(columns) => Some(&columns.computed),
+        Attributes::None | Attributes::Properties(_) | Attributes::AllProperties => None,
+    };
+    let rule_attrs = layer.rules.iter().flat_map(|rules| {
+        rules
+            .cases
+            .iter()
+            .map(|rule| &rule.settings)
+            .chain(&rules.fallback)
+            .map(|settings| &settings.attributes)
+    });
+    let hidden: IndexSet<&String> = layer_attrs
+        .into_iter()
+        .chain(rule_attrs)
+        .flatten()
+        .filter(|(_, spec)| spec.hidden)
+        .map(|(name, _)| name)
+        .collect();
+    hidden.into_iter().cloned().collect()
 }
 
 /// What lowering a grid thinning needs to know about its layer, to clamp it and warn about it.
@@ -1246,6 +1271,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
             ],
         }
@@ -1301,6 +1327,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
             ],
         }
@@ -1406,6 +1433,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
                 LayerDef {
                     name: "road_points",
@@ -1443,6 +1471,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
                 LayerDef {
                     name: "areas",
@@ -1480,6 +1509,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
             ],
         }
