@@ -49,6 +49,7 @@ struct Expected {
 struct Output<'t> {
     layer: &'t str,
     geometry: String,
+    copy: usize,
     zooms: BTreeMap<u8, &'t Feature>,
 }
 
@@ -71,15 +72,26 @@ impl Output<'_> {
 fn outputs(tiles: &Tiles) -> Vec<Output<'_>> {
     let mut outputs: Vec<Output<'_>> = Vec::new();
     for (coord, features) in tiles {
+        let mut in_tile: Vec<&Feature> = Vec::new();
         for feature in features {
             let geometry = feature.kind().to_string();
+            let same = |other: &&Feature| other.layer == feature.layer && other.kind().to_string() == geometry;
+            if in_tile
+                .iter()
+                .any(|other| same(other) && other.id == feature.id && other.attributes == feature.attributes)
+            {
+                continue;
+            }
+            let copy = in_tile.iter().filter(|other| same(other)).count();
+            in_tile.push(feature);
             let found = outputs
                 .iter()
-                .position(|output| output.layer == feature.layer && output.geometry == geometry);
+                .position(|output| output.layer == feature.layer && output.geometry == geometry && output.copy == copy);
             let index = found.unwrap_or_else(|| {
                 outputs.push(Output {
                     layer: &feature.layer,
                     geometry,
+                    copy,
                     zooms: BTreeMap::new(),
                 });
                 outputs.len() - 1
