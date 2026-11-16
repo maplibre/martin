@@ -266,3 +266,176 @@ async fn refuses_mlt_output_with_mlt_conversion_disabled() {
     insta::assert_snapshot!(stderr.lines().last().unwrap_or_default(), @"ERROR Source `monaco` sets `convert_to_mlt: disabled`, but `--mode bulk` writes MLT unless given `--format mvt`");
     assert!(!output.exists());
 }
+
+#[tokio::test]
+async fn churches_and_cafes_write_into_one_pois_layer_churches_first() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        formatdoc! {"
+            osm:
+              sources:
+                monaco:
+                  path: {path}
+                  tags: [building, amenity, name]
+                  layers:
+                    churches:
+                      layer: pois
+                      geometry: polygon
+                      where: \"building == 'church' && name != null\"
+                      attributes: [name]
+                    cafes:
+                      layer: pois
+                      geometry: point
+                      where: \"amenity == 'cafe' && name != null\"
+                      attributes: [name]
+        ", path = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("pois.mbtiles");
+    MartinCp::bulk()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--format")
+        .arg("mvt")
+        .arg("--encoding")
+        .arg("none")
+        .arg("--min-zoom")
+        .arg("14")
+        .arg("--max-zoom")
+        .arg("14")
+        .run()
+        .await;
+    let tiles = tiles(&output).await;
+    let tile = tiles
+        .iter()
+        .find(|(z, x, y, _)| (*z, *x, *y) == (14, 8529, 10410))
+        .expect("tile 14/8529/10410 was written");
+    insta::assert_snapshot!(mvt_dump(&tile.3), @r#"
+    layer: 0
+      name: pois
+      version: 2
+      extent: 4096
+      feature: 0
+        id: 943994592
+        geometry: RING[count=11](4176 3272,4153 3257,4155 3252,4142 3244,4145 3234,4143 3224,4147 3215,4157 3214,4159 3209,4166 3205,4176 3272)[OUTER]
+        properties:
+          name = "Église Saint-Charles"
+      feature: 1
+        id: 944001042
+        geometry: RING[count=7](3089 3900,3122 3932,3076 3979,3057 3960,3053 3964,3039 3952,3089 3900)[OUTER]
+        properties:
+          name = "Église des Franciscains"
+      feature: 2
+        id: 30874685431
+        geometry: POINT(3721,4136)
+        properties:
+          name = "Le Palace Café"
+      feature: 3
+        id: 30874686101
+        geometry: POINT(3433,4031)
+        properties:
+          name = "Richmond Bar"
+      feature: 4
+        id: 78221436871
+        geometry: POINT(4061,3348)
+        properties:
+          name = "Costa"
+    "#);
+}
+
+#[tokio::test]
+async fn a_layer_written_by_several_layers_does_not_depend_on_the_thread_count() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        formatdoc! {"
+            osm:
+              sources:
+                monaco:
+                  path: {path}
+                  tags: [highway, building, amenity, name]
+                  layers:
+                    roads:
+                      layer: everything
+                      geometry: line
+                      where: \"highway != null\"
+                      attributes: [highway, name]
+                    buildings:
+                      layer: everything
+                      geometry: polygon
+                      where: \"building != null\"
+                      attributes: [building]
+                    labels:
+                      layer: everything
+                      geometry: polygon_point_on_surface
+                      where: \"building != null && name != null\"
+                      attributes: [name]
+                    amenities:
+                      layer: everything
+                      geometry: point
+                      where: \"amenity != null\"
+                      attributes: [amenity]
+        ", path = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let mut runs = Vec::new();
+    for threads in ["1", "6"] {
+        let output = dir.path().join(format!("threads-{threads}.mbtiles"));
+        MartinCp::bulk()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--max-zoom")
+            .arg("14")
+            .arg("--threads")
+            .arg(threads)
+            .run()
+            .await;
+        runs.push(tiles(&output).await);
+    }
+    assert_eq!(runs[0], runs[1]);
+}
+
+#[tokio::test]
+async fn layers_writing_into_one_layer_with_different_sort_by_are_refused() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        formatdoc! {"
+            osm:
+              sources:
+                monaco:
+                  path: {path}
+                  tags: [building, amenity, name]
+                  layers:
+                    buildings:
+                      layer: pois
+                      geometry: polygon
+                      where: \"building != null\"
+                      sort_by: [name]
+                    cafes:
+                      layer: pois
+                      geometry: point
+                      where: \"amenity == 'cafe'\"
+                      sort_by: [amenity]
+        ", path = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let stderr = MartinCp::bulk()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(stderr.lines().last().unwrap_or_default(), @"ERROR layers `buildings` of source `monaco` and `cafes` of source `monaco` both write into layer `pois` but set `sort_by` differently; set it equal on both, or on only one of them");
+    assert!(!output.exists());
+}

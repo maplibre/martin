@@ -256,7 +256,7 @@ impl PostgresInfo for TableInfo {
         if let Some(layers) = &self.layers {
             tilejson.vector_layers = Some(
                 layers
-                    .names()
+                    .output_names()
                     .map(|name| VectorLayer::new(name.to_owned(), BTreeMap::new()))
                     .collect(),
             );

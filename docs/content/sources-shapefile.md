@@ -31,7 +31,9 @@ martin cp --mode bulk --config config.yaml --source ocean --output-file ocean.mb
 ```
 
 `shapefile` and [`osm`](sources-osm.md) sources render together in one run, not with database sources.
-In each tile, the layers of `shapefile` sources come first.
+In each tile, the layers of `shapefile` sources come first. A layer of each kind of source can write into one output
+layer, such as a `water` layer of ocean polygons from a shapefile and lakes from OSM, see
+[Combining layers](sources-pg-layers.md#combining-layers).
 [Building a basemap from OpenStreetMap](recipe-osm-basemap.md) takes its `ocean` layer from one.
 
 ## Source keys
