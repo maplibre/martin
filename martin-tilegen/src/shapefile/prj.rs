@@ -12,6 +12,9 @@ const WEB_MERCATOR_PROJECTIONS: [&str; 3] = [
     "pseudomercator",
 ];
 
+/// How deep WKT nodes may nest; real coordinate systems nest fewer than 10 deep.
+const MAX_DEPTH: usize = 32;
+
 /// One node of WKT, such as `DATUM["WGS_1984", SPHEROID[...]]`.
 #[derive(Debug, PartialEq)]
 struct Node {
@@ -122,7 +125,15 @@ fn is_wgs84(geogcs: &Node) -> bool {
             Arg::Text(_) | Arg::Node(_) => false,
         })
     });
-    wgs84 && greenwich
+    let degrees = geogcs.children("UNIT").chain(geogcs.children("ANGLEUNIT")).all(|unit| {
+        unit.args.iter().any(|arg| match arg {
+            Arg::Word(value) => value
+                .parse::<f64>()
+                .is_ok_and(|radians| (radians - 1_f64.to_radians()).abs() < 1e-12),
+            Arg::Text(_) | Arg::Node(_) => false,
+        })
+    });
+    wgs84 && greenwich && degrees
 }
 
 /// Whether the WKT1 `PROJCS` is Web Mercator: a spherical Mercator of WGS84 without offsets, in metres.
@@ -175,11 +186,14 @@ impl Parser {
         if keyword.is_empty() {
             return None;
         }
-        self.arguments(keyword)
+        self.arguments(keyword, 1)
     }
 
-    /// Reads the bracketed arguments of the node `keyword`.
-    fn arguments(&mut self, keyword: String) -> Option<Node> {
+    /// Reads the bracketed arguments of the node `keyword`, nested `depth` deep, or `None` beyond [`MAX_DEPTH`].
+    fn arguments(&mut self, keyword: String, depth: usize) -> Option<Node> {
+        if depth > MAX_DEPTH {
+            return None;
+        }
         self.skip_whitespace();
         let close = match self.next()? {
             '[' => ']',
@@ -198,7 +212,7 @@ impl Parser {
                 }
                 self.skip_whitespace();
                 if matches!(self.peek(), Some('[' | '(')) {
-                    args.push(Arg::Node(self.arguments(word)?));
+                    args.push(Arg::Node(self.arguments(word, depth + 1)?));
                 } else {
                     args.push(Arg::Word(word));
                 }
