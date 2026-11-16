@@ -377,6 +377,16 @@ impl Renderer {
         Ok(())
     }
 
+    /// The style's root property `name` as JSON, or `None` when the style leaves it unset.
+    pub fn root_property(&self, name: &str) -> Result<Option<String>, StyleError> {
+        block_on(&self.signal, self.map.style_root_property(name)?, "style root property")
+    }
+
+    /// Sets the style's root property `name` to `json` without reloading the style.
+    pub fn set_root_property(&self, name: &str, json: &str) -> Result<(), StyleError> {
+        self.command(self.map.set_style_root_property(name, json))
+    }
+
     /// Moves the camera to `camera` and renders the still image `MapLibre` produces once everything it shows has loaded.
     pub fn render(&mut self, camera: CameraOptions) -> Result<RgbaImage, StyleError> {
         drop(self.map.update_camera(CameraUpdate {
