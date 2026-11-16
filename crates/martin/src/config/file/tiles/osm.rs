@@ -49,7 +49,8 @@ impl OsmConfig {
 pub struct OsmSourceConfig {
     /// The `.osm.pbf` file.
     pub path: PathBuf,
-    /// The tag keys layers read, each a string column; `osm_type` (`node`, `way` or `relation`) is always one.
+    /// The tag keys layers read, each a string column; `osm_type` (`node`, `way` or `relation`) and the integer `osm_id`
+    /// are always columns too.
     #[serde(default)]
     pub tags: Vec<String>,
     /// Raises the lowest zoom of `--min-zoom`.
