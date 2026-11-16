@@ -1024,11 +1024,11 @@ fn closed_way_of_three_nodes_with_area_yes_is_left_out() {
         columns: columns(&["name".to_owned()]),
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=14, GRID)
             },
         ],
