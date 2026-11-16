@@ -68,6 +68,7 @@ A way is read as Planetiler reads it, whatever its other tags:
 | Closed, `area=yes`                      | yes     | no   |
 | Closed, `area=no`                       | no      | yes  |
 | Closed, fewer than 4 nodes              | no      | yes  |
+| Closed, fewer than 4 nodes, `area=yes`  | no      | no   |
 
 Layers of polygons take the polygon and layers of lines the line, both with the way's feature id.
 A closed `highway=pedestrian` way can be both a street and a street area.
