@@ -59,7 +59,7 @@ A run renders either `osm` sources or database sources, not both.
 | Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon      | `relation` | id * 10 + 3 |
 
 Martin leaves out objects without tags, and other relations.
-A way is read as Planetiler reads it, whatever its other tags:
+Martin reads a way as Planetiler does, whatever its other tags:
 
 | Way                                     | Polygon | Line |
 |-----------------------------------------|---------|------|
@@ -73,7 +73,7 @@ A way is read as Planetiler reads it, whatever its other tags:
 Layers of polygons take the polygon and layers of lines the line, both with the way's feature id.
 A closed `highway=pedestrian` way can be both a street and a street area.
 Layers of any geometry, such as `geometry: centroid`, take the polygon only.
-`line_centroid` is the centroid of the polygon, as in Planetiler.
+For a closed way, `line_centroid` is the centroid of the polygon it encloses, as in Planetiler.
 
 A relation's member ways are joined into rings.
 A ring inside an odd number of others is a hole, whatever its role.
