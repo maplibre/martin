@@ -345,7 +345,7 @@ pub enum DerivedPoint {
 impl DerivedPoint {
     /// The point of a feature with `geometry`, projected as `geom`, or `None` when it has none, such as an empty
     /// geometry; that of the polygon of an [`Geometry::Outline`], as Planetiler derives it from a closed way that is
-    /// also an area.
+    /// also an area, and a point on the surface of a multi-polygon of one part for [`Self::CentroidIfConvex`].
     pub(crate) fn of(self, geometry: &Geometry, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
         let area;
         let geom = if let Geometry::Outline(ring) = geometry {
@@ -354,6 +354,9 @@ impl DerivedPoint {
         } else {
             geom
         };
+        if matches!((self, geometry), (Self::CentroidIfConvex, Geometry::Polygons(_))) {
+            return Self::PointOnSurface.of_geom(geom);
+        }
         self.of_geom(geom)
     }
 
