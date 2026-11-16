@@ -73,7 +73,8 @@ deleted in the `.dbf`, is left out.
 | MultiPatch                    | refused                             |
 
 Z and M values are dropped. A polygon's clockwise rings are outer rings, and each counter-clockwise ring is a hole
-of the smallest outer ring around it, as GeoTools reads them; a hole in no outer ring is a polygon of its own.
+of the smallest outer ring around it, as GeoTools reads them; a hole in no outer ring is a polygon of its own. With
+only one outer ring, every counter-clockwise ring is its hole, as in GeoTools.
 
 Each field of the `.dbf` is a property, `null` where it is empty:
 
