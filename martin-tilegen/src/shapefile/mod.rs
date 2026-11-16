@@ -670,7 +670,7 @@ impl FeatureReader for ShapefileReader<'_> {
                 }
             }
             batch.push(SourceFeature {
-                id: Some(number),
+                id: i64::try_from(number).ok(),
                 geometry,
                 props,
             });

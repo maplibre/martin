@@ -40,6 +40,7 @@ pub async fn source(
                 zooms: zooms.clone(),
                 bounds,
                 encoder: mlt_encoder(convert.clone(), format, id)?,
+                order_by: None,
             };
             let file = open(source, &temp_dir)?;
             let Some(def) = lower(id, source, &file, &lower_options)? else {
