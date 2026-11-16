@@ -1001,6 +1001,54 @@ fn closed_way_of_three_nodes_is_only_a_line() {
 }
 
 #[test]
+fn closed_way_of_three_nodes_with_area_yes_is_left_out() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(
+        &path,
+        &[],
+        indoc! {"
+            n1 x0 y0
+            n2 x1 y0
+            ---
+            w10 Tbuilding=yes,area=yes Nn1,n2,n1
+        "},
+    );
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&["name".to_owned()]),
+        layers: vec![
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                ..LayerDef::new("lines", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Polygon),
+                ..LayerDef::new("polygons", 0..=14, GRID)
+            },
+        ],
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    writeln!(out, "{} {}", feature.id.unwrap(), wkt(feature.geometry)).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(out, @"");
+}
+
+#[test]
 fn open_way_with_area_yes_is_a_line() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("test.osm.pbf");
