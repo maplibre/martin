@@ -1,7 +1,4 @@
-//! Times Martin's render pools on the operations Martin serves; one case per process.
-//!
-//! `render-bench <case> <style.json> [workers]`, printing one JSON line.
-//! Set `BENCH_SAVE=<dir>` to also write every rendered image there as PNG.
+//! The benchmark cases, what they time and the report they print.
 
 use std::f64::consts::PI;
 use std::fmt;
@@ -625,8 +622,8 @@ impl Bench {
     }
 }
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() -> anyhow::Result<()> {
+/// Runs the case the command line names and prints its report.
+pub async fn run() -> anyhow::Result<()> {
     let Args { case, style, workers } = Args::parse();
     let saver = Saver::from_env()?;
 
