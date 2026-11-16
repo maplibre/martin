@@ -265,7 +265,7 @@ async fn shortbread_snippet_passes_its_monaco_spec() {
         }
     }
     writeln!(report, "{passed} of {} cases pass", spec.cases.len()).unwrap();
-    insta::assert_snapshot!(report, @"52 of 52 cases pass");
+    insta::assert_snapshot!(report, @"53 of 53 cases pass");
 }
 
 #[tokio::test]
