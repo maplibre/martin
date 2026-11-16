@@ -111,8 +111,9 @@ impl Osm {
                                 .map_err(|err| SourceError::Other(Box::new(err)))?,
                             None => true,
                         };
-                        if fits && feature.id.is_some() {
-                            found = feature.id;
+                        let key = feature.id.and_then(|id| RowKey::try_from(id).ok());
+                        if fits && key.is_some() {
+                            found = key;
                             return Err(SourceError::Stopped);
                         }
                     }
@@ -139,6 +140,7 @@ impl TestBackend for Osm {
             zooms: 0..=max_zoom,
             bounds: None,
             encoder: None,
+            order_by: None,
         };
         let mut out = Vec::with_capacity(self.sources.len());
         for (id, source) in &self.sources {

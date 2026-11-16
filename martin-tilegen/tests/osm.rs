@@ -195,7 +195,7 @@ fn every_object_reads_what_no_layer_takes() {
 #[case::node(1)]
 #[case::way(2)]
 #[case::relation(3)]
-fn one_object_reads_only_that_object(#[case] kind: u64) {
+fn one_object_reads_only_that_object(#[case] kind: i64) {
     let everything = read_all(&source(None, None));
     let wanted = everything.iter().find(|f| f.id.unwrap() % 10 == kind).unwrap();
     let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
@@ -203,7 +203,7 @@ fn one_object_reads_only_that_object(#[case] kind: u64) {
         path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
         node_store: NodeStore::Memory,
         bounds: None,
-        objects: Objects::One(wanted.id.unwrap()),
+        objects: Objects::One(u64::try_from(wanted.id.unwrap()).unwrap()),
     };
     let def = TableDef {
         columns: columns(&tags),
