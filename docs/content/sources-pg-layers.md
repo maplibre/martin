@@ -680,8 +680,9 @@ Martin adds these functions to CEL:
 - `text.isLatin()` is `true` when `text` holds only Latin letters and characters that are no letters, such as digits,
   punctuation and spaces, as Planetiler's `containsOnlyLatinCharacters`. It is `false` for `null` and `''`.
 - `text.removeLatin()` drops the Latin letters from `text`, then brackets left empty and the spaces, dots, slashes
-  and dashes at both ends, as Planetiler's `removeLatinCharacters`. It returns `null` when only blanks are left or
-  for `null`, so `'日本 (Japan)'.removeLatin()` is `'日本'`.
+  and dashes at both ends, as Planetiler's `removeLatinCharacters`. It returns `null` for `null` and when dropping
+  Latin letters leaves only blanks, so `'日本 (Japan)'.removeLatin()` is `'日本'`. A `text` without Latin letters is
+  only trimmed, so `''.removeLatin()` is `''`.
 - The `area(unit)` function calculates the total surface area of a geometry, returning 0.0 for points and lines. It measures the shape on a spherical model of the Earth using its average radius and ignores any internal holes. For context, measuring a one-degree square at the equator will return approximately 12,364 square kilometers.
 
   You must specify a valid unit using either abbreviations or common spellings, such as `km2` or `square meters`. Supported units include metric (`m2`, `km2`, `ha`, `a`) and imperial or nautical units (`ft2`, `yd2`, `mi2`, `ac`, `nm2`). You can also use Web Mercator squares, where `z0 ti2` represents the entire world as `1`, and `z0 px2` represents the entire world as `65,536` (though Planetiler handles this by dividing instead).
