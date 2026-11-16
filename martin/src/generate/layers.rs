@@ -2649,6 +2649,7 @@ mod tests {
             zooms: 0..=14,
             bounds: None,
             encoder: None,
+            order_by: None,
         };
         let outputs = OutputLayers::new(
             [("water", table_settings(&oceans)), ("lakes", table_settings(&lakes))],
