@@ -240,6 +240,12 @@ pub enum GenerateError {
     #[error("`--mode bulk` renders OSM sources or database sources in one run, not both; pick them with `--source`")]
     MixedSources,
     #[cfg(feature = "osm")]
+    #[error("`martin test` tests OSM sources or database sources, not both; put them in separate configuration files")]
+    MixedTestSources,
+    #[cfg(feature = "osm")]
+    #[error("Source `{source_id}` reads the tag `{tag}`, which `martin test` reserves in each case's input")]
+    OsmReservedTag { source_id: String, tag: String },
+    #[cfg(feature = "osm")]
     #[error("Cannot read OSM file {}: {error}", path.display())]
     OsmFile {
         path: PathBuf,

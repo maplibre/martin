@@ -10,7 +10,7 @@ tags:
 # OpenStreetMap PBF Sources
 
 !!! note
-    Only the [bulk mode](martin-generate.md) of `martin cp` can process these sources.
+    Only the [bulk mode](martin-generate.md) of `martin cp` and [`martin test`](martin-test.md) can process these sources.
     The tile serving mode can only serve them after they are brought into a more suitable format.
 
 Martin reads one `.osm.pbf` file per source, using [layers](sources-pg-layers.md).

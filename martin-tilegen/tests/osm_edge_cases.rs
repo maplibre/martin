@@ -12,7 +12,7 @@ use std::path::Path;
 use geo_types::MultiPolygon;
 use indoc::indoc;
 use martin_tilegen::LayerGrid;
-use martin_tilegen::osm::{NodeStore, OsmSource, OsmTable, columns};
+use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
 use martin_tilegen::plan::{LayerDef, TableDef};
 use martin_tilegen::source::{FeatureSource as _, Geometry};
 use wkt::ToWkt as _;
@@ -218,6 +218,7 @@ fn read(store: Store, optional_features: &[&str], opl: &str) -> Result<String, S
         path: path.clone(),
         node_store,
         bounds: None,
+        objects: Objects::Taken,
     };
     let def = TableDef {
         columns: columns(&["name".to_owned()]),

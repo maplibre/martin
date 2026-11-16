@@ -358,7 +358,8 @@ async fn sweep<B: TestBackend>(
     .await?
 }
 
-/// Passes `visit` each row of `scan`, its geometry in the given coordinates, until it breaks.
+/// Passes `visit` each row of `scan`, its geometry in the given coordinates, until it breaks; a read to the end fails
+/// if the source cannot vouch for it.
 fn each_row(
     scan: &impl FeatureSource,
     plan: &Plan,
@@ -388,6 +389,7 @@ fn each_row(
             Err(err) => return Err(TileGenError::from(err).into()),
         }
     }
+    scan.finish().map_err(TileGenError::from)?;
     Ok(())
 }
 

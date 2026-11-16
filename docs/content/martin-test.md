@@ -4,6 +4,7 @@ icon: material/test-tube
 tags:
   - tooling
   - postgres
+  - openstreetmap
   - testing
 ---
 
@@ -27,7 +28,8 @@ martin test generate --config config.yaml --output roads.spec.yaml
 martin test run --config config.yaml roads.spec.yaml
 ```
 
-Tests PostgreSQL table sources with `layers` and an `id_column`, from one `postgres` section.
+Tests PostgreSQL table sources with `layers` and an `id_column`, from one `postgres` section, or the
+[`osm` sources](sources-osm.md) of a configuration without one.
 
 ```yaml
 postgres:
@@ -53,6 +55,26 @@ postgres:
           minzoom: 12
           where: "name != null"
           attributes: [name]
+```
+
+### OpenStreetMap sources
+
+A case of an `osm` source is one object of its file, with the [feature id](sources-osm.md#supported-features-and-handling) as `id`
+and its WKT as `geometry` in its input, so a source cannot read a tag `id` or `geometry`. `generate` reads the file
+once per path and takes its first object on the path. A source reading ways or relations loads its node locations
+once per run.
+
+```yaml
+osm:
+  sources:
+    berlin:
+      path: berlin-latest.osm.pbf
+      tags: [highway, name]
+      layers:
+        roads:
+          geometry: line
+          where: "highway in ['primary', 'residential']"
+          attributes: [highway, name]
 ```
 
 ## Paths
