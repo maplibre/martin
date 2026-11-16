@@ -211,7 +211,26 @@ fn osm_source_reading_the_tag_id_is_refused() {
     "};
     file.write_all(yaml.replace("${MONACO}", monaco).as_bytes()).unwrap();
     let error = Osm::load(file.path()).err().unwrap();
-    insta::assert_snapshot!(error, @"Source `monaco` reads the tag `id`, which `martin test` keeps the feature id in");
+    insta::assert_snapshot!(error, @"Source `monaco` reads the tag `id`, which `martin test` reserves in each case's input");
+}
+
+#[test]
+fn osm_source_reading_the_tag_geometry_is_refused() {
+    let monaco = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm/monaco.osm.pbf");
+    let mut file = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    let yaml = indoc! {"
+        osm:
+          sources:
+            monaco:
+              path: ${MONACO}
+              tags: [name, geometry]
+              layers:
+                names:
+                  attributes: [name]
+    "};
+    file.write_all(yaml.replace("${MONACO}", monaco).as_bytes()).unwrap();
+    let error = Osm::load(file.path()).err().unwrap();
+    insta::assert_snapshot!(error, @"Source `monaco` reads the tag `geometry`, which `martin test` reserves in each case's input");
 }
 
 #[test]

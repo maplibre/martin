@@ -20,6 +20,9 @@ use crate::generate::{GenerateError, GenerateResult};
 /// The input key holding a case's feature id: the OSM id times 10, plus 1 for a node, 2 for a way, 3 for a relation.
 pub const FEATURE_ID: &str = "id";
 
+/// The input key holding a case's geometry as WKT.
+const GEOMETRY: &str = "geometry";
+
 /// The `osm` sources of a configuration.
 pub struct Osm {
     sources: BTreeMap<String, Source>,
@@ -38,7 +41,8 @@ impl Osm {
     ///
     /// # Errors
     ///
-    /// If the configuration cannot be read, also has database sources, or a source reads the tag [`FEATURE_ID`].
+    /// If the configuration cannot be read, also has database sources, or a source reads the tag [`FEATURE_ID`] or
+    /// `geometry`.
     pub fn load(config_path: &Path) -> GenerateResult<Option<Self>> {
         let config: Config = read_config(config_path, &OsEnv)?;
         if config.osm.sources.is_empty() {
@@ -47,13 +51,17 @@ impl Osm {
         if !config.postgres.is_empty() {
             return Err(GenerateError::MixedTestSources);
         }
-        if let Some((id, _)) = config
-            .osm
-            .sources
-            .iter()
-            .find(|(_, source)| source.tags.iter().any(|tag| tag == FEATURE_ID))
-        {
-            return Err(GenerateError::OsmIdTag { source_id: id.clone() });
+        for (id, source) in &config.osm.sources {
+            if let Some(tag) = source
+                .tags
+                .iter()
+                .find(|tag| [FEATURE_ID, GEOMETRY].contains(&tag.as_str()))
+            {
+                return Err(GenerateError::OsmReservedTag {
+                    source_id: id.clone(),
+                    tag: tag.clone(),
+                });
+            }
         }
         let sources = config
             .osm
