@@ -6,10 +6,12 @@ use martin_tilegen::TileGenError;
 use martin_tilegen::plan::{Condition, Shape};
 use martin_tilegen::source::{FeatureSource, SourceChain};
 
+use crate::config::file::read_config;
+use crate::config::primitives::env::OsEnv;
 use crate::generate::spec::backend::{Find, RowKey, Rows, TestBackend, TestTable};
 use crate::generate::spec::osm::Osm;
 use crate::generate::spec::shapefile::Shapefiles;
-use crate::generate::{GenerateError, GenerateResult};
+use crate::generate::{GenerateError, GenerateResult, check_file_source_ids};
 
 /// The file sources of a configuration: its shapefile sources, then its OSM sources.
 pub struct Files {
@@ -22,8 +24,10 @@ impl Files {
     ///
     /// # Errors
     ///
-    /// If the configuration or a file cannot be read, or it also has database sources.
+    /// If the configuration or a file cannot be read, it also has database sources, or a source id is both a
+    /// `shapefile` and an `osm` source.
     pub fn load(config_path: &Path) -> GenerateResult<Option<Self>> {
+        check_file_source_ids(&read_config(config_path, &OsEnv)?)?;
         let shapefiles = Shapefiles::load(config_path)?;
         let osm = Osm::load(config_path)?;
         if shapefiles.is_none() && osm.is_none() {
