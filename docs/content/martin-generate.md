@@ -155,8 +155,16 @@ for `.mbtiles` output only. Bulk mode refuses `--url-query`, `--on-duplicate`, `
 workers are `--threads`), `--save-config`, and `max_feature_count` in the config or as
 `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads` and `--mvt-quirk`.
 
-`--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers. Without it, one box
-holding the `bounds` of every source with a zoom to render picks them, or the whole world if one has none.
+`--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
+Without `--bbox`, bulk mode picks the tiles touching the union of the `bounds` of every selected source
+that renders at least one zoom of the run, clamped to latitudes ±85.0511°, as tile mode does:
+
+- A source's `bounds` is the one its TileJSON shows: the configured `bounds`, else what the connection's
+  `auto_bounds` computes. A `bounds` in the table comment replaces either.
+- If one of these sources has no `bounds`, for example with `auto_bounds: skip` or when `auto_bounds: quick`
+  stops after 5 seconds, bulk mode renders the whole world.
+- The output records `--bbox`, or else this union, as its `bounds` metadata.
+
 The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.
 Each zoom lower reads up to four times the area, and zooms below `--min-zoom` do not count.
 For a small box, raise `--min-zoom` to keep the scan close to it.
