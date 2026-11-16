@@ -85,9 +85,9 @@ reads every tagged object and checks `where` itself, with the same result.
 
 ## Node locations
 
-Ways and relations are built from node locations, loaded before the file is read. Up to 512 MiB of PBF, they are
-kept in memory, about 30 bytes per node. Larger files keep them in a file of about 5 bytes per node in the first
-`--temp-dir`, deleted when the run ends.
+Martin builds ways and relations from node locations, which it loads before it reads the file. For a PBF of up to
+512 MiB, it keeps them in memory, about 30 bytes per node. For a larger file, it keeps them in a file of about
+5 bytes per node in the first `--temp-dir`, and deletes that file when the run ends.
 
 ## Draw order
 
