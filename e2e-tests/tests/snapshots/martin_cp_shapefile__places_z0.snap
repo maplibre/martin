@@ -1,0 +1,102 @@
+---
+source: e2e-tests/tests/martin_cp_shapefile.rs
+expression: "mvt_dump(&tiles[0].3)"
+---
+layer: 0
+  name: places
+  version: 2
+  extent: 4096
+  feature: 0
+    id: 1
+    geometry: RING[count=5](1869 1920,1869 2048,1741 2048,1741 1920,1869 1920)[OUTER]
+    properties: (none)
+  feature: 1
+    id: 9179787631
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Snack Bar La Pampa"
+  feature: 2
+    id: 13060340431
+    geometry: POINT(2132,1494)
+    properties:
+      name = "La Gelateria"
+  feature: 3
+    id: 17044624231
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Gerhard's Café"
+  feature: 4
+    id: 17900483631
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Giudi's"
+  feature: 5
+    id: 26227519351
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Emilie's Cookies"
+  feature: 6
+    id: 26227519371
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Snowflake"
+  feature: 7
+    id: 26227519381
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Starbuck"
+  feature: 8
+    id: 30874685431
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Le Palace Café"
+  feature: 9
+    id: 30874686101
+    geometry: POINT(2132,1493)
+    properties:
+      name = "Richmond Bar"
+  feature: 10
+    id: 40201249451
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Le kiosque"
+  feature: 11
+    id: 43167675311
+    geometry: POINT(2133,1493)
+    properties:
+      name = "Café de Paris"
+  feature: 12
+    id: 43441617901
+    geometry: POINT(2133,1493)
+    properties:
+      name = "Starbucks"
+  feature: 13
+    id: 55179530211
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Le Corner"
+  feature: 14
+    id: 56634484251
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Costa"
+  feature: 15
+    id: 64310872921
+    geometry: POINT(2133,1493)
+    properties:
+      name = "Da Caterina"
+  feature: 16
+    id: 68661254561
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Sweet Therapy"
+  feature: 17
+    id: 77783396781
+    geometry: POINT(2132,1494)
+    properties:
+      name = "Bistrot des Pêcheurs"
+  feature: 18
+    id: 78221436871
+    geometry: POINT(2132,1493)
+    properties:
+      name = "Costa"
