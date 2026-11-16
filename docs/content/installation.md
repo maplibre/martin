@@ -208,4 +208,4 @@ cargo install martin --locked --features fips
 
 When building from source on Windows, please note the following feature limitations:
 
-- **`rendering`**: This feature is **not available on Windows**. Martin only renders on Linux so far.
+- **`rendering`**: This feature is **not available on Windows**. Martin renders only on Linux so far.

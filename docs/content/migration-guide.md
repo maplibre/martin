@@ -220,15 +220,24 @@ Rendering is stable as of 2.0. The configuration is unchanged. Set `styles.rende
 
 See [Server-side raster tile rendering](sources-styles/rendering.md) and [Installation](installation.md).
 
+### Rendering uses mln-rs instead of MapLibre Native's C++ core
+
+Martin 2.0 renders with [mln-rs](https://github.com/louwers/mln-rs), a Rust rewrite of MapLibre Native.
+mln-rs brings static rendering to more platforms, renders more tiles per second with several workers, and uses less memory.
+Because mln-rs is written in Rust, memory-safety bugs are less likely to crash Martin.
+
+The main reason for the switch is [GHSA-5xxm-54w8-h85j](https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j):
+Martin 1.x rendered through Vulkan by default, and concurrent render requests could crash the server.
+Martin 2.0 renders through OpenGL ES by default.
+To pick another graphics backend, see [Graphics backend](sources-styles/rendering.md#graphics-backend).
+
 ### Static images follow the style's projection
 
-Martin 2.0 renders with a Rust rewrite [mln-rs](https://github.com/louwers/mln-rs) instead of MapLibre Native's C++ core.
-This brings static rendering to more platforms, improves performance/memory usage and most importantly memory-safety/stability.
-We did this primarily to counteract the [DOS related security issue coming from this component](https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j)
+Martin 2.0 draws a static image of a style that sets `"projection": {"type": "globe"}` as a globe, as MapLibre GL JS does.
+Martin 1.x drew every static image in Web Mercator.
+Raster tiles and [OGC API - Maps](ogc-api.md#maps) images still draw in Web Mercator.
 
-Static images now draw a style's `"projection": {"type": "globe"}` as a globe (like MapLibre GL JS does).
-`martin@1.x` always drew them using the `mercator` projection.
-To keep this behavior, remove `projection` from the style or set it to `{"type": "mercator"}`.
+To keep flat static images, remove `projection` from the style or set it to `{"type": "mercator"}`.
 
 ### x86_64 binaries require an x86-64-v3 CPU
 

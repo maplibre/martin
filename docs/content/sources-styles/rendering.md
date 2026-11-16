@@ -14,7 +14,7 @@ as XYZ tiles, or as a single static image at a chosen camera.
 
 !!! warning
     Rendering is **not** part of the default build.
-    It renders with [mln-rs](https://github.com/louwers/mln-rs), a Rust port of MapLibre Native, which needs EGL and OpenGL ES at runtime.
+    It renders with [mln-rs](https://github.com/louwers/mln-rs), a Rust rewrite of MapLibre Native, which needs EGL and OpenGL ES at runtime.
     It renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's `llvmpipe` otherwise.
     We only ship it where we control the runtime environment.
     You get it by either:
@@ -163,9 +163,25 @@ Keep it for styles that fetch from other servers.
 ### Graphics backend
 
 Renderers draw through OpenGL ES by default.
-Set `MARTIN_MLN_BACKEND` to `vulkan` or `webgpu` to draw through Vulkan or WebGPU instead.
+To draw through another graphics backend, set the `MARTIN_MLN_BACKEND` environment variable before starting Martin:
+
+| `MARTIN_MLN_BACKEND` | Backend   |
+|----------------------|-----------|
+| unset or `gl`        | OpenGL ES |
+| `vulkan`             | Vulkan    |
+| `webgpu`             | WebGPU    |
+
+Martin treats any other value as `gl`.
+
 Vulkan needs a Vulkan loader and driver (`libvulkan1` and `mesa-vulkan-drivers` on Debian and Ubuntu).
-On a GPU with several workers, Vulkan renders many times more tiles per second than OpenGL ES.
+Vulkan pays off on a GPU with several workers: with 8 workers on an NVIDIA GPU, it rendered about 12 times as many z14 tiles per second as OpenGL ES.
+On the CPU, both backends render about as fast.
+To measure your own setup, run the [`render-bench` example](https://github.com/maplibre/martin/tree/main/martin-core/examples) with `MARTIN_MLN_BACKEND` set to each backend.
+
+!!! warning
+    Vulkan loaders older than 1.4.345 have a race between concurrent renders that crashed Martin 1.x ([GHSA-5xxm-54w8-h85j](https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j)).
+    Debian 12 and 13 and Ubuntu 24.04 ship such a loader.
+    Use `vulkan` only with `libvulkan1` 1.4.345 or newer.
 
 ### Shader cache
 
@@ -209,6 +225,9 @@ POST /style/{style_id}/static/{camera}/{size}.{ext}
 styling on each feature's `properties`, and overlays those features on top
 of the base style for that single render.
 An empty or missing body is equivalent to `GET`.
+
+A static image draws the style's `projection`: a style that sets `"projection": {"type": "globe"}` renders as a globe.
+Raster tiles and [OGC API - Maps](../ogc-api.md#maps) images always draw in Web Mercator.
 
 ### Camera
 
