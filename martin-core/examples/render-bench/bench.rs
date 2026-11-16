@@ -464,6 +464,8 @@ struct Bench {
     style: PathBuf,
     /// Where rendered images go.
     saver: Saver,
+    /// Render worker threads per pool.
+    workers: NonZeroUsize,
     /// How long spawning the pools took.
     startup: Duration,
 }
@@ -484,6 +486,17 @@ impl Bench {
         }
     }
 
+    /// Sends one `request` per worker at once, so every worker has loaded the style before timing starts.
+    async fn warm<F, T>(&self, request: impl Fn() -> F) -> anyhow::Result<()>
+    where
+        F: Future<Output = anyhow::Result<T>>,
+    {
+        try_join_all((0..self.workers.get()).map(|_| request()))
+            .await
+            .context("warming up every worker")?;
+        Ok(())
+    }
+
     /// Renders `tile` of `shape` with the bench style.
     async fn tile(&self, tile: Tile, TileShape { size, ratio }: TileShape) -> anyhow::Result<RgbaImage> {
         Ok(self
@@ -502,7 +515,7 @@ impl Bench {
     /// Times one tile rendered again and again.
     async fn warm_tile(&self, shape: TileShape) -> anyhow::Result<Run> {
         let tile = Tile::containing(BERLIN, 14);
-        self.tile(tile, shape).await?;
+        self.warm(|| self.tile(tile, shape)).await?;
         let mut samples = Vec::new();
         for _ in 0..40 {
             let (img, took) = timed(self.tile(tile, shape)).await;
@@ -515,9 +528,7 @@ impl Bench {
     /// Times an 8x8 block of distinct tiles at `zoom`, one after another.
     async fn sweep(&self, zoom: u8, shape: TileShape) -> anyhow::Result<Run> {
         let tiles: Vec<_> = Tile::block(zoom, 8).collect();
-        self.tile(tiles[0].shifted(20), shape)
-            .await
-            .context("warming up the style")?;
+        self.warm(|| self.tile(tiles[0].shifted(20), shape)).await?;
         let mut samples = Vec::new();
         for tile in tiles {
             let (img, took) = timed(self.tile(tile, shape)).await;
@@ -530,9 +541,7 @@ impl Bench {
     /// Times every tile of zooms 0 to 3.
     async fn low_zoom(&self) -> anyhow::Result<Run> {
         let warm = Tile { z: 5, x: 17, y: 10 };
-        self.tile(warm, TileShape::default())
-            .await
-            .context("warming up the style")?;
+        self.warm(|| self.tile(warm, TileShape::default())).await?;
         let mut samples = Vec::new();
         for tile in Tile::low_zooms() {
             let (img, took) = timed(self.tile(tile, TileShape::default())).await;
@@ -545,7 +554,8 @@ impl Bench {
     /// Times free-camera images with bearing and pitch.
     async fn free_camera(&self) -> anyhow::Result<Run> {
         let warm = RenderParams::new(self.style.clone(), BERLIN.0, BERLIN.1, 10.0).with_size(1024, 768, RETINA);
-        self.pools.render_static(warm).await?;
+        self.warm(|| async { anyhow::Ok(self.pools.render_static(warm.clone()).await?) })
+            .await?;
         let mut samples = Vec::new();
         for (i, params) in cameras(&self.style).enumerate() {
             let (img, took) = timed(self.pools.render_static(params)).await;
@@ -560,7 +570,8 @@ impl Bench {
         let spec = overlay(features);
         let base =
             || RenderParams::new(self.style.clone(), BERLIN.0, BERLIN.1, 14.0).with_size(800, 600, NonZeroU8::MIN);
-        self.pools.render_static(base()).await?;
+        self.warm(|| async { anyhow::Ok(self.pools.render_static(base()).await?) })
+            .await?;
         let mut plain = Vec::new();
         for _ in 0..15 {
             let (img, took) = timed(self.pools.render_static(base())).await;
@@ -603,7 +614,8 @@ impl Bench {
 
     /// Times a 16x16 block of tiles at `zoom` requested all at once.
     async fn throughput(&self, zoom: u8) -> anyhow::Result<Run> {
-        try_join_all(Tile::block(zoom, 2).map(|t| self.tile(t.shifted(40), TileShape::default()))).await?;
+        let warm = Tile::containing(BERLIN, zoom).shifted(40);
+        self.warm(|| self.tile(warm, TileShape::default())).await?;
         let burst = Tile::block(zoom, 16).map(|t| async move {
             let (img, took) = timed(self.tile(t, TileShape::default())).await;
             img.map(|_| took)
@@ -637,6 +649,7 @@ pub async fn run() -> anyhow::Result<()> {
         pools,
         style,
         saver,
+        workers,
         startup,
     };
     let Run { samples, extra } = bench.run(&case).await?;
