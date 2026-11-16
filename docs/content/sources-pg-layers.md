@@ -555,8 +555,8 @@ postgres:
 ```
 
 Each layer keeps its own `where`, `geometry`, zooms, `buffer`, `clip_geom`, simplification, `attributes`,
-`id` and `rules`, and its features keep their ids. The tiles above hold one `park` layer, with each park's
-polygon and the point labeling it.
+`id` and `rules`, and its features keep their ids. With the `parks` source above, each tile holds one `park`
+layer, with each park's polygon and, for a named park, the point labeling it.
 
 The output layer has some settings once, so its layers must agree on them, or the run fails naming two
 of them:
