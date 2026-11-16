@@ -192,9 +192,33 @@ A list copies those properties as they are. A map names each output attribute:
 - a string is an expression, so `kind: class` writes the column `class` as `kind`,
 - `{ value: ... }`, a number or a boolean is a literal,
 - `{ expr: ..., minzoom: ..., maxzoom: ... }` is only written at those zooms.
+- `{ expr: ..., hidden: true }` is never written to a tile, but [per-tile operations](#per-tile-operations)
+  read it like any other attribute.
 
 In both, `name:*` copies the columns starting with `name:`, written `"name:*": "name:*"` in a map.
 An expression that is `null` leaves the attribute out.
+
+A hidden attribute stands in for Planetiler's temporary tags, which its layer post-processing reads and
+then removes. It can key a `thinning`, or keep features apart in a merge: `merge_lines`, and
+`merge_polygons` without `group_by`, only merge features whose attributes are all equal, the hidden ones
+included. A hidden attribute is not listed in `vector_layers`, and not in the MVT key table that
+`--mvt-quirk keep-unused-keys` keeps. An attribute that a layer or any of its rules hides is hidden for
+every feature of its output layer, including those of other layers writing into it.
+
+```yaml
+housenumber:
+  geometry: point
+  attributes:
+    housenumber: "feature['addr:housenumber']"
+    _partition: { expr: "feature['addr:street'] + ' ' + feature['addr:housenumber']", hidden: true }
+  thinning: { method: tile, keys: [_partition] }   # one label per street and number in a tile
+transportation:
+  geometry: line
+  attributes:
+    class: highway
+    _unmerged: { expr: "oneway == 'yes' ? osm_id : null", hidden: true }   # never merge one-way roads
+  merge_lines: {}
+```
 
 ## Feature ids
 

@@ -2024,6 +2024,255 @@ fn thinning_keys_read_output_attributes_by_their_output_names() {
 }
 
 #[test]
+fn a_hidden_attribute_keys_thinning_but_is_left_out_of_the_tile() {
+    let houses = [(1, "Main St", "5"), (2, "Main St", "5"), (3, "Side St", "5")];
+    let features = houses
+        .into_iter()
+        .map(|(id, street, number)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
+            props: vec![
+                (KeyId::new(0), Prop::Str(street.into())),
+                (KeyId::new(1), Prop::Str(number.into())),
+            ],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("street".to_owned(), None),
+            ColumnDef::Value("housenumber".to_owned(), None),
+        ],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Computed {
+                attributes: vec![
+                    ComputedAttr {
+                        name: "housenumber".to_owned(),
+                        value: ValueDef::Expr("housenumber".to_owned()),
+                        zooms: 0..=0,
+                    },
+                    ComputedAttr {
+                        name: "_partition".to_owned(),
+                        value: ValueDef::Expr("street + ' ' + housenumber".to_owned()),
+                        zooms: 0..=0,
+                    },
+                ],
+                prefixes: vec![],
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Tile,
+                    keys: vec!["_partition".to_owned()],
+                },
+            }],
+            hidden: vec!["_partition".to_owned()],
+            ..LayerDef::new("housenumber", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?}", f.id(), f.properties()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "Some(1) [Str(Some(\"5\"))]",
+        "Some(3) [Str(Some(\"5\"))]",
+    ]
+    "#);
+}
+
+#[test]
+fn an_attribute_one_definition_hides_is_left_out_for_every_definition_of_its_output_layer() {
+    let points = [(1, 10.0, "city"), (2, 12.0, "town")];
+    let features = points
+        .into_iter()
+        .map(|(id, lon, kind)| SourceFeature {
+            id: Some(id),
+            geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+            props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+        })
+        .collect();
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features,
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("kind".to_owned(), None)],
+        layers: vec![
+            LayerDef {
+                output: Some("places".to_owned()),
+                filter: Some("kind == 'city'".to_owned()),
+                hidden: vec!["kind".to_owned()],
+                ..LayerDef::new("cities", 0..=0, GRID)
+            },
+            LayerDef {
+                output: Some("places".to_owned()),
+                filter: Some("kind == 'town'".to_owned()),
+                ..LayerDef::new("towns", 0..=0, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            let name = layer.name().to_owned();
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{name} {:?} {:?}", f.id(), f.properties()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "places Some(1) []",
+        "places Some(2) []",
+    ]
+    "#);
+}
+
+#[test]
+fn merge_lines_keeps_lines_apart_whose_hidden_attributes_differ() {
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::Wgs84,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 0e+00), (1e+01, 0e+00)])]),
+                props: vec![
+                    (KeyId::new(0), Prop::Str("primary".into())),
+                    (KeyId::new(1), Prop::I64(1)),
+                ],
+            },
+            SourceFeature {
+                id: Some(2),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (2e+01, 0e+00)])]),
+                props: vec![
+                    (KeyId::new(0), Prop::Str("primary".into())),
+                    (KeyId::new(1), Prop::I64(2)),
+                ],
+            },
+            SourceFeature {
+                id: Some(3),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 5e+00), (1e+01, 5e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("primary".into()))],
+            },
+            SourceFeature {
+                id: Some(4),
+                geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 5e+00), (2e+01, 5e+00)])]),
+                props: vec![(KeyId::new(0), Prop::Str("primary".into()))],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("highway".to_owned(), None),
+            ColumnDef::Value("oneway_id".to_owned(), None),
+        ],
+        layers: vec![LayerDef {
+            simplify: PixelThreshold {
+                below_max_zoom: 0.0,
+                at_max_zoom: 0.0,
+            },
+            attributes: AttributesDef::Computed {
+                attributes: vec![
+                    ComputedAttr {
+                        name: "class".to_owned(),
+                        value: ValueDef::Expr("highway".to_owned()),
+                        zooms: 0..=0,
+                    },
+                    ComputedAttr {
+                        name: "_unmerged".to_owned(),
+                        value: ValueDef::Expr("oneway_id".to_owned()),
+                        zooms: 0..=0,
+                    },
+                ],
+                prefixes: vec![],
+            },
+            per_tile: vec![TileOpDef {
+                zooms: 0..=0,
+                op: TileOp::MergeLines {
+                    min_length: 0.0,
+                    tolerance: 0.0,
+                    buffer: None,
+                },
+            }],
+            hidden: vec!["_unmerged".to_owned()],
+            ..LayerDef::new("transportation", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| format!("{:?} {:?} {:?}", f.id(), f.properties(), f.geometry()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "Some(1) [Str(Some(\"primary\"))] LINESTRING(2048 2048,2162 2048)",
+        "Some(2) [Str(Some(\"primary\"))] LINESTRING(2162 2048,2276 2048)",
+        "None [Str(Some(\"primary\"))] LINESTRING(2048 1991,2162 1991,2276 1991)",
+    ]
+    "#);
+}
+
+#[test]
 fn merge_lines_joins_two_lines_sharing_an_end() {
     let mut batches = vec![FeatureBatch {
         table: 0,
