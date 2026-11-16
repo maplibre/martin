@@ -275,10 +275,23 @@ impl OutputLayers {
     ) -> GenerateResult<Self> {
         let mut gathered: IndexMap<&str, Gathered<'_>> = IndexMap::new();
         for (id, source) in sources {
+            let source_zooms = source.zooms(zooms);
             let Some(layers) = source.layers else {
+                let output = source.layer_id.unwrap_or(id);
+                let definition = Definition {
+                    source: id,
+                    key: output,
+                };
+                let grid = LayerGrid {
+                    extent: source.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get),
+                    buffer: source.buffer.unwrap_or(DEFAULT_BUFFER),
+                };
+                let entry = gathered
+                    .entry(output)
+                    .or_insert_with(|| Gathered::new(definition, grid.extent));
+                entry.take(output, definition, grid, source_zooms, None)?;
                 continue;
             };
-            let source_zooms = source.zooms(zooms);
             for (key, layer) in layers.iter() {
                 let definition = Definition { source: id, key };
                 let output = layer.layer.as_deref().unwrap_or(key);
@@ -286,36 +299,10 @@ impl OutputLayers {
                 let geometry = lower_geometry(key, layer.geometry.as_ref())?;
                 let draws = geometry.first().and_then(|entry| entry.draws());
                 let layer_zooms = source_zooms.as_ref().and_then(|zooms| layer_zooms(layer, zooms));
-                let entry = gathered.entry(output).or_insert_with(|| Gathered {
-                    first: definition,
-                    extent: grid.extent,
-                    buffer: 0,
-                    zooms: None,
-                    draws: Vec::new(),
-                    sort_by: None,
-                    merge_lines: None,
-                    merge_polygons: None,
-                    thinning: None,
-                    merge_multi: None,
-                    limit: None,
-                });
-                if grid.extent != entry.extent {
-                    let difference = Difference::Extent {
-                        first: entry.extent,
-                        second: grid.extent,
-                    };
-                    return Err(OutputLayerMismatch::error(output, entry.first, definition, difference));
-                }
-                if let Some(layer_zooms) = layer_zooms {
-                    entry.buffer = entry.buffer.max(grid.buffer);
-                    entry.draws.push(draws);
-                    entry.zooms = Some(match entry.zooms.take() {
-                        Some(known) => {
-                            (*known.start()).min(*layer_zooms.start())..=(*known.end()).max(*layer_zooms.end())
-                        }
-                        None => layer_zooms,
-                    });
-                }
+                let entry = gathered
+                    .entry(output)
+                    .or_insert_with(|| Gathered::new(definition, grid.extent));
+                entry.take(output, definition, grid, layer_zooms, draws)?;
                 let per_tile = &layer.per_tile;
                 gather(
                     &mut entry.sort_by,
@@ -392,7 +379,51 @@ fn gather<'a, T: PartialEq>(
     }
 }
 
-impl Gathered<'_> {
+impl<'a> Gathered<'a> {
+    /// Nothing gathered yet for an output layer whose first layer is `first`, of `extent`.
+    fn new(first: Definition<'a>, extent: u32) -> Self {
+        Self {
+            first,
+            extent,
+            buffer: 0,
+            zooms: None,
+            draws: Vec::new(),
+            sort_by: None,
+            merge_lines: None,
+            merge_polygons: None,
+            thinning: None,
+            merge_multi: None,
+            limit: None,
+        }
+    }
+
+    /// Takes the grid, the zooms within the run and the drawn type of `definition`, a layer writing into `output`.
+    fn take(
+        &mut self,
+        output: &str,
+        definition: Definition<'a>,
+        grid: LayerGrid,
+        zooms: Option<RangeInclusive<u8>>,
+        draws: Option<GeometryType>,
+    ) -> GenerateResult<()> {
+        if grid.extent != self.extent {
+            let difference = Difference::Extent {
+                first: self.extent,
+                second: grid.extent,
+            };
+            return Err(OutputLayerMismatch::error(output, self.first, definition, difference));
+        }
+        if let Some(zooms) = zooms {
+            self.buffer = self.buffer.max(grid.buffer);
+            self.draws.push(draws);
+            self.zooms = Some(match self.zooms.take() {
+                Some(known) => (*known.start()).min(*zooms.start())..=(*known.end()).max(*zooms.end()),
+                None => zooms,
+            });
+        }
+        Ok(())
+    }
+
     /// The output layer's settings, each operation lowered within the zooms of all its layers, with warnings naming
     /// the layer that set it.
     fn lower(&self) -> OutputLayer {
@@ -2591,6 +2622,55 @@ mod tests {
             ),
         ]
         "#);
+    }
+
+    #[test]
+    fn a_default_layer_widens_the_zooms_of_the_operations_its_output_layer_shares() {
+        let oceans: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: oceans
+            srid: 4326
+            geometry_column: geom
+        "})
+        .expect("valid table");
+        let lakes: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: lakes
+            srid: 4326
+            geometry_column: geom
+            layers:
+              lake:
+                layer: water
+                minzoom: 10
+                limit: { count: 10 }
+        "})
+        .expect("valid table");
+        let options = LowerOptions {
+            zooms: 0..=14,
+            bounds: None,
+            encoder: None,
+        };
+        let outputs = OutputLayers::new(
+            [("water", table_settings(&oceans)), ("lakes", table_settings(&lakes))],
+            &options.zooms,
+        )
+        .expect("gathers");
+        let scan = lower_table_with("lakes", lakes, &options, &outputs)
+            .expect("lowers")
+            .expect("has layers");
+        let per_tile: Vec<_> = scan.def.layers.iter().map(|layer| &layer.per_tile).collect();
+        insta::assert_debug_snapshot!(per_tile, @"
+        [
+            [
+                TileOpDef {
+                    zooms: 0..=14,
+                    op: Limit {
+                        count: 10,
+                    },
+                },
+            ],
+        ]
+        ");
     }
 
     #[test]
