@@ -142,6 +142,22 @@ jobs:
         run: just test-duckdb
       - uses: $/.github/actions/upload-coverage
         with: { suite: duckdb }
+  test-omt:
+    name: OpenMapTiles examples test (release)
+    permissions:
+      contents: read
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    needs:
+      - lint-rust
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: $/.github/actions/setup-rust
+        with: { tools: 'just,nextest', cache: true }
+      - name: Run the OpenMapTiles examples test, which debug builds skip
+        run: just test-omt
   test-rendering:
     name: Style rendering tests
     permissions:
