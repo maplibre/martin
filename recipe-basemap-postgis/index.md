@@ -4,7 +4,7 @@ You commonly have some semi-proprietary datasource which you want to overlay ont
 
 ## Prerequisites
 
-We expect you have the following already installed:
+You need the following already installed:
 
 - [Docker](<https://docker.io>)
 - [Martin binary](<https://maplibre.org/martin/installation/index.md>)
@@ -19,7 +19,7 @@ The reason you need a tool to build vector tilesets from OpenStreetMap is that t
 
 **🤔 *What is up with MBtiles and OpenMapTiles* (click to expand)**
 
-Good question. MBtiles is the archive format. Think of a sqlite database storing the data you need a chunk (\`x\`/\`y\`/\`z\`) of the world. See our comparison \[pmtiles vs. mbtiles\](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats. But how does the data in the archive look like? This is where the vector tile schema comes in: \[OpenMapTiles\](https://openmaptiles.org/) defines which layers are included in the served data and how they are aggregated. \[OpenMapTiles\](https://openmaptiles.org/) does have an attribution requirement. You will need to have \[\`© OpenMapTiles\`\](https://openmaptiles.org/) at the bottom of your map. See \[Shortbread\](https://shortbread-tiles.org/) for a newer, but less mature alternative if you want to read more.
+Good question. MBtiles is the archive format. Think of a sqlite database storing the data you need a chunk (\`x\`/\`y\`/\`z\`) of the world. See the comparison \[pmtiles vs. mbtiles\](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats. But how does the data in the archive look like? This is where the vector tile schema comes in: \[OpenMapTiles\](https://openmaptiles.org/) defines which layers are included in the served data and how they are aggregated. \[OpenMapTiles\](https://openmaptiles.org/) does have an attribution requirement. You will need to have \[\`© OpenMapTiles\`\](https://openmaptiles.org/) at the bottom of your map. See \[Shortbread\](https://shortbread-tiles.org/) for a newer, but less mature alternative if you want to read more.
 
 Below command downloads a tile archive at `data/monaco.mbtiles` for monaco.
 
@@ -76,9 +76,9 @@ docker exec some-postgis psql --dbname postgres --username postgres --command \
 
 ## Serving tiles with Martin
 
-Now we will serve the content of [mbtiles](<https://maplibre.org/martin/sources-mbtiles/index.md>) and the [postgis database](<https://maplibre.org/martin/pg-connections/index.md>).
+Now serve the content of [mbtiles](<https://maplibre.org/martin/sources-mbtiles/index.md>) and the [postgis database](<https://maplibre.org/martin/pg-connections/index.md>).
 
-If you want more precise options what things are published how, please see the [configuration file](<https://maplibre.org/martin/config-file/index.md>) or [cli documentation](<https://maplibre.org/martin/run-with-cli/index.md>). By default, we will share every servable postgres [table, view](<https://maplibre.org/martin/sources-pg-tables/index.md>) and [function](<https://maplibre.org/martin/sources-pg-functions/index.md>).
+If you want more precise options what things are published how, please see the [configuration file](<https://maplibre.org/martin/config-file/index.md>) or [cli documentation](<https://maplibre.org/martin/run-with-cli/index.md>). By default, Martin shares every servable postgres [table, view](<https://maplibre.org/martin/sources-pg-tables/index.md>) and [function](<https://maplibre.org/martin/sources-pg-functions/index.md>).
 
 ```bash
 martin data/monaco.mbtiles postgres://postgres:mypass@localhost:5432/postgres
@@ -88,7 +88,7 @@ You can now see the catalog of available things here: [`http://localhost:3000/ca
 
 ## Using in Maputnik to style a map
 
-Due to CORS, we CANNOT use the website [https://maplibre.org/maputnik/](<https://maplibre.org/maputnik/>) without further setup. Once the tiles are deployed behind https, this can be used.
+Due to CORS, you CANNOT use the website [https://maplibre.org/maputnik/](<https://maplibre.org/maputnik/>) without further setup. Once the tiles are deployed behind https, this can be used.
 
 To get a local version of maputnik, run
 
@@ -96,17 +96,17 @@ To get a local version of maputnik, run
 docker run -it --rm -p 8888:80 ghcr.io/maplibre/maputnik:main
 ```
 
-Maputnik is now online, so lets load martins tiles into it.
+Maputnik is now online, so load martins tiles into it.
 
 1. Visit [`http://localhost:8888`](<http://localhost:8888>)
 2. You first need a style:
 3. Click `Open` ![where in the UI the "Open" button can be found](<https://maplibre.org/martin/images/maputnik/open.png>)
-4. Select a style you like (we are going to choose `Maptiler Basic`) ![how to select a style](<https://maplibre.org/martin/images/maputnik/select-style.png>)
-5. You now have a style using Maptilers' (**NOT martins**) data. You need to change its datasource to use the tiles we just published:
+4. Select a style you like (this guide chooses `Maptiler Basic`) ![how to select a style](<https://maplibre.org/martin/images/maputnik/select-style.png>)
+5. You now have a style using Maptilers' (**NOT martins**) data. You need to change its datasource to use the tiles you just published:
 6. Click `Data Sources` ![how to change the datasource](<https://maplibre.org/martin/images/maputnik/change-datasource.png>)
 7. And add the tilejson from above `http://localhost:3000/monaco,where_yachts_can_be_looked_at`: ![how to add the tilejson](<https://maplibre.org/martin/images/maputnik/add-tilejson.png>)
-8. Now, lets zoom into monaco: ![where monaco is on a map](<https://maplibre.org/martin/images/maputnik/zoom-into-monaco.png>)
-9. And finally, lets add a circle layer for our yachts:
+8. Now, zoom into monaco: ![where monaco is on a map](<https://maplibre.org/martin/images/maputnik/zoom-into-monaco.png>)
+9. And finally, add a circle layer for the yachts:
 10. Click `Add Layer` ![add a circle layer](<https://maplibre.org/martin/images/maputnik/add-layer.png>)
 11. Configure the layer as follows: ![add a circle layer](<https://maplibre.org/martin/images/maputnik/configure-layer.png>)
 12. And style it as: ![add a circle layer](<https://maplibre.org/martin/images/maputnik/add-yachts-layer.png>)

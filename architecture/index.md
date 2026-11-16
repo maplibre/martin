@@ -330,7 +330,7 @@ Martin exposes Prometheus metrics via `/_/metrics`:
 
 If you need more in-depth observability, we would be happy to review PRs that add additional metrics; the current implementation is intentionally minimal.
 
-We allow health checks via `/health` and `/catalog` endpoints:
+Martin allows health checks via `/health` and `/catalog` endpoints:
 
 - `/health` - Basic health check (HTTP 200)
 - `/catalog` - Source availability check

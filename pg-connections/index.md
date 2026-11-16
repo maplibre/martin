@@ -14,4 +14,4 @@ If you require guarantees regarding [eavesdropping](<https://en.wikipedia.org/wi
 martin postgres://user:password@host/db?sslmode=verify-full
 ```
 
-For a practical walkthrough of SSL certificate setup - including creation, configuration, and troubleshooting - see our [PostgreSQL SSL Certificates Recipe](<https://maplibre.org/martin/pg-ssl-certificates/index.md>).
+For a practical walkthrough of SSL certificate setup - including creation, configuration, and troubleshooting - see the [PostgreSQL SSL Certificates Recipe](<https://maplibre.org/martin/pg-ssl-certificates/index.md>).

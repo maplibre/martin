@@ -1,6 +1,6 @@
 # GeoJSON Feature Serving
 
-A simple way to add geospatial data to a map can be to serve the content of [GeoJSON files](<https://geojson.org/>) as specified by [RFC7946](<https://datatracker.ietf.org/doc/html/rfc7946>). Instead of incurring the overhead of serving them directly, we serve them as Vector tiles.
+A simple way to add geospatial data to a map can be to serve the content of [GeoJSON files](<https://geojson.org/>) as specified by [RFC7946](<https://datatracker.ietf.org/doc/html/rfc7946>). Instead of incurring the overhead of serving them directly, Martin serves them as Vector tiles.
 
 To serve a file from CLI, simply put the path to the file or the directory with `*.geojson` files. For example:
 
@@ -19,7 +19,7 @@ You may also want to generate a [config file](<https://maplibre.org/martin/confi
 > - clip geometry to the requested tiles
 > - encode them as MVT
 >
-> To improve performance, we currently assume that each file fits into RAM. If you want to want and can convert your geojson files to [mbtiles/ pmtiles](<https://maplibre.org/martin/sources-files/index.md>), we recommend tooling like [`tippecanoe`](<https://github.com/felt/tippecanoe>).
+> To improve performance, Martin currently assumes that each file fits into RAM. If you want to want and can convert your geojson files to [mbtiles/ pmtiles](<https://maplibre.org/martin/sources-files/index.md>), we recommend tooling like [`tippecanoe`](<https://github.com/felt/tippecanoe>).
 
 ## Run Martin with configuration file
 

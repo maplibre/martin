@@ -119,7 +119,7 @@ GET /elevation/12/2100/1300?resolution=16&simplification_tolerance=0
 
 ## Caching and cache-busting
 
-Tracing reads a 3x3 neighborhood of elevation tiles, so nine tiles are read per uncached tile served. We cache the elevation tiles rather than the traced output since an undecoded elevation tile is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a traced tile is specific to one parameter set.
+Tracing reads a 3x3 neighborhood of elevation tiles, so nine tiles are read per uncached tile served. Martin caches the elevation tiles rather than the traced output since an undecoded elevation tile is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a traced tile is specific to one parameter set.
 
 Each tile's `ETag` is derived from the nine tiles it read plus the settings it was traced with, so it moves whenever any input or any setting does.
 

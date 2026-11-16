@@ -15,7 +15,7 @@ A valid function must also have these arguments:
 
 ### Simple Function with coordinate projection
 
-For example, if you have a table with arbitrary geometry `table_source` in WGS84 (`4326` SRID). If we need the tables' row `field_color` and geometry `geom` as a function source, then it can be written as:
+For example, if you have a table with arbitrary geometry `table_source` in WGS84 (`4326` SRID). If you need the tables' row `field_color` and geometry `geom` as a function source, then it can be written as:
 
 ```sql
 CREATE OR REPLACE
@@ -44,11 +44,11 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 >
 > By default, [`ST_TileEnvelope`](<https://postgis.net/docs/ST_TileEnvelope.html>) produces `3857` SRID and [`ST_AsMVTGeom`](<https://postgis.net/docs/ST_AsMVTGeom.html>) consumes `3857` SRID. Many tooling (for example [`osm2pgsql`](<https://osm2pgsql.org/>)) thus directly store their data in `3857` SRID for lower processing overhead. If your data is in `3857` SRID, you can remove the two `ST_Transform` calls.
 
-Lets explain a few of the aspects of the function:
+The following explains a few of the aspects of the function:
 
 `ST_Transform(ST_CurveToLine(geom), 3857)`
 
-- Since the table in the example can contain arbitrary geometries, we need to transform `CIRCULARSTRING` geometry types. Concretely, we use `ST_CurveToLine` to convert a
+- Since the table in the example can contain arbitrary geometries, the function needs to transform `CIRCULARSTRING` geometry types. Concretely, the function uses `ST_CurveToLine` to convert a
 - CIRCULAR STRING to regular LINESTRING,
 - CURVEPOLYGON to POLYGON or
 - MULTISURFACE to MULTIPOLYGON.
@@ -57,15 +57,15 @@ Lets explain a few of the aspects of the function:
 `WHERE geom && ST_Transform(ST_TileEnvelope(z, x, y), 4326)`
 
 - `&&` is the spatial intersection operator. Thus it checks if the geometry intersects with the tile envelope and uses spatial indexes.
-- `ST_Transform` is used to transform the tile envelope from `3857` SRID to `4326` SRID, as `geom` in our example is in `4326` SRID.
+- `ST_Transform` is used to transform the tile envelope from `3857` SRID to `4326` SRID, as `geom` in the example is in `4326` SRID.
 
 > [!NOTE]
 >
-> The planning mode `IMMUTABLE STRICT PARALLEL SAFE` allows postgres further freedom to optimize our function. Your function is likely to be the same category as the example, but be careful to not cause unexpected behavior.
+> The planning mode `IMMUTABLE STRICT PARALLEL SAFE` allows postgres further freedom to optimize the function. Your function is likely to be the same category as the example, but be careful to not cause unexpected behavior.
 >
 > - [`IMMUTABLE`](<https://www.postgresql.org/docs/current/sql-createfunction.html#:~:text=existing function definition.-,IMMUTABLE,-STABLE%0AVOLATILE>) The function does not have side effects. Indicates that the function cannot modify the database and always returns the same result when given the same argument values; that is, it does not do database lookups or otherwise use information not directly present in its argument list. If this option is given, any call of the function with all-constant arguments can be immediately replaced with the function value.
-> - `STRICT`: Our function will not be called if any of the arguments are `NULL`.
-> - [`PARALLEL SAFE`](<https://www.postgresql.org/docs/current/parallel-safety.html>): Our function is safe to call in parallel as it does not modify the database, nor use randomness or temporary tables. Functions should be labeled parallel unsafe if they
+> - `STRICT`: The function will not be called if any of the arguments are `NULL`.
+> - [`PARALLEL SAFE`](<https://www.postgresql.org/docs/current/parallel-safety.html>): The function is safe to call in parallel as it does not modify the database, nor use randomness or temporary tables. Functions should be labeled parallel unsafe if they
 >
 >   - modify any database state,
 >   - change the transaction state (other than by using a subtransaction for error recovery),
@@ -119,7 +119,7 @@ You can access this params using [json operators](<https://www.postgresql.org/do
 ...WHERE answer = (query_params->'objectParam'->>'answer')::int;
 ```
 
-As an example, our `table_source` in WGS84 (`4326` SRID) has a column `answer` of type `integer`. The function `function_zxy_query` will return a MVT tile with the `answer` column as a property.
+As an example, the `table_source` in WGS84 (`4326` SRID) has a column `answer` of type `integer`. The function `function_zxy_query` will return a MVT tile with the `answer` column as a property.
 
 ```sql
 CREATE OR REPLACE

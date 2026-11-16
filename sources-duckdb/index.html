@@ -2445,7 +2445,7 @@ Its behavior may change in patch releases.</p>
 <p>Per-source <code>pool_size</code>, <code>threads</code>, <code>memory_limit_mb</code>, and <code>auto_bounds</code> override the top-level values for that source.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>See <a href="../sources-tiles/">our tile sources explanation</a> for a more detailed explanation on the difference between our available data sources.
+<p>See <a href="../sources-tiles/">the tile sources explanation</a> for a more detailed explanation on the difference between the available data sources.
 DuckDB sources can be combined with other sources via <a href="../sources-composite/">Composite Sources</a>.</p>
 </div>
 <div class="admonition note">
@@ -2455,7 +2455,7 @@ If the file has more than one geometry column, set <code>geometry_column</code> 
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Row-group pruning</p>
-<p>To reduce the IO necessary on large duckdb queries, we use can use the <a href="https://geoparquet.org/releases/v1.1.0/#covering">GeoParquet 1.1 <code>covering</code></a> declaration out of the file's <code>geo</code> metadata on startup and honor <code>bbox.{x,y}{min,max}</code> structs.</p>
+<p>To reduce the IO necessary on large duckdb queries, Martin uses the <a href="https://geoparquet.org/releases/v1.1.0/#covering">GeoParquet 1.1 <code>covering</code></a> declaration out of the file's <code>geo</code> metadata on startup and honors <code>bbox.{x,y}{min,max}</code> structs.</p>
 <p>Pruning is also skipped when the source SRID is neither <code>4326</code> nor <code>3857</code>, because transforming a tile envelope into another projection can under-cover it and silently clip features at tile edges.</p>
 </div>
 <div class="admonition warning">

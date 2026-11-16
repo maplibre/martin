@@ -1296,7 +1296,7 @@
 <h1 id="getting-involved">Getting involved</h1>
 <p>It's time to get involved once you have the <a href="../development/">fork and all required software</a>.
 This guide covers IDE setup and debugging.
-While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.</p>
+While this guide uses Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.</p>
 <h2 id="editor-specific-guides">Editor-specific Guides</h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:5"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Visual Studio Code</label><label for="__tabbed_1_2">Vim/Neovim</label><label for="__tabbed_1_3">Emacs</label><label for="__tabbed_1_4">RustRover</label><label for="__tabbed_1_5">Zed</label></div>
 <div class="tabbed-content">
@@ -1342,7 +1342,7 @@ While we use Visual Studio Code as an example, Martin can be developed with any 
 <h2 id="generate">Generate</h2>
 <p>Press <code>F1</code> on your keyboard, and input "Generate Launch Configurations from Cargo.toml". Execute it and save it to your <code>.vscode</code> directory.</p>
 <h2 id="modify">Modify</h2>
-<p>Let's say you want to debug Martin with this command:</p>
+<p>Say you want to debug Martin with this command:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>martin<span class="w"> </span>postgres://postgres:postgres@localhost:5411/db
 </span></code></pre></div>
 <p>You could find <code>Debug executable 'martin'</code> in your <code>launch.json</code>, like below:</p>
@@ -1390,7 +1390,7 @@ While we use Visual Studio Code as an example, Martin can be developed with any 
 </span></code></pre></div>
 <h3 id="add-a-breakpoint">Add a breakpoint</h3>
 <p>Go to any part you're interested in of martin code and add a breakpoint.</p>
-<p>We add a breakpoint here in the <a href="https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10">start of martin</a>.</p>
+<p>Add a breakpoint here in the <a href="https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10">start of martin</a>.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">clap</span><span class="p">::</span><span class="n">Parser</span><span class="p">;</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">use</span><span class="w"> </span><span class="n">tracing</span><span class="p">::{</span><span class="n">error</span><span class="p">,</span><span class="w"> </span><span class="n">info</span><span class="p">};</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">use</span><span class="w"> </span><span class="n">martin</span><span class="p">::</span><span class="n">args</span><span class="p">::{</span><span class="n">Args</span><span class="p">,</span><span class="w"> </span><span class="n">OsEnv</span><span class="p">};</span>

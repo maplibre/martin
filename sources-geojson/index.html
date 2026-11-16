@@ -2334,7 +2334,7 @@
 
 <h1 id="geojson-feature-serving">GeoJSON Feature Serving</h1>
 <p>A simple way to add geospatial data to a map can be to serve the content of <a href="https://geojson.org/">GeoJSON files</a> as specified by <a href="https://datatracker.ietf.org/doc/html/rfc7946">RFC7946</a>.
-Instead of incurring the overhead of serving them directly, we serve them as Vector tiles.</p>
+Instead of incurring the overhead of serving them directly, Martin serves them as Vector tiles.</p>
 <p>To serve a file from CLI, simply put the path to the file or the directory with <code>*.geojson</code> files.
 For example:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>martin<span class="w"> </span>/path/to/geojson/file.geojson<span class="w"> </span>/path/to/directory
@@ -2351,7 +2351,7 @@ This is because to serve GeoJSON, martin needs to:</p>
 <li>clip geometry to the requested tiles</li>
 <li>encode them as MVT</li>
 </ul>
-<p>To improve performance, we currently assume that each file fits into RAM.
+<p>To improve performance, Martin currently assumes that each file fits into RAM.
 If you want to want and can convert your geojson files to <a href="../sources-files/">mbtiles/ pmtiles</a>, we recommend tooling like <a href="https://github.com/felt/tippecanoe"><code>tippecanoe</code></a>.</p>
 </div>
 <h2 id="run-martin-with-configuration-file">Run Martin with configuration file</h2>

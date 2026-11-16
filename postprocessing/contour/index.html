@@ -2417,7 +2417,7 @@ Contours for fixed settings never change (+/- data changes), so they are near-pe
 Values that are out of range or not a number are rejected with <code>400</code>, while query parameters that are not contour settings are ignored.</p>
 <h2 id="caching-and-cache-busting">Caching and cache-busting</h2>
 <p>Tracing reads a 3x3 neighborhood of elevation tiles, so nine tiles are read per uncached tile served.
-We cache the elevation tiles rather than the traced output since an undecoded elevation tile is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a traced tile is specific to one parameter set.</p>
+Martin caches the elevation tiles rather than the traced output since an undecoded elevation tile is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a traced tile is specific to one parameter set.</p>
 <p>Each tile's <code>ETag</code> is derived from the nine tiles it read plus the settings it was traced with, so it moves whenever any input or any setting does.</p>
 <div class="admonition warning">
 <p class="admonition-title">An <code>ETag</code> cannot cut short a <code>max-age</code> a client is already holding.</p>

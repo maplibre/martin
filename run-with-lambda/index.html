@@ -2095,7 +2095,7 @@ This is useful if you want to serve tiles from a serverless environment, while a
 The bucket can stay private.
 Martin signs its S3 requests with the credentials Lambda gives the function, so the execution role only needs <code>s3:GetObject</code> on the archive.</p>
 <p>Lambda has two deployment models: zip file and container-based. When using zip file deployment, there is an online code editor to edit the yaml configuration.
-When using container-based deployment, we can pass our configuration on the command line or environment variables.</p>
+When using container-based deployment, you can pass your configuration on the command line or environment variables.</p>
 <p>Everything can be performed via AWS CloudShell, or you can install the AWS CLI and the AWS SAM CLI, and configure authentication.
 The CloudShell also runs in a particular AWS region.</p>
 <h3 id="container-deployment">Container deployment</h3>
@@ -2121,7 +2121,7 @@ The CloudShell also runs in a particular AWS region.</p>
 <li>If you cannot find it, see if you are in the same region?</li>
 <li>Expand "Container image overrides", and under CMD put the URL of a <code>.pmtiles</code> file.
    An <code>s3://</code> URL works once the execution role may read the object, see the zip section below.</li>
-<li>Set "Architecture" to <code>arm64</code> to match the platform that we pulled.
+<li>Set "Architecture" to <code>arm64</code> to match the platform that you pulled.
    Lambda has better ARM CPUs than x86.</li>
 <li>Click "Create function".</li>
 <li>Find the "Configuration" tab, select "Function URL", "Create function URL".</li>
@@ -2131,8 +2131,8 @@ The CloudShell also runs in a particular AWS region.</p>
 <li>To debug an issue, open the "Monitor" tab, "View CloudWatch logs", find the most recent Log stream.</li>
 </ol>
 <h3 id="zip-deployment">Zip deployment</h3>
-<p>It's possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model.
-Our function will consist of a "Layer", containing the Martin binary, and our function itself will contain the configuration in yaml format.</p>
+<p>It's possible to deploy the entire codebase from the AWS console, but you will use Serverless Application Model.
+Your function will consist of a "Layer", containing the Martin binary, and your function itself will contain the configuration in yaml format.</p>
 <h4 id="the-layer">The layer</h4>
 <p>Download the binary and place it in your staging directory.
 The <code>bin</code> directory of your Layer will be added to the PATH.</p>

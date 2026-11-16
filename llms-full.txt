@@ -97,7 +97,7 @@ See [quick start with QGIS](<https://maplibre.org/martin/quick-start-qgis/index.
 2. Download the latest version of Martin from the [release page](<https://github.com/maplibre/martin/releases/latest>). Use [about this Mac](<https://support.apple.com/en-us/116943>) to find your processors type.
 
    - **for M1**: Use [martin-aarch64-apple-darwin.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz>)
-   - **for x86**, you likely can compile us from source, but we don't compile this for you due to runner availability.
+   - **for x86**, you likely can compile Martin from source, but we don't compile this for you due to runner availability.
 3. Extract content of both files and place them in a same directory.
 4. Open the command prompt and navigate to the directory where `martin` and `world_cities.sql` are located.
 5. Run the following command to start Martin with the demo data:
@@ -607,7 +607,7 @@ Official Docker image includes a `HEALTHCHECK` instruction which will be used by
 
 Martin can run in AWS Lambda. This is useful if you want to serve tiles from a serverless environment, while accessing "nearby" data from a PostgreSQL database or PMTiles file in S3, without exposing the raw file to the world to prevent download abuse and improve performance. The bucket can stay private. Martin signs its S3 requests with the credentials Lambda gives the function, so the execution role only needs `s3:GetObject` on the archive.
 
-Lambda has two deployment models: zip file and container-based. When using zip file deployment, there is an online code editor to edit the yaml configuration. When using container-based deployment, we can pass our configuration on the command line or environment variables.
+Lambda has two deployment models: zip file and container-based. When using zip file deployment, there is an online code editor to edit the yaml configuration. When using container-based deployment, you can pass your configuration on the command line or environment variables.
 
 Everything can be performed via AWS CloudShell, or you can install the AWS CLI and the AWS SAM CLI, and configure authentication. The CloudShell also runs in a particular AWS region.
 
@@ -637,7 +637,7 @@ Open [Lambda console](<https://console.aws.amazon.com/lambda>) and create your f
 5. Click "Browse images", and select your repository and the tag.
 6. If you cannot find it, see if you are in the same region?
 7. Expand "Container image overrides", and under CMD put the URL of a `.pmtiles` file. An `s3://` URL works once the execution role may read the object, see the zip section below.
-8. Set "Architecture" to `arm64` to match the platform that we pulled. Lambda has better ARM CPUs than x86.
+8. Set "Architecture" to `arm64` to match the platform that you pulled. Lambda has better ARM CPUs than x86.
 9. Click "Create function".
 10. Find the "Configuration" tab, select "Function URL", "Create function URL".
 11. Set "Auth type" to `NONE`
@@ -647,7 +647,7 @@ Open [Lambda console](<https://console.aws.amazon.com/lambda>) and create your f
 
 ### Zip deployment
 
-It's possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model. Our function will consist of a "Layer", containing the Martin binary, and our function itself will contain the configuration in yaml format.
+It's possible to deploy the entire codebase from the AWS console, but you will use Serverless Application Model. Your function will consist of a "Layer", containing the Martin binary, and your function itself will contain the configuration in yaml format.
 
 #### The layer
 
@@ -801,7 +801,7 @@ Doing so has a few downsides:
 
 - Martin does not support HTTPS connections (TLS termination).
 - Martin does not authenticate requests. If some sources are private, the reverse proxy has to check the request before Martin sees it, for example with [`auth_request` in NGINX](<https://maplibre.org/martin/run-with-nginx/index.md#authenticating-requests>).
-- We do not check `HOST`-headers - we just serve on a port. This means anybody can point their dns record to your server and serve to all requests going to the port Martin is running on. Using a reverse proxy makes this abuse obvious.
+- Martin does not check `HOST`-headers - it just serves on a port. This means anybody can point their dns record to your server and serve to all requests going to the port Martin is running on. Using a reverse proxy makes this abuse obvious.
 - Martin only supports a simple in-memory caching. If you need more advanced caching options, you can use a reverse proxy with custom rules. You may for example only want to cache zoom `0..10`. Here are some reverse proxy options:
 
   - [Nginx](<https://nginx.org/>)
@@ -1792,8 +1792,8 @@ Martin supports multiple tile sources
 - [Tile Archive files](<https://maplibre.org/martin/sources-files/index.md>)
 - [MBTiles Sources](<https://maplibre.org/martin/sources-mbtiles/index.md>) Local Sqlite database containing pre-generated vector or raster tiles.
 - [PMTiles Sources](<https://maplibre.org/martin/sources-pmtiles/index.md>) A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.
-- [GeoJSON Sources](<https://maplibre.org/martin/sources-geojson/index.md>) A local file with geodata that we can convert to vector tiles.
-- [DuckDB Sources](<https://maplibre.org/martin/sources-duckdb/index.md>) GeoParquet files that we can convert to vector tiles (unstable).
+- [GeoJSON Sources](<https://maplibre.org/martin/sources-geojson/index.md>) A local file with geodata that Martin can convert to vector tiles.
+- [DuckDB Sources](<https://maplibre.org/martin/sources-duckdb/index.md>) GeoParquet files that Martin can convert to vector tiles (unstable).
 - [PostgreSQL Connections](<https://maplibre.org/martin/pg-connections/index.md>) with
 - [Table Sources](<https://maplibre.org/martin/sources-pg-tables/index.md>)
 - [Function Sources](<https://maplibre.org/martin/sources-pg-functions/index.md>)
@@ -1806,7 +1806,7 @@ The difference between tile archives (*[MBTiles/PMTiles](<https://maplibre.org/m
 
 > [!TIP]
 >
-> For most use cases, you may want a mix of both. We support this via [Composite Sources](<https://maplibre.org/martin/sources-composite/index.md>) For some use cases, you want the flexibility of a database, but you don't want to pay the runtime-price. We offer the [`martin cp`](<https://maplibre.org/martin/martin-cp/index.md>) subcommand to render all tiles into a tile archive. This can also be used to provide offline maps via [diffing and syncing `mbtiles`](<https://maplibre.org/martin/mbtiles-diff/index.md>)
+> For most use cases, you may want a mix of both. Martin supports this via [Composite Sources](<https://maplibre.org/martin/sources-composite/index.md>) For some use cases, you want the flexibility of a database, but you don't want to pay the runtime-price. Martin offers the [`martin cp`](<https://maplibre.org/martin/martin-cp/index.md>) subcommand to render all tiles into a tile archive. This can also be used to provide offline maps via [diffing and syncing `mbtiles`](<https://maplibre.org/martin/mbtiles-diff/index.md>)
 
 The difference between MBTiles and PMTiles is that:
 
@@ -1839,7 +1839,7 @@ You may also want to generate a [config file](<https://maplibre.org/martin/confi
 
 > [!TIP]
 >
-> See [our tile sources explanation](<https://maplibre.org/martin/sources-tiles/index.md>) for a more detailed explanation on the difference between our available data sources.
+> See [the tile sources explanation](<https://maplibre.org/martin/sources-tiles/index.md>) for a more detailed explanation on the difference between the available data sources.
 
 Both formats have their own dedicated page describing how to configure them:
 
@@ -1881,7 +1881,7 @@ pmtiles:
 
 ## Autodiscovery
 
-For mbtiles or local pmtiles files, we support auto discovering at startup. This means that the following will discover all mbtiles and pmtiles files in the directory:
+For mbtiles or local pmtiles files, Martin supports auto discovering at startup. This means that the following will discover all mbtiles and pmtiles files in the directory:
 
 ```bash
 martin  /path/to/directory
@@ -2268,7 +2268,7 @@ If you require guarantees regarding [eavesdropping](<https://en.wikipedia.org/wi
 martin postgres://user:password@host/db?sslmode=verify-full
 ```
 
-For a practical walkthrough of SSL certificate setup - including creation, configuration, and troubleshooting - see our [PostgreSQL SSL Certificates Recipe](<https://maplibre.org/martin/pg-ssl-certificates/index.md>).
+For a practical walkthrough of SSL certificate setup - including creation, configuration, and troubleshooting - see the [PostgreSQL SSL Certificates Recipe](<https://maplibre.org/martin/pg-ssl-certificates/index.md>).
 
 # PostgreSQL Table Sources
 
@@ -2436,7 +2436,7 @@ A valid function must also have these arguments:
 
 ### Simple Function with coordinate projection
 
-For example, if you have a table with arbitrary geometry `table_source` in WGS84 (`4326` SRID). If we need the tables' row `field_color` and geometry `geom` as a function source, then it can be written as:
+For example, if you have a table with arbitrary geometry `table_source` in WGS84 (`4326` SRID). If you need the tables' row `field_color` and geometry `geom` as a function source, then it can be written as:
 
 ```sql
 CREATE OR REPLACE
@@ -2465,11 +2465,11 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 >
 > By default, [`ST_TileEnvelope`](<https://postgis.net/docs/ST_TileEnvelope.html>) produces `3857` SRID and [`ST_AsMVTGeom`](<https://postgis.net/docs/ST_AsMVTGeom.html>) consumes `3857` SRID. Many tooling (for example [`osm2pgsql`](<https://osm2pgsql.org/>)) thus directly store their data in `3857` SRID for lower processing overhead. If your data is in `3857` SRID, you can remove the two `ST_Transform` calls.
 
-Lets explain a few of the aspects of the function:
+The following explains a few of the aspects of the function:
 
 `ST_Transform(ST_CurveToLine(geom), 3857)`
 
-- Since the table in the example can contain arbitrary geometries, we need to transform `CIRCULARSTRING` geometry types. Concretely, we use `ST_CurveToLine` to convert a
+- Since the table in the example can contain arbitrary geometries, the function needs to transform `CIRCULARSTRING` geometry types. Concretely, the function uses `ST_CurveToLine` to convert a
 - CIRCULAR STRING to regular LINESTRING,
 - CURVEPOLYGON to POLYGON or
 - MULTISURFACE to MULTIPOLYGON.
@@ -2478,15 +2478,15 @@ Lets explain a few of the aspects of the function:
 `WHERE geom && ST_Transform(ST_TileEnvelope(z, x, y), 4326)`
 
 - `&&` is the spatial intersection operator. Thus it checks if the geometry intersects with the tile envelope and uses spatial indexes.
-- `ST_Transform` is used to transform the tile envelope from `3857` SRID to `4326` SRID, as `geom` in our example is in `4326` SRID.
+- `ST_Transform` is used to transform the tile envelope from `3857` SRID to `4326` SRID, as `geom` in the example is in `4326` SRID.
 
 > [!NOTE]
 >
-> The planning mode `IMMUTABLE STRICT PARALLEL SAFE` allows postgres further freedom to optimize our function. Your function is likely to be the same category as the example, but be careful to not cause unexpected behavior.
+> The planning mode `IMMUTABLE STRICT PARALLEL SAFE` allows postgres further freedom to optimize the function. Your function is likely to be the same category as the example, but be careful to not cause unexpected behavior.
 >
 > - [`IMMUTABLE`](<https://www.postgresql.org/docs/current/sql-createfunction.html#:~:text=existing function definition.-,IMMUTABLE,-STABLE%0AVOLATILE>) The function does not have side effects. Indicates that the function cannot modify the database and always returns the same result when given the same argument values; that is, it does not do database lookups or otherwise use information not directly present in its argument list. If this option is given, any call of the function with all-constant arguments can be immediately replaced with the function value.
-> - `STRICT`: Our function will not be called if any of the arguments are `NULL`.
-> - [`PARALLEL SAFE`](<https://www.postgresql.org/docs/current/parallel-safety.html>): Our function is safe to call in parallel as it does not modify the database, nor use randomness or temporary tables. Functions should be labeled parallel unsafe if they
+> - `STRICT`: The function will not be called if any of the arguments are `NULL`.
+> - [`PARALLEL SAFE`](<https://www.postgresql.org/docs/current/parallel-safety.html>): The function is safe to call in parallel as it does not modify the database, nor use randomness or temporary tables. Functions should be labeled parallel unsafe if they
 >
 >   - modify any database state,
 >   - change the transaction state (other than by using a subtransaction for error recovery),
@@ -2540,7 +2540,7 @@ You can access this params using [json operators](<https://www.postgresql.org/do
 ...WHERE answer = (query_params->'objectParam'->>'answer')::int;
 ```
 
-As an example, our `table_source` in WGS84 (`4326` SRID) has a column `answer` of type `integer`. The function `function_zxy_query` will return a MVT tile with the `answer` column as a property.
+As an example, the `table_source` in WGS84 (`4326` SRID) has a column `answer` of type `integer`. The function `function_zxy_query` will return a MVT tile with the `answer` column as a property.
 
 ```sql
 CREATE OR REPLACE
@@ -3785,7 +3785,7 @@ gdal_translate input.tif output_cog.tif -of COG -co TILING_SCHEME=GoogleMapsComp
 
 # GeoJSON Feature Serving
 
-A simple way to add geospatial data to a map can be to serve the content of [GeoJSON files](<https://geojson.org/>) as specified by [RFC7946](<https://datatracker.ietf.org/doc/html/rfc7946>). Instead of incurring the overhead of serving them directly, we serve them as Vector tiles.
+A simple way to add geospatial data to a map can be to serve the content of [GeoJSON files](<https://geojson.org/>) as specified by [RFC7946](<https://datatracker.ietf.org/doc/html/rfc7946>). Instead of incurring the overhead of serving them directly, Martin serves them as Vector tiles.
 
 To serve a file from CLI, simply put the path to the file or the directory with `*.geojson` files. For example:
 
@@ -3804,7 +3804,7 @@ You may also want to generate a [config file](<https://maplibre.org/martin/confi
 > - clip geometry to the requested tiles
 > - encode them as MVT
 >
-> To improve performance, we currently assume that each file fits into RAM. If you want to want and can convert your geojson files to [mbtiles/ pmtiles](<https://maplibre.org/martin/sources-files/index.md>), we recommend tooling like [`tippecanoe`](<https://github.com/felt/tippecanoe>).
+> To improve performance, Martin currently assumes that each file fits into RAM. If you want to want and can convert your geojson files to [mbtiles/ pmtiles](<https://maplibre.org/martin/sources-files/index.md>), we recommend tooling like [`tippecanoe`](<https://github.com/felt/tippecanoe>).
 
 ## Run Martin with configuration file
 
@@ -3974,7 +3974,7 @@ Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override
 
 > [!TIP]
 >
-> See [our tile sources explanation](<https://maplibre.org/martin/sources-tiles/index.md>) for a more detailed explanation on the difference between our available data sources. DuckDB sources can be combined with other sources via [Composite Sources](<https://maplibre.org/martin/sources-composite/index.md>).
+> See [the tile sources explanation](<https://maplibre.org/martin/sources-tiles/index.md>) for a more detailed explanation on the difference between the available data sources. DuckDB sources can be combined with other sources via [Composite Sources](<https://maplibre.org/martin/sources-composite/index.md>).
 
 > [!NOTE]
 >
@@ -3984,7 +3984,7 @@ Per-source `pool_size`, `threads`, `memory_limit_mb`, and `auto_bounds` override
 >
 > **Row-group pruning**
 >
-> To reduce the IO necessary on large duckdb queries, we use can use the [GeoParquet 1.1 `covering`](<https://geoparquet.org/releases/v1.1.0/#covering>) declaration out of the file's `geo` metadata on startup and honor `bbox.{x,y}{min,max}` structs.
+> To reduce the IO necessary on large duckdb queries, Martin uses the [GeoParquet 1.1 `covering`](<https://geoparquet.org/releases/v1.1.0/#covering>) declaration out of the file's `geo` metadata on startup and honors `bbox.{x,y}{min,max}` structs.
 >
 > Pruning is also skipped when the source SRID is neither `4326` nor `3857`, because transforming a tile envelope into another projection can under-cover it and silently clip features at tile edges.
 
@@ -4376,7 +4376,7 @@ postgres:
       tile_grid: DutchRD
 ```
 
-We support these settings:
+Martin supports these settings:
 
 | key | default | meaning |
 | --- | --- | --- |
@@ -4820,7 +4820,7 @@ GET /terrain/12/2100/1300?azimuth=90&toon_bands=0
 
 ## Caching and cache-busting
 
-Baking reads a 3x3 neighborhood (to avoid boundary seams) of normal maps, so nine tiles are read per uncached tile served. We cache the normal maps rather than the baked output since an undecoded normal map is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a baked tile is specific to one parameter set.
+Baking reads a 3x3 neighborhood (to avoid boundary seams) of normal maps, so nine tiles are read per uncached tile served. Martin caches the normal maps rather than the baked output since an undecoded normal map is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a baked tile is specific to one parameter set.
 
 Each tile's `ETag` is derived from the nine tiles it read plus the settings it was baked with, so it moves whenever any input or any setting does.
 
@@ -4963,7 +4963,7 @@ GET /elevation/12/2100/1300?resolution=16&simplification_tolerance=0
 
 ## Caching and cache-busting
 
-Tracing reads a 3x3 neighborhood of elevation tiles, so nine tiles are read per uncached tile served. We cache the elevation tiles rather than the traced output since an undecoded elevation tile is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a traced tile is specific to one parameter set.
+Tracing reads a 3x3 neighborhood of elevation tiles, so nine tiles are read per uncached tile served. Martin caches the elevation tiles rather than the traced output since an undecoded elevation tile is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a traced tile is specific to one parameter set.
 
 Each tile's `ETag` is derived from the nine tiles it read plus the settings it was traced with, so it moves whenever any input or any setting does.
 
@@ -5235,7 +5235,7 @@ styles:
 
 ## Rendered XYZ tiles
 
-We support generating a rasterized image for an XYZ tile of a given style.
+Martin supports generating a rasterized image for an XYZ tile of a given style.
 
 After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg/webp content.
 
@@ -5281,7 +5281,7 @@ MapLibre logs its own messages under the `maplibre_native` target, which Martin'
 >
 > **Info**
 >
-> We currently do not have the same [capabilities as Tileserver-GL](<https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images>) to layout images. We are working on adding this feature and are very open to contributions if you want to help!
+> Martin currently does not have the same [capabilities as Tileserver-GL](<https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images>) to layout images. We are working on adding this feature and are very open to contributions if you want to help!
 
 > [!WARNING]
 >
@@ -5571,7 +5571,7 @@ fonts:
 >
 > **Supporting multiple writing systems via `aliases`**
 >
-> Working in an global world means that there are multiple languages that you will need to support in modern cartography. Sadly, not every font that you might want to use supports this or looks good in every language. To support this, we have `aliases`. Each alias combines the listed fonts in the given fallback order, exactly like a [composite font request](<#composite-font-request>).
+> Working in an global world means that there are multiple languages that you will need to support in modern cartography. Sadly, not every font that you might want to use supports this or looks good in every language. To support this, Martin has `aliases`. Each alias combines the listed fonts in the given fallback order, exactly like a [composite font request](<#composite-font-request>).
 
 ```yaml
 fonts:
@@ -5603,7 +5603,7 @@ Aliases are listed in the catalog under their own name. The `glyphs` value of an
 >
 > **OpenAPI Documentation**
 >
-> If you want to explore the API endpoints programmatically or generate client code, you can use our [OpenAPI Documentation](<https://github.com/maplibre/martin/raw/main/martin/openapi.json>).
+> If you want to explore the API endpoints programmatically or generate client code, you can use Martin's [OpenAPI Documentation](<https://github.com/maplibre/martin/raw/main/martin/openapi.json>).
 
 > [!TIP]
 >
@@ -5825,13 +5825,13 @@ A rendered basemap needs four things:
 - the **glyphs** (fonts) the style labels text with, and
 - the **sprites** (icons) the style marks points of interest with.
 
-We will produce each one, then wire them together.
+You will produce each one, then wire them together.
 
 > [!NOTE]
 >
 > **Prerequisites**
 >
-> We expect you have the following already installed:
+> You need the following already installed:
 >
 > - [Docker](<https://docker.io>) to generate the tile archive
 > - [Martin binary](<https://maplibre.org/martin/installation/index.md>)
@@ -5841,7 +5841,7 @@ We will produce each one, then wire them together.
 
 ## Generate a tile archive from OpenStreetMap
 
-We will use [Planetiler](<https://github.com/onthegomap/planetiler/>) to build an MBTiles archive of Monaco from [OpenStreetMap](<https://osm.org>) data. Planetiler downloads the OSM extract for you and tiles it into the [OpenMapTiles](<https://openmaptiles.org/>) schema. See [Setting up a Basemap and Overlaying Points from PostGIS](<https://maplibre.org/martin/recipe-basemap-postgis/index.md>) for a discussion of why a tiling step is needed and what OpenMapTiles is, and [our tile source comparison](<https://maplibre.org/martin/sources-tiles/index.md>) for the pros and cons of the different archive formats.
+You will use [Planetiler](<https://github.com/onthegomap/planetiler/>) to build an MBTiles archive of Monaco from [OpenStreetMap](<https://osm.org>) data. Planetiler downloads the OSM extract for you and tiles it into the [OpenMapTiles](<https://openmaptiles.org/>) schema. See [Setting up a Basemap and Overlaying Points from PostGIS](<https://maplibre.org/martin/recipe-basemap-postgis/index.md>) for a discussion of why a tiling step is needed and what OpenMapTiles is, and [the tile source comparison](<https://maplibre.org/martin/sources-tiles/index.md>) for the pros and cons of the different archive formats.
 
 ```bash
 mkdir --parents data
@@ -5863,7 +5863,7 @@ Monaco is small, so this finishes in a few minutes. Any other [Geofabrik extract
 
 ## Get a style
 
-A style only works with data in the schema it was written for. Planetiler produced tiles in the OpenMapTiles schema, so we need an OpenMapTiles style. We will use [OSM Bright](<https://github.com/openmaptiles/osm-bright-gl-style>). [Positron](<https://github.com/openmaptiles/positron-gl-style>), [Dark Matter](<https://github.com/openmaptiles/dark-matter-gl-style>), [MapTiler Basic](<https://github.com/openmaptiles/maptiler-basic-gl-style>), and [OSM Liberty](<https://github.com/maputnik/osm-liberty>) are alternatives.
+A style only works with data in the schema it was written for. Planetiler produced tiles in the OpenMapTiles schema, so you need an OpenMapTiles style. You will use [OSM Bright](<https://github.com/openmaptiles/osm-bright-gl-style>). [Positron](<https://github.com/openmaptiles/positron-gl-style>), [Dark Matter](<https://github.com/openmaptiles/dark-matter-gl-style>), [MapTiler Basic](<https://github.com/openmaptiles/maptiler-basic-gl-style>), and [OSM Liberty](<https://github.com/maputnik/osm-liberty>) are alternatives.
 
 ```bash
 git clone --depth 1 https://github.com/openmaptiles/osm-bright-gl-style.git
@@ -5879,7 +5879,7 @@ cp osm-bright-gl-style/style.json styles/basemap.json
 
 ## Get the fonts the style uses
 
-OSM Bright labels text with `Noto Sans Regular`, `Noto Sans Bold`, and `Noto Sans Italic`. Martin generates the glyph ranges MapLibre asks for [directly from `.ttf`/`.otf` files](<https://maplibre.org/martin/sources-fonts/index.md>), so all we need are the font files themselves:
+OSM Bright labels text with `Noto Sans Regular`, `Noto Sans Bold`, and `Noto Sans Italic`. Martin generates the glyph ranges MapLibre asks for [directly from `.ttf`/`.otf` files](<https://maplibre.org/martin/sources-fonts/index.md>), so all you need are the font files themselves:
 
 ```bash
 mkdir --parents fonts
@@ -5902,7 +5902,7 @@ The directory name becomes the sprite ID, so these will be served under `/sprite
 
 ## Point the style at your server
 
-The copied style still references the original author's tile, glyph, and sprite servers. Open `styles/basemap.json` and change three values to point at the Martin instance we are about to start:
+The copied style still references the original author's tile, glyph, and sprite servers. Open `styles/basemap.json` and change three values to point at the Martin instance you are about to start:
 
 | Key | New value |
 | --- | --- |
@@ -6143,7 +6143,7 @@ map.addLayer(layer);
 
 # Tile source specific
 
-Some sources for tiles are harder to setup than others. Below, we provide setup instructions for some common data sources:
+Some sources for tiles are harder to setup than others. Below are setup instructions for some common data sources:
 
 - [Hosted PostgreSQL](<https://maplibre.org/martin/recipes/index.md>)
 - [Setting up a basemap and overlaying data](<https://maplibre.org/martin/recipe-basemap-postgis/index.md>)
@@ -6195,7 +6195,7 @@ You commonly have some semi-proprietary datasource which you want to overlay ont
 
 ## Prerequisites
 
-We expect you have the following already installed:
+You need the following already installed:
 
 - [Docker](<https://docker.io>)
 - [Martin binary](<https://maplibre.org/martin/installation/index.md>)
@@ -6210,7 +6210,7 @@ The reason you need a tool to build vector tilesets from OpenStreetMap is that t
 
 **🤔 *What is up with MBtiles and OpenMapTiles* (click to expand)**
 
-Good question. MBtiles is the archive format. Think of a sqlite database storing the data you need a chunk (\`x\`/\`y\`/\`z\`) of the world. See our comparison \[pmtiles vs. mbtiles\](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats. But how does the data in the archive look like? This is where the vector tile schema comes in: \[OpenMapTiles\](https://openmaptiles.org/) defines which layers are included in the served data and how they are aggregated. \[OpenMapTiles\](https://openmaptiles.org/) does have an attribution requirement. You will need to have \[\`© OpenMapTiles\`\](https://openmaptiles.org/) at the bottom of your map. See \[Shortbread\](https://shortbread-tiles.org/) for a newer, but less mature alternative if you want to read more.
+Good question. MBtiles is the archive format. Think of a sqlite database storing the data you need a chunk (\`x\`/\`y\`/\`z\`) of the world. See the comparison \[pmtiles vs. mbtiles\](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats. But how does the data in the archive look like? This is where the vector tile schema comes in: \[OpenMapTiles\](https://openmaptiles.org/) defines which layers are included in the served data and how they are aggregated. \[OpenMapTiles\](https://openmaptiles.org/) does have an attribution requirement. You will need to have \[\`© OpenMapTiles\`\](https://openmaptiles.org/) at the bottom of your map. See \[Shortbread\](https://shortbread-tiles.org/) for a newer, but less mature alternative if you want to read more.
 
 Below command downloads a tile archive at `data/monaco.mbtiles` for monaco.
 
@@ -6267,9 +6267,9 @@ docker exec some-postgis psql --dbname postgres --username postgres --command \
 
 ## Serving tiles with Martin
 
-Now we will serve the content of [mbtiles](<https://maplibre.org/martin/sources-mbtiles/index.md>) and the [postgis database](<https://maplibre.org/martin/pg-connections/index.md>).
+Now serve the content of [mbtiles](<https://maplibre.org/martin/sources-mbtiles/index.md>) and the [postgis database](<https://maplibre.org/martin/pg-connections/index.md>).
 
-If you want more precise options what things are published how, please see the [configuration file](<https://maplibre.org/martin/config-file/index.md>) or [cli documentation](<https://maplibre.org/martin/run-with-cli/index.md>). By default, we will share every servable postgres [table, view](<https://maplibre.org/martin/sources-pg-tables/index.md>) and [function](<https://maplibre.org/martin/sources-pg-functions/index.md>).
+If you want more precise options what things are published how, please see the [configuration file](<https://maplibre.org/martin/config-file/index.md>) or [cli documentation](<https://maplibre.org/martin/run-with-cli/index.md>). By default, Martin shares every servable postgres [table, view](<https://maplibre.org/martin/sources-pg-tables/index.md>) and [function](<https://maplibre.org/martin/sources-pg-functions/index.md>).
 
 ```bash
 martin data/monaco.mbtiles postgres://postgres:mypass@localhost:5432/postgres
@@ -6279,7 +6279,7 @@ You can now see the catalog of available things here: [`http://localhost:3000/ca
 
 ## Using in Maputnik to style a map
 
-Due to CORS, we CANNOT use the website [https://maplibre.org/maputnik/](<https://maplibre.org/maputnik/>) without further setup. Once the tiles are deployed behind https, this can be used.
+Due to CORS, you CANNOT use the website [https://maplibre.org/maputnik/](<https://maplibre.org/maputnik/>) without further setup. Once the tiles are deployed behind https, this can be used.
 
 To get a local version of maputnik, run
 
@@ -6287,17 +6287,17 @@ To get a local version of maputnik, run
 docker run -it --rm -p 8888:80 ghcr.io/maplibre/maputnik:main
 ```
 
-Maputnik is now online, so lets load martins tiles into it.
+Maputnik is now online, so load martins tiles into it.
 
 1. Visit [`http://localhost:8888`](<http://localhost:8888>)
 2. You first need a style:
 3. Click `Open` ![where in the UI the "Open" button can be found](<https://maplibre.org/martin/images/maputnik/open.png>)
-4. Select a style you like (we are going to choose `Maptiler Basic`) ![how to select a style](<https://maplibre.org/martin/images/maputnik/select-style.png>)
-5. You now have a style using Maptilers' (**NOT martins**) data. You need to change its datasource to use the tiles we just published:
+4. Select a style you like (this guide chooses `Maptiler Basic`) ![how to select a style](<https://maplibre.org/martin/images/maputnik/select-style.png>)
+5. You now have a style using Maptilers' (**NOT martins**) data. You need to change its datasource to use the tiles you just published:
 6. Click `Data Sources` ![how to change the datasource](<https://maplibre.org/martin/images/maputnik/change-datasource.png>)
 7. And add the tilejson from above `http://localhost:3000/monaco,where_yachts_can_be_looked_at`: ![how to add the tilejson](<https://maplibre.org/martin/images/maputnik/add-tilejson.png>)
-8. Now, lets zoom into monaco: ![where monaco is on a map](<https://maplibre.org/martin/images/maputnik/zoom-into-monaco.png>)
-9. And finally, lets add a circle layer for our yachts:
+8. Now, zoom into monaco: ![where monaco is on a map](<https://maplibre.org/martin/images/maputnik/zoom-into-monaco.png>)
+9. And finally, add a circle layer for the yachts:
 10. Click `Add Layer` ![add a circle layer](<https://maplibre.org/martin/images/maputnik/add-layer.png>)
 11. Configure the layer as follows: ![add a circle layer](<https://maplibre.org/martin/images/maputnik/configure-layer.png>)
 12. And style it as: ![add a circle layer](<https://maplibre.org/martin/images/maputnik/add-yachts-layer.png>)
@@ -6743,7 +6743,7 @@ These are the errors that can occur:
 
 # Generating Tiles in Bulk
 
-We offer the `martin cp` subcommand for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file.
+Martin offers the `martin cp` subcommand for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file.
 
 `martin cp` can be used to generate tiles for a large area or multiple areas (bounding boxes). If multiple areas overlap, it will ensure each tile is generated only once `martin cp` supports the same configuration file and CLI arguments as the Martin server, so it can support all sources and even combining sources.
 
@@ -7693,7 +7693,7 @@ A missing unique index on `(zoom_level, tile_column, tile_row)` fails validation
 
 If the `.mbtiles` file uses [flat\_with\_hash](<https://maplibre.org/martin/mbtiles-schema/index.md#flat-with-hash>) or [hash-based normalized](<https://maplibre.org/martin/mbtiles-schema/index.md#hash-based-normalized-schema>) schema, the `validate` command will verify that the hash of the `tile_data` column matches the `tile_hash` or `tile_id` columns (depending on the schema). The hash is computed with the file's [hash algorithm](<#hash-algorithm>).
 
-A typical Normalized schema generated by tools like [tilelive-copy](<https://github.com/mapbox/TileLive#bintilelive-copy>) use MD5 hash in the `tile_id` column. The Martin's `mbtiles` tool can use this hash to verify the content of each tile. We also define a new [flat-with-hash](<https://maplibre.org/martin/mbtiles-schema/index.md#flat-with-hash>) schema that stores the hash and tile data in the same table, allowing per-tile validation without the multiple table layout.
+A typical Normalized schema generated by tools like [tilelive-copy](<https://github.com/mapbox/TileLive#bintilelive-copy>) use MD5 hash in the `tile_id` column. The Martin's `mbtiles` tool can use this hash to verify the content of each tile. Martin also defines a new [flat-with-hash](<https://maplibre.org/martin/mbtiles-schema/index.md#flat-with-hash>) schema that stores the hash and tile data in the same table, allowing per-tile validation without the multiple table layout.
 
 Per-tile validation is not available for the `flat` schema and will be skipped. For the [normalized](<https://maplibre.org/martin/mbtiles-schema/index.md#normalized>) schema (`tiles_shallow` + `tiles_data`), foreign key integrity is validated instead. Every `tile_data_id` in `tiles_shallow` must have a matching entry in `tiles_data`.
 
@@ -7918,7 +7918,7 @@ just run --config /path/to/config.yaml
 
 # Getting involved
 
-It's time to get involved once you have the [fork and all required software](<https://maplibre.org/martin/development/index.md>). This guide covers IDE setup and debugging. While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
+It's time to get involved once you have the [fork and all required software](<https://maplibre.org/martin/development/index.md>). This guide covers IDE setup and debugging. While this guide uses Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
 
 ## Editor-specific Guides
 
@@ -7965,7 +7965,7 @@ Press `F1` on your keyboard, and input "Generate Launch Configurations from Carg
 
 ## Modify
 
-Let's say you want to debug Martin with this command:
+Say you want to debug Martin with this command:
 
 ```shell
 martin postgres://postgres:postgres@localhost:5411/db
@@ -8024,7 +8024,7 @@ Just copy and paste after it, and modify your pasted like this:
 
 Go to any part you're interested in of martin code and add a breakpoint.
 
-We add a breakpoint here in the [start of martin](<https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10>).
+Add a breakpoint here in the [start of martin](<https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10>).
 
 ```rust
 use clap::Parser;
@@ -8421,7 +8421,7 @@ Martin exposes Prometheus metrics via `/_/metrics`:
 
 If you need more in-depth observability, we would be happy to review PRs that add additional metrics; the current implementation is intentionally minimal.
 
-We allow health checks via `/health` and `/catalog` endpoints:
+Martin allows health checks via `/health` and `/catalog` endpoints:
 
 - `/health` - Basic health check (HTTP 200)
 - `/catalog` - Source availability check
@@ -8645,7 +8645,7 @@ Each kind has at least one Reload Driver instance. Adding reload support for a n
 
 The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 
-We implement this via two traits:
+Martin implements this via two traits:
 
 - a `FeatureSource` streams features from partitions that can be read in parallel, and
 - a `TileSink` writes finished tiles in the order it asks for.

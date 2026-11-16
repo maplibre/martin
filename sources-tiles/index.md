@@ -5,8 +5,8 @@ Martin supports multiple tile sources
 - [Tile Archive files](<https://maplibre.org/martin/sources-files/index.md>)
 - [MBTiles Sources](<https://maplibre.org/martin/sources-mbtiles/index.md>) Local Sqlite database containing pre-generated vector or raster tiles.
 - [PMTiles Sources](<https://maplibre.org/martin/sources-pmtiles/index.md>) A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.
-- [GeoJSON Sources](<https://maplibre.org/martin/sources-geojson/index.md>) A local file with geodata that we can convert to vector tiles.
-- [DuckDB Sources](<https://maplibre.org/martin/sources-duckdb/index.md>) GeoParquet files that we can convert to vector tiles (unstable).
+- [GeoJSON Sources](<https://maplibre.org/martin/sources-geojson/index.md>) A local file with geodata that Martin can convert to vector tiles.
+- [DuckDB Sources](<https://maplibre.org/martin/sources-duckdb/index.md>) GeoParquet files that Martin can convert to vector tiles (unstable).
 - [PostgreSQL Connections](<https://maplibre.org/martin/pg-connections/index.md>) with
 - [Table Sources](<https://maplibre.org/martin/sources-pg-tables/index.md>)
 - [Function Sources](<https://maplibre.org/martin/sources-pg-functions/index.md>)
@@ -19,7 +19,7 @@ The difference between tile archives (*[MBTiles/PMTiles](<https://maplibre.org/m
 
 > [!TIP]
 >
-> For most use cases, you may want a mix of both. We support this via [Composite Sources](<https://maplibre.org/martin/sources-composite/index.md>) For some use cases, you want the flexibility of a database, but you don't want to pay the runtime-price. We offer the [`martin cp`](<https://maplibre.org/martin/martin-cp/index.md>) subcommand to render all tiles into a tile archive. This can also be used to provide offline maps via [diffing and syncing `mbtiles`](<https://maplibre.org/martin/mbtiles-diff/index.md>)
+> For most use cases, you may want a mix of both. Martin supports this via [Composite Sources](<https://maplibre.org/martin/sources-composite/index.md>) For some use cases, you want the flexibility of a database, but you don't want to pay the runtime-price. Martin offers the [`martin cp`](<https://maplibre.org/martin/martin-cp/index.md>) subcommand to render all tiles into a tile archive. This can also be used to provide offline maps via [diffing and syncing `mbtiles`](<https://maplibre.org/martin/mbtiles-diff/index.md>)
 
 The difference between MBTiles and PMTiles is that:
 

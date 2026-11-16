@@ -4,7 +4,7 @@
 2. Download the latest version of Martin from the [release page](<https://github.com/maplibre/martin/releases/latest>). Use [about this Mac](<https://support.apple.com/en-us/116943>) to find your processors type.
 
    - **for M1**: Use [martin-aarch64-apple-darwin.tar.gz](<https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz>)
-   - **for x86**, you likely can compile us from source, but we don't compile this for you due to runner availability.
+   - **for x86**, you likely can compile Martin from source, but we don't compile this for you due to runner availability.
 3. Extract content of both files and place them in a same directory.
 4. Open the command prompt and navigate to the directory where `martin` and `world_cities.sql` are located.
 5. Run the following command to start Martin with the demo data:

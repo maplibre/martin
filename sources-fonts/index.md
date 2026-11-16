@@ -87,7 +87,7 @@ fonts:
 >
 > **Supporting multiple writing systems via `aliases`**
 >
-> Working in an global world means that there are multiple languages that you will need to support in modern cartography. Sadly, not every font that you might want to use supports this or looks good in every language. To support this, we have `aliases`. Each alias combines the listed fonts in the given fallback order, exactly like a [composite font request](<#composite-font-request>).
+> Working in an global world means that there are multiple languages that you will need to support in modern cartography. Sadly, not every font that you might want to use supports this or looks good in every language. To support this, Martin has `aliases`. Each alias combines the listed fonts in the given fallback order, exactly like a [composite font request](<#composite-font-request>).
 
 ```yaml
 fonts:

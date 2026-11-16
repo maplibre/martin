@@ -19,7 +19,7 @@
 
 The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.
 
-We implement this via two traits:
+Martin implements this via two traits:
 
 - a `FeatureSource` streams features from partitions that can be read in parallel, and
 - a `TileSink` writes finished tiles in the order it asks for.

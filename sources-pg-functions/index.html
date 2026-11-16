@@ -2583,7 +2583,7 @@ a suitable signature.</p>
 </table>
 <h3 id="simple-function-with-coordinate-projection">Simple Function with coordinate projection</h3>
 <p>For example, if you have a table with arbitrary geometry <code>table_source</code> in WGS84 (<code>4326</code> SRID).
-If we need the tables' row <code>field_color</code> and geometry <code>geom</code> as a function source, then it can be written as:</p>
+If you need the tables' row <code>field_color</code> and geometry <code>geom</code> as a function source, then it can be written as:</p>
 <div class="language-sql highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">function_zxy</span><span class="p">(</span><span class="n">z</span><span class="w"> </span><span class="nb">integer</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="nb">integer</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="nb">integer</span><span class="p">)</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">RETURNS</span><span class="w"> </span><span class="n">bytea</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
@@ -2611,11 +2611,11 @@ If we need the tables' row <code>field_color</code> and geometry <code>geom</cod
 Many tooling (for example <a href="https://osm2pgsql.org/"><code>osm2pgsql</code></a>) thus directly store their data in <code>3857</code> SRID for lower processing overhead.
 If your data is in <code>3857</code> SRID, you can remove the two <code>ST_Transform</code> calls.</p>
 </div>
-<p>Lets explain a few of the aspects of the function:</p>
+<p>The following explains a few of the aspects of the function:</p>
 <p><code>ST_Transform(ST_CurveToLine(geom), 3857)</code></p>
 <ul>
-<li>Since the table in the example can contain arbitrary geometries, we need to transform <code>CIRCULARSTRING</code> geometry types.
-  Concretely, we use <code>ST_CurveToLine</code> to convert a</li>
+<li>Since the table in the example can contain arbitrary geometries, the function needs to transform <code>CIRCULARSTRING</code> geometry types.
+  Concretely, the function uses <code>ST_CurveToLine</code> to convert a</li>
 <li>CIRCULAR STRING to regular LINESTRING,</li>
 <li>CURVEPOLYGON to POLYGON or</li>
 <li>MULTISURFACE to MULTIPOLYGON.</li>
@@ -2624,11 +2624,11 @@ If your data is in <code>3857</code> SRID, you can remove the two <code>ST_Trans
 <p><code>WHERE geom &amp;&amp; ST_Transform(ST_TileEnvelope(z, x, y), 4326)</code></p>
 <ul>
 <li><code>&amp;&amp;</code> is the spatial intersection operator. Thus it checks if the geometry intersects with the tile envelope and uses spatial indexes.</li>
-<li><code>ST_Transform</code> is used to transform the tile envelope from <code>3857</code> SRID to <code>4326</code> SRID, as <code>geom</code> in our example is in <code>4326</code> SRID.</li>
+<li><code>ST_Transform</code> is used to transform the tile envelope from <code>3857</code> SRID to <code>4326</code> SRID, as <code>geom</code> in the example is in <code>4326</code> SRID.</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The planning mode <code>IMMUTABLE STRICT PARALLEL SAFE</code> allows postgres further freedom to optimize our function.
+<p>The planning mode <code>IMMUTABLE STRICT PARALLEL SAFE</code> allows postgres further freedom to optimize the function.
 Your function is likely to be the same category as the example, but be careful to not cause unexpected behavior.</p>
 <ul>
 <li><a href="https://www.postgresql.org/docs/current/sql-createfunction.html#:~:text=existing%20function%20definition.-,IMMUTABLE,-STABLE%0AVOLATILE"><code>IMMUTABLE</code></a>
@@ -2636,10 +2636,10 @@ Your function is likely to be the same category as the example, but be careful t
   Indicates that the function cannot modify the database and always returns the same result when given the same argument values;
   that is, it does not do database lookups or otherwise use information not directly present in its argument list.
   If this option is given, any call of the function with all-constant arguments can be immediately replaced with the function value.</li>
-<li><code>STRICT</code>: Our function will not be called if any of the arguments are <code>NULL</code>.</li>
+<li><code>STRICT</code>: The function will not be called if any of the arguments are <code>NULL</code>.</li>
 <li>
 <p><a href="https://www.postgresql.org/docs/current/parallel-safety.html"><code>PARALLEL SAFE</code></a>:
-  Our function is safe to call in parallel as it does not modify the database, nor use randomness or temporary tables.
+  The function is safe to call in parallel as it does not modify the database, nor use randomness or temporary tables.
   Functions should be labeled parallel unsafe if they</p>
 <ul>
 <li>modify any database state,</li>
@@ -2692,7 +2692,7 @@ params to encode complex values:</p>
 <p>You can access this params using <a href="https://www.postgresql.org/docs/current/functions-json.html">json operators</a>:</p>
 <div class="language-sql highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">...</span><span class="k">WHERE</span><span class="w"> </span><span class="n">answer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">query_params</span><span class="o">-&gt;</span><span class="s1">'objectParam'</span><span class="o">-&gt;&gt;</span><span class="s1">'answer'</span><span class="p">)::</span><span class="nb">int</span><span class="p">;</span>
 </span></code></pre></div>
-<p>As an example, our <code>table_source</code> in WGS84 (<code>4326</code> SRID) has a column <code>answer</code> of type <code>integer</code>.
+<p>As an example, the <code>table_source</code> in WGS84 (<code>4326</code> SRID) has a column <code>answer</code> of type <code>integer</code>.
 The function <code>function_zxy_query</code> will return a MVT tile with the <code>answer</code> column as a property.</p>
 <div class="language-sql highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="k">FUNCTION</span><span class="w"> </span><span class="n">function_zxy_query</span><span class="p">(</span><span class="n">z</span><span class="w"> </span><span class="nb">integer</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="nb">integer</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="nb">integer</span><span class="p">,</span><span class="w"> </span><span class="n">query_params</span><span class="w"> </span><span class="n">json</span><span class="p">)</span>

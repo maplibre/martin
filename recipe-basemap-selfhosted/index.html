@@ -1769,10 +1769,10 @@ No API keys and no external services are needed.</p>
 <li>the <strong>glyphs</strong> (fonts) the style labels text with, and</li>
 <li>the <strong>sprites</strong> (icons) the style marks points of interest with.</li>
 </ul>
-<p>We will produce each one, then wire them together.</p>
+<p>You will produce each one, then wire them together.</p>
 <div class="admonition note">
 <p class="admonition-title">Prerequisites</p>
-<p>We expect you have the following already installed:</p>
+<p>You need the following already installed:</p>
 <ul>
 <li><a href="https://docker.io">Docker</a> to generate the tile archive</li>
 <li><a href="../installation/">Martin binary</a></li>
@@ -1781,9 +1781,9 @@ No API keys and no external services are needed.</p>
 <p>All commands below run from one working directory.</p>
 </div>
 <h2 id="generate-a-tile-archive-from-openstreetmap">Generate a tile archive from OpenStreetMap</h2>
-<p>We will use <a href="https://github.com/onthegomap/planetiler/">Planetiler</a> to build an MBTiles archive of Monaco from <a href="https://osm.org">OpenStreetMap</a> data.
+<p>You will use <a href="https://github.com/onthegomap/planetiler/">Planetiler</a> to build an MBTiles archive of Monaco from <a href="https://osm.org">OpenStreetMap</a> data.
 Planetiler downloads the OSM extract for you and tiles it into the <a href="https://openmaptiles.org/">OpenMapTiles</a> schema.
-See <a href="../recipe-basemap-postgis/">Setting up a Basemap and Overlaying Points from PostGIS</a> for a discussion of why a tiling step is needed and what OpenMapTiles is, and <a href="../sources-tiles/">our tile source comparison</a> for the pros and cons of the different archive formats.</p>
+See <a href="../recipe-basemap-postgis/">Setting up a Basemap and Overlaying Points from PostGIS</a> for a discussion of why a tiling step is needed and what OpenMapTiles is, and <a href="../sources-tiles/">the tile source comparison</a> for the pros and cons of the different archive formats.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mkdir<span class="w"> </span>--parents<span class="w"> </span>data
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--user<span class="o">=</span><span class="nv">$UID</span><span class="w"> </span><span class="se">\</span>
@@ -1802,8 +1802,8 @@ See <a href="../recipe-basemap-postgis/">Setting up a Basemap and Overlaying Poi
 Any other <a href="https://download.geofabrik.de/">Geofabrik extract name</a> works as <code>--area</code> the same way, with larger downloads and longer runs.</p>
 <h2 id="get-a-style">Get a style</h2>
 <p>A style only works with data in the schema it was written for.
-Planetiler produced tiles in the OpenMapTiles schema, so we need an OpenMapTiles style.
-We will use <a href="https://github.com/openmaptiles/osm-bright-gl-style">OSM Bright</a>.
+Planetiler produced tiles in the OpenMapTiles schema, so you need an OpenMapTiles style.
+You will use <a href="https://github.com/openmaptiles/osm-bright-gl-style">OSM Bright</a>.
 <a href="https://github.com/openmaptiles/positron-gl-style">Positron</a>, <a href="https://github.com/openmaptiles/dark-matter-gl-style">Dark Matter</a>, <a href="https://github.com/openmaptiles/maptiler-basic-gl-style">MapTiler Basic</a>, and <a href="https://github.com/maputnik/osm-liberty">OSM Liberty</a> are alternatives.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>https://github.com/openmaptiles/osm-bright-gl-style.git
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>mkdir<span class="w"> </span>--parents<span class="w"> </span>styles
@@ -1816,7 +1816,7 @@ The tile archive built above carries this attribution in its metadata, and MapLi
 </div>
 <h2 id="get-the-fonts-the-style-uses">Get the fonts the style uses</h2>
 <p>OSM Bright labels text with <code>Noto Sans Regular</code>, <code>Noto Sans Bold</code>, and <code>Noto Sans Italic</code>.
-Martin generates the glyph ranges MapLibre asks for <a href="../sources-fonts/">directly from <code>.ttf</code>/<code>.otf</code> files</a>, so all we need are the font files themselves:</p>
+Martin generates the glyph ranges MapLibre asks for <a href="../sources-fonts/">directly from <code>.ttf</code>/<code>.otf</code> files</a>, so all you need are the font files themselves:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>mkdir<span class="w"> </span>--parents<span class="w"> </span>fonts
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>fonts/NotoSans-Regular.ttf<span class="w"> </span>https://github.com/notofonts/notofonts.github.io/raw/main/fonts/NotoSans/full/ttf/NotoSans-Regular.ttf
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>fonts/NotoSans-Bold.ttf<span class="w"> </span>https://github.com/notofonts/notofonts.github.io/raw/main/fonts/NotoSans/full/ttf/NotoSans-Bold.ttf
@@ -1832,7 +1832,7 @@ Martin <a href="../sources-sprites/">generates the spritesheet and index from an
 <p>The directory name becomes the sprite ID, so these will be served under <code>/sprite/icons</code>.</p>
 <h2 id="point-the-style-at-your-server">Point the style at your server</h2>
 <p>The copied style still references the original author's tile, glyph, and sprite servers.
-Open <code>styles/basemap.json</code> and change three values to point at the Martin instance we are about to start:</p>
+Open <code>styles/basemap.json</code> and change three values to point at the Martin instance you are about to start:</p>
 <table>
 <thead>
 <tr>

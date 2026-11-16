@@ -1837,7 +1837,7 @@
 This guide shows how to generate a basemap using <a href="https://github.com/onthegomap/planetiler/">Planetiler</a> from <a href="https://osm.org">OSM</a> and overlay custom points from a <a href="https://postgis.net/">PostGIS</a> database.
 See here for a discussion on the <a href="../sources-tiles/">pros and cons of this/alternative data sources</a>.</p>
 <h2 id="prerequisites">Prerequisites</h2>
-<p>We expect you have the following already installed:</p>
+<p>You need the following already installed:</p>
 <ul>
 <li><a href="https://docker.io">Docker</a></li>
 <li><a href="../installation/">Martin binary</a></li>
@@ -1860,7 +1860,7 @@ Good question.
 
 MBtiles is the archive format.
 Think of a sqlite database storing the data you need a chunk (`x`/`y`/`z`) of the world.
-See our comparison [pmtiles vs. mbtiles](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats.
+See the comparison [pmtiles vs. mbtiles](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats.
 
 But how does the data in the archive look like?
 This is where the vector tile schema comes in:
@@ -1914,36 +1914,36 @@ This is possible via multiple ways, such as <a href="https://osm2pgsql.org/"><co
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="s2">"  ST_SetSRID(ST_MakePoint(7.424789, 43.735217), 4326));"</span>
 </span></code></pre></div>
 <h2 id="serving-tiles-with-martin">Serving tiles with Martin</h2>
-<p>Now we will serve the content of <a href="../sources-mbtiles/">mbtiles</a> and the <a href="../pg-connections/">postgis database</a>.</p>
+<p>Now serve the content of <a href="../sources-mbtiles/">mbtiles</a> and the <a href="../pg-connections/">postgis database</a>.</p>
 <p>If you want more precise options what things are published how, please see the <a href="../config-file/">configuration file</a> or <a href="../run-with-cli/">cli documentation</a>.
-By default, we will share every servable postgres <a href="../sources-pg-tables/">table, view</a> and <a href="../sources-pg-functions/">function</a>.</p>
+By default, Martin shares every servable postgres <a href="../sources-pg-tables/">table, view</a> and <a href="../sources-pg-functions/">function</a>.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>martin<span class="w"> </span>data/monaco.mbtiles<span class="w"> </span>postgres://postgres:mypass@localhost:5432/postgres
 </span></code></pre></div>
 <p>You can now see the catalog of available things here: <a href="http://localhost:3000/catalog"><code>http://localhost:3000/catalog</code></a>
 The tilejson endpoint of both tilesets is <a href="http://localhost:3000/monaco,where_yachts_can_be_looked_at"><code>http://localhost:3000/monaco,where_yachts_can_be_looked_at</code></a></p>
 <h2 id="using-in-maputnik-to-style-a-map">Using in Maputnik to style a map</h2>
-<p>Due to CORS, we CANNOT use the website <a href="https://maplibre.org/maputnik/">https://maplibre.org/maputnik/</a> without further setup.
+<p>Due to CORS, you CANNOT use the website <a href="https://maplibre.org/maputnik/">https://maplibre.org/maputnik/</a> without further setup.
 Once the tiles are deployed behind https, this can be used.</p>
 <p>To get a local version of maputnik, run</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>--rm<span class="w"> </span>-p<span class="w"> </span><span class="m">8888</span>:80<span class="w"> </span>ghcr.io/maplibre/maputnik:main
 </span></code></pre></div>
-<p>Maputnik is now online, so lets load martins tiles into it.</p>
+<p>Maputnik is now online, so load martins tiles into it.</p>
 <ol>
 <li>Visit <a href="http://localhost:8888"><code>http://localhost:8888</code></a></li>
 <li>You first need a style:</li>
 <li>Click <code>Open</code>
      <img alt="where in the UI the &quot;Open&quot; button can be found" src="../images/maputnik/open.png" /></li>
-<li>Select a style you like (we are going to choose <code>Maptiler Basic</code>)
+<li>Select a style you like (this guide chooses <code>Maptiler Basic</code>)
      <img alt="how to select a style" src="../images/maputnik/select-style.png" /></li>
 <li>You now have a style using Maptilers' (<strong>NOT martins</strong>) data.
-   You need to change its datasource to use the tiles we just published:</li>
+   You need to change its datasource to use the tiles you just published:</li>
 <li>Click <code>Data Sources</code>
      <img alt="how to change the datasource" src="../images/maputnik/change-datasource.png" /></li>
 <li>And add the tilejson from above <code>http://localhost:3000/monaco,where_yachts_can_be_looked_at</code>:
      <img alt="how to add the tilejson" src="../images/maputnik/add-tilejson.png" /></li>
-<li>Now, lets zoom into monaco:
+<li>Now, zoom into monaco:
    <img alt="where monaco is on a map" src="../images/maputnik/zoom-into-monaco.png" /></li>
-<li>And finally, lets add a circle layer for our yachts:</li>
+<li>And finally, add a circle layer for the yachts:</li>
 <li>Click <code>Add Layer</code>
      <img alt="add a circle layer" src="../images/maputnik/add-layer.png" /></li>
 <li>Configure the layer as follows:
