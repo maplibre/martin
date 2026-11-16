@@ -805,8 +805,8 @@ fn lines_of<P: HasXY>(parts: &[Vec<P>]) -> Geometry {
     }
 }
 
-/// The rings of a shapefile polygon as polygons: each clockwise ring an outer ring, and each counter-clockwise ring a
-/// hole of the smallest outer ring around it, or an outer ring of its own if none is, as `GeoTools` reads them.
+/// The rings of a shapefile polygon as polygons, as `GeoTools` reads them: each clockwise ring an outer ring, and each
+/// counter-clockwise ring a hole of the only outer ring, else of the smallest one around it, or its own polygon.
 fn polygons_of<P: HasXY>(rings: &[PolygonRing<P>]) -> Geometry {
     let mut shells = Vec::new();
     let mut holes = Vec::new();
