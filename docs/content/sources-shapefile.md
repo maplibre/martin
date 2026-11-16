@@ -9,8 +9,8 @@ tags:
 # Shapefile Sources
 
 !!! note
-    Only the [bulk mode](martin-generate.md) of `martin cp` and [`martin test`](martin-test.md) read these sources;
-    the tile server does not serve them.
+    Only the [bulk mode](martin-generate.md) of `martin cp` and [`martin test`](martin-test.md) can process these sources.
+    The tile serving mode can only serve them after they are brought into a more suitable format.
 
 A `shapefile` source is one ESRI shapefile and the [layers](sources-pg-layers.md) made from it. Martin reads it with
 the [`shapefile`](https://crates.io/crates/shapefile) crate.
@@ -53,8 +53,8 @@ In each tile, the layers of `shapefile` sources come first.
 | `.prj`   | The coordinate system: EPSG:4326 or EPSG:3857; required                                          |
 | `.cpg`   | The text encoding of the `.dbf`; without it, the code page in the header of the `.dbf`           |
 
-The files sit next to the `.shp`, with its name. A `.zip` file must hold exactly one `.shp`, in any folder. Its parts
-are unpacked into the first `--temp-dir` before the run, and deleted when it ends.
+The files sit next to the `.shp`, with its name. A `.zip` file must hold exactly one `.shp`, in any folder. Martin
+unpacks its parts into the first `--temp-dir` before the run, and deletes them when the run ends.
 
 Martin does not reproject: a `.prj` that is neither WGS84 (EPSG:4326) nor Web Mercator (EPSG:3857, also as
 ESRI's `WGS_1984_Web_Mercator_Auxiliary_Sphere`) is refused, and so is a shapefile without a `.prj`.
@@ -86,8 +86,9 @@ Each field of the `.dbf` is a property, `null` where it is empty:
 | Logical                                              | boolean                                       |
 | Date, DateTime                                       | string, `2026-11-15` or `2026-11-15T09:30:00` |
 
-Nothing is pushed down: every record is read, and `where` is checked by Martin. With `--bbox`, records outside the tiles
-it touches are left out; without it, a file of the whole world, such as the ocean polygons, renders the whole world.
+Nothing is pushed down: Martin reads every record and checks `where` itself. With `--bbox`, it leaves out records
+outside the tiles the box touches; without it, a file of the whole world, such as the ocean polygons, renders the
+whole world.
 
 ## Draw order
 
