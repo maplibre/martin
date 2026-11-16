@@ -147,8 +147,8 @@ pub struct Search {
     pub rows: IndexMap<(String, RowKey), ReadRow>,
 }
 
-/// Finds a row on each path through the layers of `tables`: the first row found so far that takes it, else the row
-/// of `old`'s case on it while it still takes the path, else one the backend selects that takes it, else the first of
+/// Finds a row on each path through the layers of `tables`: the row of `old`'s case on it while it still takes the
+/// path, else the first row found so far that takes it, else one the backend selects that takes it, else the first of
 /// a sweep over at most `sweep_rows` rows. Each row lists the paths it was found for first.
 ///
 /// A spec written from the rows found is found again as it is, as the first of its cases on each path is the row
@@ -176,12 +176,11 @@ pub async fn find_rows<B: TestBackend>(
             report.working(format_args!("{source} {branch}"));
             let started = Instant::now();
             let kept = case_on(old, source, &branch).and_then(|case| case.id(&ids));
-            let (row, read) = if let Some(key) = first_on(&search.rows, source, &branch) {
-                (Ok(RowSearch::Shared(key)), None)
-            } else if table.key.is_none() {
-                (Ok(RowSearch::NoKey), None)
-            } else {
-                search_row(backend, table, &branch, kept).await?
+            let shared = first_on(&search.rows, source, &branch);
+            let (row, read) = match (shared, &table.key) {
+                (None, None) => (Ok(RowSearch::NoKey), None),
+                (Some(key), None) => (Ok(RowSearch::Shared(key)), None),
+                (_, Some(_)) => search_row(backend, table, &branch, kept, shared).await?,
             };
             if let Some(read) = read {
                 search.rows.entry((source.clone(), read.key)).or_insert(read);
@@ -232,6 +231,7 @@ pub async fn find_rows<B: TestBackend>(
         for ((i, because), hit) in swept.into_iter().zip(hits) {
             let found = &mut search.found[i];
             found.row = match hit {
+                _ if let Some(key) = first_on(&search.rows, source, &found.branch) => RowSearch::Shared(key),
                 Some(row) => {
                     let key = row.key;
                     search.rows.entry((source.clone(), key)).or_insert(row);
@@ -254,13 +254,14 @@ pub async fn find_rows<B: TestBackend>(
     Ok(search)
 }
 
-/// The row on `branch` of `table` without a sweep: row `kept` of the spec while it still takes the path, else one the
-/// backend selects; else the misses that leave the path to a sweep.
+/// The row on `branch` of `table` without a sweep: row `kept` of the spec while it still takes the path, else row
+/// `shared` found for another path, else one the backend selects; else the misses that leave the path to a sweep.
 async fn search_row<B: TestBackend>(
     backend: &B,
     table: &TestTable,
     branch: &Branch,
     kept: Option<RowKey>,
+    shared: Option<RowKey>,
 ) -> GenerateResult<(Result<RowSearch, Vec<Miss>>, Option<ReadRow>)> {
     let path = branch.to_string();
     let mut because = Vec::new();
@@ -270,6 +271,9 @@ async fn search_row<B: TestBackend>(
             Some(_) => because.push(Miss::SpecRowOffPath(key)),
             None => because.push(Miss::SpecRowGone(key)),
         }
+    }
+    if let Some(key) = shared {
+        return Ok((Ok(RowSearch::Shared(key)), None));
     }
     let condition = match &branch.rows {
         Ok(condition) => condition,
