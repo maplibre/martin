@@ -179,6 +179,8 @@ layers:
     where: "amenity == 'cafe'"
 ```
 
+This layer draws a cafe point as itself and a cafe polygon as a point on its surface, and leaves out cafe lines.
+
 ## Attributes
 
 Without `attributes`, a layer writes all of the table source's properties. `[]` writes none.
