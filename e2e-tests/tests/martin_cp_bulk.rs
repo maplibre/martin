@@ -1162,7 +1162,7 @@ async fn skips_a_source_with_no_zoom_in_range() {
     insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!(metadata, @r#"
         agg_tiles_hash = E0468BC04F4DE5AE1C2E0CC5B1FE4284
-        bounds = -179.2731475830078,-80.46177673339844,179.11187744140625,84.93092346191406
+        bounds = -179.2731475830078,-67.52519226074219,162.60118103027344,84.93092346191406
         format = mlt
         generator = martin cp v[VERSION] (bulk)
         hash_algorithm = md5

@@ -585,14 +585,14 @@ async fn discover(config: &Config) -> GenerateResult<Discovered> {
 }
 
 /// Discovers the table sources and lowers the requested ones, within `--bbox` or else the bounds of the
-/// requested sources, which it returns too.
+/// lowered sources, which it returns too.
 async fn select_sources(
     config: &Config,
     options: &GenerateOptions,
 ) -> GenerateResult<(PostgresPool, Vec<ScanTable>, Option<Bounds>)> {
     let Discovered {
         mut builders,
-        mut tables,
+        tables,
         functions,
     } = discover(config).await?;
     let global = ProcessConfig {
@@ -605,22 +605,9 @@ async fn select_sources(
     } else {
         options.sources.clone()
     };
-
-    let bounds = if options.bbox.is_some() {
-        options.bbox
-    } else {
-        let mut all = Vec::with_capacity(requested.len());
-        for id in &requested {
-            if let Some((info, pool_idx)) = tables.get_mut(id) {
-                builders[*pool_idx].resolve_bounds(id, info).await?;
-                all.push(info.to_tilejson(id.clone()).bounds);
-            }
-        }
-        source_bounds(all)
-    };
     let lower = LowerOptions {
         zooms: options.zooms.clone(),
-        bounds,
+        bounds: options.bbox,
         encoder: None,
         order_by: None,
     };
@@ -679,6 +666,20 @@ async fn select_sources(
     if scans.is_empty() {
         return Err(GenerateError::NoLayers(*options.zooms.start(), *options.zooms.end()));
     }
+    let bounds = if options.bbox.is_some() {
+        options.bbox
+    } else {
+        let mut all = Vec::with_capacity(scans.len());
+        for scan in &mut scans {
+            builders[pool].resolve_bounds(&scan.id, &mut scan.info).await?;
+            all.push(scan.info.to_tilejson(scan.id.clone()).bounds);
+        }
+        let bounds = source_bounds(all);
+        for layer in scans.iter_mut().flat_map(|scan| &mut scan.def.layers) {
+            layer.bounds = bounds;
+        }
+        bounds
+    };
     Ok((builders.swap_remove(pool).pool().clone(), scans, bounds))
 }
 

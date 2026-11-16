@@ -156,7 +156,7 @@ workers are `--threads`), `--save-config`, and `max_feature_count` in the config
 `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads` and `--mvt-quirk`.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers. Without it, one box
-holding the `bounds` of every source picks them, or the whole world if a source has none.
+holding the `bounds` of every source with a zoom to render picks them, or the whole world if one has none.
 The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.
 Each zoom lower reads up to four times the area, and zooms below `--min-zoom` do not count.
 For a small box, raise `--min-zoom` to keep the scan close to it.
