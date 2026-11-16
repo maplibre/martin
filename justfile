@@ -396,9 +396,9 @@ clean: stop ui::clean
     cargo clean -p static-files
     cargo clean
 
-# Run cargo clippy to lint the code
+# Run cargo clippy to lint the code (with `rendering` on Linux, the only platform it builds on)
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb{{ if os() == "linux" { ",martin/rendering" } else { "" } }} {{args}}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
