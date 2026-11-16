@@ -676,6 +676,7 @@ pub(crate) struct PlannedTable {
 pub(crate) struct PlannedRelationSet {
     pub(crate) def: RelationSetDef,
     /// The relations the set holds, by their tags.
+    #[cfg_attr(not(feature = "osm"), expect(dead_code, reason = "only the OSM reader reads relation sets"))]
     pub(crate) filter: CompiledExpr,
 }
 
@@ -926,6 +927,7 @@ impl Plan {
     /// # Panics
     ///
     /// If the plan has no table `table`.
+    #[cfg(feature = "osm")]
     pub(crate) fn relation_sets(&self, table: usize) -> &[PlannedRelationSet] {
         &self.tables[table].relation_sets
     }

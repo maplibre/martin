@@ -71,7 +71,7 @@ impl<'p> SetFilters<'p> {
             .map(|set| {
                 let columns: Option<Vec<String>> =
                     (!set.filter.needs_all_keys()).then(|| set.filter.columns().map(str::to_owned).collect());
-                let keys = columns.as_deref().map(ExprKeys::columns).unwrap_or_default();
+                let keys = columns.as_deref().map_or_default(ExprKeys::columns);
                 let condition = columns.as_ref().and_then(|columns| {
                     let defs: Vec<ColumnDef> = columns
                         .iter()
