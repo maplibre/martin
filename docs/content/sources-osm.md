@@ -46,6 +46,7 @@ A run renders `osm` and [`shapefile`](sources-shapefile.md) sources together, or
 |---------------------------------------|----------------------------------------------------------------------|
 | `path`                                | The `.osm.pbf` file                                                  |
 | `tags`                                | The tag keys the layers read, each a string property                 |
+| `relations`                           | Named [relation sets](#relation-membership) that members can read    |
 | `layers`                              | Output layers, as for [table sources](sources-pg-layers.md)          |
 | `minzoom`, `maxzoom`                  | Narrow the zooms of `--min-zoom` and `--max-zoom`                    |
 | `extent`, `buffer`, `clip_geom`       | Defaults for the contained layers                                    |
@@ -54,11 +55,11 @@ A run renders `osm` and [`shapefile`](sources-shapefile.md) sources together, or
 
 | OSM object                                           | Feature                      | `osm_type` | Feature id  |
 |------------------------------------------------------|------------------------------|------------|-------------|
-| Node with tags                                       | point                        | `node`     | id * 10 + 1 |
-| Way with tags                                        | line, polygon or both, below | `way`      | id * 10 + 2 |
+| Node with tags, or a member of a relation set        | point                        | `node`     | id * 10 + 1 |
+| Way with tags, or a member of a relation set         | line, polygon or both, below | `way`      | id * 10 + 2 |
 | Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon      | `relation` | id * 10 + 3 |
 
-Martin leaves out objects without tags, and other relations.
+Martin leaves out objects without tags that are in no [relation set](#relation-membership), and other relations.
 Martin reads a way as Planetiler does, whatever its other tags:
 
 | Way                                     | Polygon | Line |
@@ -85,6 +86,59 @@ Each key in `tags` is a string property, `null` where the object does not have t
 An expression reading a key not in `tags` fails the run. A tag such as `name:en` is read with
 `feature['name:en']`.
 
+## Relation membership
+
+A node or way can read the relations it is a member of, as Planetiler's `relationInfo` does.
+`relations` names sets of relations. Each set has a `where` over the relation's tags and the `tags` its members see.
+
+```yaml
+osm:
+  sources:
+    omt:
+      path: berlin-latest.osm.pbf
+      tags: [highway, name]
+      relations:
+        admin:
+          where: "type == 'boundary' && boundary == 'administrative'"
+          tags: [admin_level, disputed, name]
+        route:
+          where: "type == 'route' && route in ['road', 'hiking']"
+          tags: [network, ref, name, colour]
+      layers:
+        boundary:
+          geometry: line
+          where: "size(relations.admin) > 0"
+          attributes:
+            admin_level: "relations.admin.map(r, int(r.admin_level)).min()"
+        roads:
+          geometry: line
+          where: "highway != null"
+          attributes:
+            highway: highway
+            network: "size(relations.route) > 0 ? relations.route[0].network : null"
+```
+
+In layer expressions, `relations.<set>` is a list with one map per relation of the set the object is a member of:
+
+| Key                | Value                                                          |
+|--------------------|----------------------------------------------------------------|
+| each of the `tags` | The relation's tag, a string, `null` where it does not have it |
+| `id`               | The relation's OSM id                                          |
+| `role`             | The object's role in the relation, `''` without one            |
+
+- The list is ordered by relation id. An object in the same relation with two roles sees it twice, once per role.
+- An object in no relation of the set gets an empty list. Naming a set that `relations` does not define fails the run.
+- A node or way without tags is read when it is a member of a relation of some set, with every tag `null`, so a
+  layer of lines can draw the member ways of boundaries.
+- Only nodes and ways see their relations. A relation drawn as a polygon gets empty lists.
+- `list.min()` and `list.max()`, or `min(list)` and `max(list)`, give the smallest and largest element, `null` for an
+  empty list. `min(a, b)` and `max(a, b)` compare their arguments.
+- A set's `tags` cannot be `id` or `role`.
+
+The relations of the sets, and which nodes and ways are their members, are found while the relations are read
+before the nodes and ways, in the same pass that reads the `multipolygon` and `boundary` relations. Memory grows with
+the number of members: about 16 bytes per membership.
+
 ## Reading only what the layers take
 
 The `where` and `geometry` of every layer are checked while the file is read, as PostgreSQL checks them for table
@@ -99,6 +153,9 @@ sources:
 
 This needs the same equivalent of `where` as [table sources](sources-pg-layers.md#features) do. Without one, Martin
 reads every tagged object and checks `where` itself, with the same result.
+A `where` can read `relations` as `size(relations.<set>) > 0` or `size(relations.<set>) == 0`: the object is checked
+against the members the relation pass found, but no block is skipped for it. Any other use of `relations` in a
+`where` has no equivalent, and Martin then reads every object that is tagged or a member of a relation set.
 
 ## Node locations
 

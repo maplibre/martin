@@ -40,6 +40,7 @@ fn feature(plan: &Plan) -> SourceFeature {
         id: None,
         geometry: Geometry::Points(POINT.to_vec()),
         props,
+        relations: Vec::new(),
     }
 }
 

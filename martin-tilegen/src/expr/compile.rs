@@ -9,6 +9,7 @@ use super::area::AreaUnit;
 use super::env::{AREA, SHARED, Shared};
 use super::fast::FastExpr;
 use super::{FEATURE, FeatureView};
+use crate::plan::RELATIONS;
 
 const OPERATORS: [&str; 21] = [
     operators::CONDITIONAL,
@@ -46,6 +47,10 @@ pub enum ExprError {
     #[error("`{expr}` references unknown property `{name}`")]
     UnknownProperty { expr: String, name: String },
 
+    /// `relations.<set>` naming a set the table does not have.
+    #[error("`{expr}` reads unknown relation set `{name}`")]
+    UnknownRelationSet { expr: String, name: String },
+
     /// `area` called on a target or without exactly one unit.
     #[error("`{expr}` must call `area` with one unit and no target, e.g. `area('m2')`")]
     AreaCall { expr: String },
@@ -72,6 +77,17 @@ impl CompiledExpr {
     /// `columns` are the known property names. With `dynamic_props`, any other identifier is a property
     /// too, else it is an error.
     pub fn compile<S: AsRef<str>>(source: &str, columns: &[S], dynamic_props: bool) -> Result<Self, ExprError> {
+        Self::compile_with_relations(source, columns, dynamic_props, &[] as &[&str])
+    }
+
+    /// [`compile`](Self::compile), where `relations.<set>` reads the relations of each of `relation_sets` that the
+    /// feature is a member of; without sets, `relations` is a property like any other.
+    pub fn compile_with_relations<S: AsRef<str>, R: AsRef<str>>(
+        source: &str,
+        columns: &[S],
+        dynamic_props: bool,
+        relation_sets: &[R],
+    ) -> Result<Self, ExprError> {
         let shared = &*SHARED;
         let mut expr = shared.env.parser().parse(source).map_err(|e| ExprError::Parse {
             expr: source.to_owned(),
@@ -81,6 +97,7 @@ impl CompiledExpr {
             shared,
             known: columns.iter().map(AsRef::as_ref).collect(),
             dynamic_props,
+            relation_sets: relation_sets.iter().map(AsRef::as_ref).collect(),
             bound: Vec::new(),
             columns: BTreeSet::new(),
             needs_all_keys: false,
@@ -167,6 +184,8 @@ where
 enum WalkError {
     Function(String),
     Property(String),
+    /// `relations.<set>` of a set the table does not have.
+    RelationSet(String),
     /// A call of `area` that is not `area(unit)`.
     AreaCall,
     /// A literal unit of `area` that is no area unit.
@@ -179,6 +198,7 @@ impl WalkError {
         match self {
             Self::Function(name) => ExprError::UnknownFunction { expr, name },
             Self::Property(name) => ExprError::UnknownProperty { expr, name },
+            Self::RelationSet(name) => ExprError::UnknownRelationSet { expr, name },
             Self::AreaCall => ExprError::AreaCall { expr },
             Self::AreaUnit(unit) => ExprError::UnknownAreaUnit { expr, unit },
         }
@@ -189,6 +209,8 @@ struct Analyzer<'a> {
     shared: &'a Shared,
     known: BTreeSet<&'a str>,
     dynamic_props: bool,
+    /// The names of the table's relation sets; `relations` is a property when there are none.
+    relation_sets: BTreeSet<&'a str>,
     bound: Vec<String>,
     columns: BTreeSet<String>,
     needs_all_keys: bool,
@@ -203,6 +225,13 @@ impl Analyzer<'_> {
 
     fn is_feature(&self, expr: &IdedExpr) -> bool {
         matches!(&expr.expr, Expr::Ident(name) if name == FEATURE) && !self.is_bound(FEATURE)
+    }
+
+    /// Whether `expr` is `relations`, the relation sets of a table that has some.
+    fn is_relations(&self, expr: &IdedExpr) -> bool {
+        matches!(&expr.expr, Expr::Ident(name) if name == RELATIONS)
+            && !self.relation_sets.is_empty()
+            && !self.is_bound(RELATIONS)
     }
 
     fn key(&mut self, name: &str) -> Result<(), WalkError> {
@@ -237,6 +266,7 @@ impl Analyzer<'_> {
         let id = expr.id;
         match &mut expr.expr {
             Expr::Unspecified | Expr::Literal(_) => Ok(()),
+            Expr::Ident(name) if name == RELATIONS && !self.relation_sets.is_empty() && !self.is_bound(name) => Ok(()),
             Expr::Ident(name) => {
                 if self.is_bound(name) {
                     Ok(())
@@ -251,6 +281,12 @@ impl Analyzer<'_> {
                 } else {
                     self.key(name)
                 }
+            }
+            Expr::Select(select) if self.is_relations(&select.operand) => {
+                if !self.relation_sets.contains(select.field.as_str()) {
+                    return Err(WalkError::RelationSet(select.field.clone()));
+                }
+                Ok(())
             }
             Expr::Select(select) => {
                 if self.is_feature(&select.operand) {

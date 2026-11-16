@@ -558,7 +558,7 @@ pub fn lower_source(
     }
     let static_columns: Vec<&str> = columns
         .iter()
-        .filter(|column| !matches!(column, ColumnDef::Keys(_)))
+        .filter(|column| matches!(column, ColumnDef::Value(..)))
         .map(ColumnDef::name)
         .collect();
     let layers = match source.layers {

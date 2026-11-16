@@ -12,6 +12,7 @@ use martin_tilegen::{LayerGrid, TileFormat, render_block};
 use mlt_core::{Decoder, Parser};
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "each feature literal also names its relations")]
 fn definitions_of_one_output_layer_meet_in_one_tile_layer_by_definition_then_source_order() {
     let park = |id, lon: f64, name: &str| SourceFeature {
         id: Some(id),
@@ -29,6 +30,7 @@ fn definitions_of_one_output_layer_meet_in_one_tile_layer_by_definition_then_sou
             (KeyId::new(0), Prop::Str("park".into())),
             (KeyId::new(1), Prop::Str(name.into())),
         ],
+        relations: Vec::new(),
     };
     let mut batches = vec![FeatureBatch {
         table: 0,
@@ -121,6 +123,7 @@ fn an_output_layer_sorts_and_limits_the_features_of_all_its_definitions() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(rank))],
+        relations: Vec::new(),
     };
     let mut batches = vec![FeatureBatch {
         table: 0,
@@ -205,6 +208,7 @@ fn a_fill_covers_the_buffer_of_the_definition_that_drew_it() {
             Vec::new(),
         )]),
         props: Vec::new(),
+        relations: Vec::new(),
     };
     let mut batches = vec![FeatureBatch {
         table: 0,
