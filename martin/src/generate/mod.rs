@@ -266,6 +266,9 @@ pub enum GenerateError {
         "`martin test` tests file sources (`osm`, `shapefile`) or database sources, not both; put them in separate configuration files"
     )]
     MixedTestSources,
+    #[cfg(all(feature = "osm", feature = "shapefile"))]
+    #[error("Source id `{source_id}` is both a `shapefile` and an `osm` source; give them different ids")]
+    SharedFileSourceId { source_id: String },
     #[cfg(feature = "shapefile")]
     #[error("Source `{source_id}` has a field `{field}`, which `martin test` keeps the record number in")]
     ShapefileRecordField { source_id: String, field: String },
@@ -432,6 +435,24 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     run(source, options, metadata, progress, monitor, started, geometry_finders).await
 }
 
+/// Fails if a source id is both a `shapefile` and an `osm` source.
+///
+/// # Errors
+///
+/// If `config` has such an id.
+#[cfg(all(feature = "osm", feature = "shapefile"))]
+pub fn check_file_source_ids(config: &Config) -> GenerateResult<()> {
+    match config
+        .shapefile
+        .sources
+        .keys()
+        .find(|id| config.osm.sources.contains_key(*id))
+    {
+        Some(id) => Err(GenerateError::SharedFileSourceId { source_id: id.clone() }),
+        None => Ok(()),
+    }
+}
+
 /// The ids of the file sources the run renders, shapefile and OSM sources, in the order `--source` names them; empty
 /// if it renders database sources.
 ///
@@ -439,6 +460,8 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
 ///
 /// If the run asks for file sources and database sources together.
 fn file_sources(config: &Config, options: &GenerateOptions) -> GenerateResult<Vec<String>> {
+    #[cfg(all(feature = "osm", feature = "shapefile"))]
+    check_file_source_ids(config)?;
     #[cfg_attr(
         not(any(feature = "osm", feature = "shapefile")),
         expect(unused_mut, reason = "this build reads no kind of file source")

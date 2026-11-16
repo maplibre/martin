@@ -214,3 +214,31 @@ fn a_shapefile_with_a_field_named_record_is_refused() {
     let error = Shapefiles::load(&config).err().unwrap();
     insta::assert_snapshot!(error, @"Source `places` has a field `record`, which `martin test` keeps the record number in");
 }
+
+#[test]
+fn a_source_id_in_shapefile_and_osm_is_refused() {
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures");
+    let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    config
+        .write_all(
+            formatdoc! {"
+                shapefile:
+                  sources:
+                    water:
+                      path: {fixtures}/shapefile/ocean.zip
+                      layers:
+                        ocean: {{}}
+                osm:
+                  sources:
+                    water:
+                      path: {fixtures}/osm/monaco.osm.pbf
+                      tags: [natural]
+                      layers:
+                        lakes: {{}}
+            "}
+            .as_bytes(),
+        )
+        .unwrap();
+    let error = Files::load(config.path()).err().unwrap();
+    insta::assert_snapshot!(error, @"Source id `water` is both a `shapefile` and an `osm` source; give them different ids");
+}
