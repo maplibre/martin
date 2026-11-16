@@ -203,7 +203,8 @@ async fn shortbread_snippet_renders_planetiler_examples() {
             OneOrMany::Many(many) => many.as_slice(),
         };
         let mut actual = outputs(&tiles);
-        if example.input.geometry == "polygon" || example.input.geometry.starts_with("POLYGON") {
+        let polygon = example.input.geometry == "polygon" || example.input.geometry.starts_with("POLYGON");
+        if kind == 2 && polygon && tags.get("area") != Some(&Value::from("yes")) {
             actual.retain(|output| output.geometry.to_string() != "line");
         }
         let issues = issues(expected, actual);
