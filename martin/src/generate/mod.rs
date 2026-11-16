@@ -714,13 +714,8 @@ async fn select_sources(
             convert_to_mvt: info.convert_to_mvt.clone(),
             ..ProcessConfig::default()
         };
-        let encoder = match ProcessConfig::layered(&global, &per_connection, &per_table).convert_to_mlt {
-            Some(MltProcessConfig::Explicit(cfg)) => Some(EncoderConfig::from(cfg)),
-            Some(MltProcessConfig::Disabled) if matches!(options.format, TileFormat::Mlt) => {
-                return Err(GenerateError::MltDisabled { source_id: id });
-            }
-            _ => None,
-        };
+        let convert = ProcessConfig::layered(&global, &per_connection, &per_table).convert_to_mlt;
+        let encoder = mlt_encoder(convert, options.format, &id)?;
         scans.extend(lower_table(
             &id,
             info.clone(),
@@ -771,6 +766,25 @@ fn source_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) -> Option<Bou
         info!(bounds = %bounds, "No bbox specified, using source bounds");
     }
     union
+}
+
+/// The MLT encoder settings of a source's `convert_to_mlt`, or `None` for the defaults.
+///
+/// # Errors
+///
+/// If MLT conversion is disabled for a source that is written as MLT.
+fn mlt_encoder(
+    convert: Option<MltProcessConfig>,
+    format: TileFormat,
+    source_id: &str,
+) -> GenerateResult<Option<EncoderConfig>> {
+    match convert {
+        Some(MltProcessConfig::Explicit(cfg)) => Ok(Some(EncoderConfig::from(cfg))),
+        Some(MltProcessConfig::Disabled) if matches!(format, TileFormat::Mlt) => Err(GenerateError::MltDisabled {
+            source_id: source_id.to_owned(),
+        }),
+        _ => Ok(None),
+    }
 }
 
 /// Ctrl-C and `SIGTERM` (Ctrl+Break on Windows), registered before the output exists so that neither can leave it behind.

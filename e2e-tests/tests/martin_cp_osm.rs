@@ -162,3 +162,107 @@ async fn a_file_with_node_ids_out_of_order_is_refused() {
     insta::assert_snapshot!(last.replace(&path.display().to_string(), "unsorted.osm.pbf"), @"ERROR Cannot read unsorted.osm.pbf: node IDs must be loaded in ascending order: 1 after 2");
     assert!(!output.exists());
 }
+
+#[tokio::test]
+async fn encodes_with_the_configured_convert_to_mlt_settings() {
+    let dir = temp_dir();
+    let default_config = dir.path().join("default.yaml");
+    fs::write(
+        &default_config,
+        formatdoc! {"
+            osm:
+              sources:
+                monaco:
+                  path: {path}
+                  tags: [building]
+                  layers:
+                    buildings:
+                      geometry: polygon
+                      where: \"building != null\"
+                      attributes: []
+        ", path = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let tessellated_config = dir.path().join("tessellated.yaml");
+    fs::write(
+        &tessellated_config,
+        formatdoc! {"
+            convert_to_mlt:
+              tessellate: true
+            osm:
+              sources:
+                monaco:
+                  path: {path}
+                  tags: [building]
+                  layers:
+                    buildings:
+                      geometry: polygon
+                      where: \"building != null\"
+                      attributes: []
+        ", path = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let default_output = dir.path().join("default.mbtiles");
+    MartinCp::bulk()
+        .arg("--config")
+        .arg(&default_config)
+        .arg("--output-file")
+        .arg(&default_output)
+        .arg("--encoding")
+        .arg("none")
+        .arg("--min-zoom")
+        .arg("12")
+        .arg("--max-zoom")
+        .arg("12")
+        .run()
+        .await;
+    let tessellated_output = dir.path().join("tessellated.mbtiles");
+    MartinCp::bulk()
+        .arg("--config")
+        .arg(&tessellated_config)
+        .arg("--output-file")
+        .arg(&tessellated_output)
+        .arg("--encoding")
+        .arg("none")
+        .arg("--min-zoom")
+        .arg("12")
+        .arg("--max-zoom")
+        .arg("12")
+        .run()
+        .await;
+    let listings = format!(
+        "default:\n{}\ntessellated:\n{}",
+        tile_listing(&default_output).await,
+        tile_listing(&tessellated_output).await
+    );
+    insta::assert_snapshot!(listings);
+}
+
+#[tokio::test]
+async fn refuses_mlt_output_with_mlt_conversion_disabled() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        formatdoc! {"
+            convert_to_mlt: disabled
+            osm:
+              sources:
+                monaco:
+                  path: {path}
+                  layers:
+                    everything: {{}}
+        ", path = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let stderr = MartinCp::bulk()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(stderr.lines().last().unwrap_or_default(), @"ERROR Source `monaco` sets `convert_to_mlt: disabled`, but `--mode bulk` writes MLT unless given `--format mvt`");
+    assert!(!output.exists());
+}

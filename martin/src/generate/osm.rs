@@ -5,7 +5,7 @@ use martin_tilegen::plan::TableDef;
 
 use super::layers::{LowerOptions, SourceSettings, lower_source};
 use super::postgres::scan_bbox;
-use super::{GenerateError, GenerateOptions, GenerateResult};
+use super::{GenerateError, GenerateOptions, GenerateResult, mlt_encoder};
 use crate::config::file::Config;
 
 /// The smallest and largest partition of a file, in bytes.
@@ -36,12 +36,6 @@ pub fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateRes
     if !others.is_empty() {
         return Err(GenerateError::MixedSources);
     }
-    let lower = LowerOptions {
-        zooms: options.zooms.clone(),
-        bounds: options.bbox,
-        encoder: None,
-        order_by: None,
-    };
     let temp_dir = options.temp_dirs.first().cloned().unwrap_or_else(std::env::temp_dir);
     let mut tables = Vec::with_capacity(ours.len());
     for id in ours {
@@ -54,6 +48,12 @@ pub fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateRes
             clip_geom: source.clip_geom,
             layer_id: None,
             layers: Some(&source.layers),
+        };
+        let lower = LowerOptions {
+            zooms: options.zooms.clone(),
+            bounds: options.bbox,
+            encoder: mlt_encoder(config.convert_to_mlt.clone(), options.format, id)?,
+            order_by: None,
         };
         let Some(def) = lower_source(id, &settings, columns(&source.tags), &lower)? else {
             continue;

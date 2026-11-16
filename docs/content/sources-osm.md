@@ -11,7 +11,7 @@ tags:
 
 !!! note
     Only the [bulk mode](martin-generate.md) of `martin cp` can process these sources.
-    The tile serving mode can only serve them after they are brought into a more suitible format.
+    The tile serving mode can only serve them after they are brought into a more suitable format.
 
 This source allows reading one `.osm.pbf` file using [layers](sources-pg-layers.md).
 
