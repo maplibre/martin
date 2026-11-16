@@ -383,7 +383,10 @@ osm:
             aerialway == 'station' || aeroway in ['aerodrome', 'helipad'] || amenity in ['bus_station',
             'ferry_terminal'] || highway == 'bus_stop' || railway in ['station', 'halt', 'tram_stop']
           attributes:
-            kind: "coalesce(aeroway, amenity, railway, highway, 'aerialway_station')"
+            kind: >-
+              aeroway in ['aerodrome', 'helipad'] ? aeroway : amenity in ['bus_station', 'ferry_terminal'] ? amenity :
+              railway in ['station', 'halt', 'tram_stop'] ? railway : highway == 'bus_stop' ? highway :
+              'aerialway_station'
             name: name
             name_en: "feature['name:en']"
             name_de: "feature['name:de']"
