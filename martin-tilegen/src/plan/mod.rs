@@ -67,6 +67,14 @@ pub enum PlanError {
     #[error("layer `{layer}`: its `geometry` entries draw different geometry types")]
     MixedGeometry { layer: String },
 
+    /// A grid's rank offset so large that a point's rank does not fit an `i64`.
+    #[error("layer `{layer}`: a rank of `{attribute}` from `rank_offset` {offset} does not fit a 64-bit integer")]
+    RankOverflow {
+        layer: String,
+        attribute: String,
+        offset: i64,
+    },
+
     #[error("layer `{layer}`: `{op}` groups by `{attribute}`, which the layer does not write")]
     UnknownGroupBy {
         layer: String,
@@ -1144,8 +1152,8 @@ impl OutputDraft {
             layers[layer].rekey(&map);
         }
         let output_props = self.layers.iter().any(|&layer| own_keys[layer].1);
-        check_group_by(&self, &keys, output_props)?;
         add_rank_keys(&self, &mut keys);
+        check_group_by(&self, &keys, output_props)?;
         let per_tile = plan_per_tile(&self, &keys, output_props, exprs)?;
         Ok(PlannedOutput {
             info: LayerInfo {
@@ -1380,16 +1388,26 @@ fn plan_per_tile(
                     })
                     .collect::<Result<_, PlanError>>()?,
                 method: match method {
-                    ThinningMethod::Grid { rank, .. } => PlannedThinning::Grid(rank.as_ref().map(|rank| {
-                        PlannedRank {
-                            key: key_id(
-                                keys.iter()
-                                    .position(|key| *key == rank.attribute)
-                                    .expect("OutputDraft::plan adds every rank attribute to the keys"),
-                            ),
-                            offset: rank.offset,
+                    ThinningMethod::Grid { limit, rank, .. } => PlannedThinning::Grid(match rank {
+                        Some(rank) => {
+                            if rank.offset.checked_add(i64::from(limit.get())).is_none() {
+                                return Err(PlanError::RankOverflow {
+                                    layer: name.clone(),
+                                    attribute: rank.attribute.clone(),
+                                    offset: rank.offset,
+                                });
+                            }
+                            Some(PlannedRank {
+                                key: key_id(
+                                    keys.iter()
+                                        .position(|key| *key == rank.attribute)
+                                        .expect("OutputDraft::plan adds every rank attribute to the keys"),
+                                ),
+                                offset: rank.offset,
+                            })
                         }
-                    })),
+                        None => None,
+                    }),
                     ThinningMethod::Distance { distance } => PlannedThinning::Distance(distance * units),
                     ThinningMethod::Tile => PlannedThinning::Tile,
                 },
