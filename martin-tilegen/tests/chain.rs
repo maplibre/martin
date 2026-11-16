@@ -167,7 +167,7 @@ fn chained_sources_cannot_share_a_layer_name() {
 fn a_chain_reader_reads_each_source_through_that_sources_own_readers() {
     struct Pooled;
 
-    struct PooledReader(u64);
+    struct PooledReader(i64);
 
     impl FeatureReader for PooledReader {
         fn read(
