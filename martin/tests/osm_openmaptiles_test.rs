@@ -172,6 +172,10 @@ fn issues(expected: &[Expected], mut actual: Vec<Output<'_>>, zoom: u8) -> Vec<S
 }
 
 #[tokio::test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "takes minutes without optimizations; `just test-omt` runs it in release"
+)]
 async fn openmaptiles_snippet_renders_planetiler_examples() {
     let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures");
     let snippet = std::fs::read_to_string(concat!(
