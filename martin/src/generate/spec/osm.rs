@@ -2,12 +2,12 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use martin_tilegen::TileGenError;
 use martin_tilegen::osm::{NodeStore, OSM_TYPE, Objects, OsmSource};
 use martin_tilegen::plan::{ColumnFacts, Condition, Literal, Shape};
 use martin_tilegen::source::{FeatureSource as _, SourceError};
-use tokio::sync::OnceCell;
 
 use crate::config::file::osm::OsmSourceConfig;
 use crate::config::file::{Config, read_config};
@@ -27,10 +27,10 @@ pub struct Osm {
     temp_dir: PathBuf,
 }
 
-/// One `osm` source, and the node locations of its file once a read needed them.
+/// One `osm` source, and the node store its reads share once one opened it.
 struct Source {
     config: OsmSourceConfig,
-    nodes: OnceCell<NodeStore>,
+    nodes: OnceLock<NodeStore>,
 }
 
 impl Osm {
@@ -60,7 +60,7 @@ impl Osm {
             .sources
             .into_iter()
             .map(|(id, config)| {
-                let nodes = OnceCell::new();
+                let nodes = OnceLock::new();
                 (id, Source { config, nodes })
             })
             .collect();
@@ -77,17 +77,7 @@ impl Osm {
             return Err(GenerateError::UnknownSource(table.source.clone(), known.join(", ")));
         };
         let mut osm = self::table(&source.config, &table.def, &self.temp_dir, objects)?;
-        let nodes = source
-            .nodes
-            .get_or_try_init(|| {
-                let (store, path) = (osm.node_store.clone(), osm.path.clone());
-                async move {
-                    let loaded = tokio::task::spawn_blocking(move || store.load(&path)).await?;
-                    loaded.map_err(|error| GenerateError::TileGen(error.into()))
-                }
-            })
-            .await?;
-        osm.node_store = nodes.clone();
+        osm.node_store = source.nodes.get_or_init(|| osm.node_store.clone().shared()).clone();
         let tables = vec![(table.def.clone(), osm)];
         let bytes = partition_bytes(&tables, 1);
         Ok(tokio::task::spawn_blocking(move || OsmSource::new(tables, bytes)).await??)

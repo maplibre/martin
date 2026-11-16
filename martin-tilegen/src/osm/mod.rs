@@ -54,28 +54,48 @@ pub enum NodeStore {
     Memory,
     /// A file in this directory, about 5 bytes per node, deleted once the run ends.
     Paged(PathBuf),
-    /// Locations loaded already by [`NodeStore::load`], shared by every read of the file.
-    Loaded(LoadedNodes),
+    /// Locations shared by every read of the file, loaded by the first read that needs them.
+    Shared(SharedNodes),
 }
 
-/// The node locations of one file, loaded once for several reads of it.
+/// The node locations of one file, loaded once for several reads of it by the first that needs them.
 #[derive(Clone)]
-pub struct LoadedNodes(Arc<Store>);
+pub struct SharedNodes {
+    /// The directory of a paged store, or `None` for one in memory.
+    paged: Option<PathBuf>,
+    /// The locations, once a read loaded them.
+    store: Arc<Mutex<Option<Arc<Store>>>>,
+}
 
-impl fmt::Debug for LoadedNodes {
+impl SharedNodes {
+    /// The locations of every node of the file at `path`, loaded from `file` unless an earlier read did.
+    fn get(&self, file: &PbfReader, path: &Path) -> Result<Arc<Store>, OsmError> {
+        let mut store = self.store.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(store) = &*store {
+            return Ok(Arc::clone(store));
+        }
+        let loaded = Arc::new(load_nodes(file, path, self.paged.as_deref())?);
+        *store = Some(Arc::clone(&loaded));
+        Ok(loaded)
+    }
+}
+
+impl fmt::Debug for SharedNodes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LoadedNodes").finish_non_exhaustive()
+        f.debug_struct("SharedNodes")
+            .field("paged", &self.paged)
+            .finish_non_exhaustive()
     }
 }
 
-/// Two loads are equal when they are the same load.
-impl PartialEq for LoadedNodes {
+/// Two shared stores are equal when they are the same store.
+impl PartialEq for SharedNodes {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0)
+        Arc::ptr_eq(&self.store, &other.store)
     }
 }
 
-impl Eq for LoadedNodes {}
+impl Eq for SharedNodes {}
 
 impl NodeStore {
     /// Files up to this size keep their nodes in memory: about 3 GB at the peak of loading.
@@ -94,18 +114,18 @@ impl NodeStore {
         })
     }
 
-    /// This store with the locations of every node of the file at `path` loaded, for reads of it to share.
-    ///
-    /// # Errors
-    /// If the file or the store cannot be read.
-    pub fn load(self, path: &Path) -> Result<Self, OsmError> {
-        let paged = match &self {
-            Self::Loaded(_) => return Ok(self),
+    /// This store, shared by every read of its file and loaded by the first read that needs node locations.
+    #[must_use]
+    pub fn shared(self) -> Self {
+        let paged = match self {
+            Self::Shared(_) => return self,
             Self::Memory => None,
-            Self::Paged(dir) => Some(dir.as_path()),
+            Self::Paged(dir) => Some(dir),
         };
-        let file = PbfReader::open(path).map_err(read_error(path))?;
-        Ok(Self::Loaded(LoadedNodes(Arc::new(load_nodes(&file, path, paged)?))))
+        Self::Shared(SharedNodes {
+            paged,
+            store: Arc::default(),
+        })
     }
 }
 
@@ -343,7 +363,7 @@ impl Scan {
         };
         let store = match &table.node_store {
             _ if !ways && relations.is_empty() => None,
-            NodeStore::Loaded(nodes) => Some(Arc::clone(&nodes.0)),
+            NodeStore::Shared(nodes) => Some(nodes.get(&base, &table.path)?),
             NodeStore::Memory => Some(Arc::new(load_nodes(&base, &table.path, None)?)),
             NodeStore::Paged(dir) => Some(Arc::new(load_nodes(&base, &table.path, Some(dir))?)),
         };

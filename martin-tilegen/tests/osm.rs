@@ -232,3 +232,34 @@ fn one_object_with_an_id_of_no_object_type_is_refused() {
     let error = OsmSource::new(vec![(def, table)], 16 << 10).unwrap_err();
     insta::assert_snapshot!(error, @"40 is not the feature id of an OSM object, which ends in 1 for a node, 2 for a way and 3 for a relation");
 }
+
+#[rstest::rstest]
+#[case::points_only(&[GeometryType::Point], 0)]
+#[case::lines(&[GeometryType::Point, GeometryType::Line], 1)]
+#[case::polygons_twice(&[GeometryType::Polygon, GeometryType::Polygon], 1)]
+fn a_shared_store_loads_the_nodes_once_and_only_for_ways(#[case] reads: &[GeometryType], #[case] stores: usize) {
+    let temp = tempfile::tempdir().unwrap();
+    let node_store = NodeStore::Paged(temp.path().to_path_buf()).shared();
+    let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
+    let sources: Vec<OsmSource> = reads
+        .iter()
+        .map(|geometry| {
+            let table = OsmTable {
+                path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
+                node_store: node_store.clone(),
+                bounds: None,
+                objects: Objects::Taken,
+            };
+            let def = TableDef {
+                columns: columns(&tags),
+                layers: vec![LayerDef {
+                    geometry: Some(*geometry),
+                    ..LayerDef::new("layer", 0..=14, GRID)
+                }],
+            };
+            OsmSource::new(vec![(def, table)], 16 << 10).unwrap()
+        })
+        .collect();
+    assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), stores);
+    assert!(sources.iter().all(|source| !read_all(source).is_empty()));
+}
