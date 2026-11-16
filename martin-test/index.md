@@ -17,7 +17,7 @@ martin test generate --config config.yaml --output roads.spec.yaml
 martin test run --config config.yaml roads.spec.yaml
 ```
 
-Tests PostgreSQL table sources with `layers` and an `id_column`, from one `postgres` section.
+Tests PostgreSQL table sources with `layers` and an `id_column`, from one `postgres` section, or the [`osm` sources](<https://maplibre.org/martin/sources-osm/index.md>) of a configuration without one.
 
 ```yaml
 postgres:
@@ -45,13 +45,30 @@ postgres:
           attributes: [name]
 ```
 
+### OpenStreetMap sources
+
+A case of an `osm` source is one object of its file, with the [feature id](<https://maplibre.org/martin/sources-osm/index.md#supported-features-and-handling>) as `id` and its WKT as `geometry` in its input, so a source cannot read a tag `id` or `geometry`. `generate` reads the file once per path and takes its first object on the path. A source reading ways or relations loads its node locations once per run.
+
+```yaml
+osm:
+  sources:
+    berlin:
+      path: berlin-latest.osm.pbf
+      tags: [highway, name]
+      layers:
+        roads:
+          geometry: line
+          where: "highway in ['primary', 'residential']"
+          attributes: [highway, name]
+```
+
 ## Paths
 
 Paths are the distinct, interesting cases this configuration can produce.
 
 ![martin test generate finds a row for 6 of 10 paths, renders 3 new cases, and writes the spec](<https://maplibre.org/martin/images/generate/test-generate.gif>)
 
-A row on several paths is one case. `NO ROW`: no row takes the path.
+A path takes the first row found for an earlier path that is on it, else a row of its own, so a row on several paths is one case, and `generate` finds the cases of its own spec again. `NO ROW`: no row takes the path.
 
 ## Spec file
 
@@ -62,7 +79,7 @@ max_zoom: 14
 cases:
 - source: roads
   paths:
-  - "road_labels: dropped, `where: name != null` is false"
+  - "road_labels: dropped, `where` is false"
   - "roads: class 'residential' -> minzoom 12"
   input: # (1)!
     class: residential

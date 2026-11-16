@@ -12,7 +12,8 @@
 > - [x] The PostgreSQL source with partitioned whole-table scans
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
-> - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
+> - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) as sources
+> - [ ] Shapefile, GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
@@ -460,6 +461,7 @@ coalesce(null, null)                 // null
 Martin adds these functions to CEL:
 
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
+- `max(a, b, ...)` or `max(list)` returns the largest value, `null` for an empty list, as `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
 
 Regular expressions (`matches`) and timestamps are not available.
 

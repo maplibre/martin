@@ -1312,6 +1312,8 @@
       
         
       
+        
+      
     
     
     
@@ -1971,6 +1973,35 @@
   
   
     <li class="md-nav__item">
+      <a href="../sources-osm/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5a.5.5 0 0 0 .5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5a.5.5 0 0 0-.5-.5l-.16.03L15 5.1zM8 5.45v11.7l-3 1.16V6.46zm2 .02 4 1.4v11.66l-4-1.4zm9 .23v11.84l-3 1.01V6.86zm-11.54.6-1.89.67v2.15l1.89-.67zm0 2.75-1.89.67v2.15l1.89-.67zm0 2.75-1.89.67v2.15l1.89-.67zm0 2.75-1.89.67v2.15l1.89-.67z"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  OpenStreetMap PBF Sources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../sources-passthrough/" class="md-nav__link">
         
   
@@ -2601,6 +2632,8 @@
       
         
       
+        
+      
     
     
     
@@ -2683,7 +2716,8 @@ pages describe are not implemented yet, and the configuration of <code>layers</c
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> The PostgreSQL source with partitioned whole-table scans</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Bulk mode in <code>martin cp</code>, and PMTiles output</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Layers with CEL expressions, <code>rules</code> and <code>sort_by</code></li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> OSM PBF, shapefile, GeoPackage and CSV files as sources</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <a href="../sources-osm/">OSM PBF files</a> as sources</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Shapefile, GeoPackage and CSV files as sources</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <code>geometry</code> with Planetiler's <code>polygon_centroid</code>, <code>line_centroid</code> and <code>centroid</code></li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>geometry</code> with Planetiler's <code>line_midpoint</code>, <code>polygon_centroid_if_convex</code>,
   <code>polygon_point_on_surface</code>, <code>point_on_line</code> and <code>innermost_point</code></li>
@@ -3437,6 +3471,8 @@ that tile are written as strings.</p>
 <p>Martin adds these functions to CEL:</p>
 <ul>
 <li><code>coalesce(a, b, ...)</code> returns its first argument that is not <code>null</code>.</li>
+<li><code>max(a, b, ...)</code> or <code>max(list)</code> returns the largest value, <code>null</code> for an empty list, as
+  <code>max(ref.split(';').map(r, size(r)))</code> for the longest part of a <code>ref</code>.</li>
 </ul>
 <p>Regular expressions (<code>matches</code>) and timestamps are not available.</p>
 <table>

@@ -112,6 +112,9 @@
         <loc>https://maplibre.org/martin/recipe-cog-naip/</loc>
       </url>
       <url>
+        <loc>https://maplibre.org/martin/recipe-osm-basemap/</loc>
+      </url>
+      <url>
         <loc>https://maplibre.org/martin/recipes/</loc>
       </url>
       <url>
@@ -158,6 +161,9 @@
       </url>
       <url>
         <loc>https://maplibre.org/martin/sources-mbtiles/</loc>
+      </url>
+      <url>
+        <loc>https://maplibre.org/martin/sources-osm/</loc>
       </url>
       <url>
         <loc>https://maplibre.org/martin/sources-passthrough/</loc>

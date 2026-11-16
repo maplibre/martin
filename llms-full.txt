@@ -2699,7 +2699,8 @@ A function may return tiles that are already gzip or zlib compressed. Martin det
 > - [x] The PostgreSQL source with partitioned whole-table scans
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
-> - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
+> - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) as sources
+> - [ ] Shapefile, GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
@@ -3147,6 +3148,7 @@ coalesce(null, null)                 // null
 Martin adds these functions to CEL:
 
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
+- `max(a, b, ...)` or `max(list)` returns the largest value, `null` for an empty list, as `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
 
 Regular expressions (`matches`) and timestamps are not available.
 
@@ -3216,6 +3218,78 @@ postgres:
 - **Before rendering**, after connecting to the database, the run fails on unknown property names, duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported yet, and on a `group_by` attribute the layer does not write. It warns about a per-tile operation whose zooms miss the layer's, and drops it, about one that never acts on the layer's `geometry`, and about a grid `thinning` with squares larger than the layer's `buffer`.
 
 [`martin test`](<https://maplibre.org/martin/martin-test/index.md>) checks what the layers make of real rows of the database, and keeps it in a spec file.
+
+# OpenStreetMap PBF Sources
+
+> [!NOTE]
+>
+> Only the [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` and [`martin test`](<https://maplibre.org/martin/martin-test/index.md>) can process these sources. The tile serving mode can only serve them after they are brought into a more suitable format.
+
+Martin reads one `.osm.pbf` file per source, using [layers](<https://maplibre.org/martin/sources-pg-layers/index.md>).
+
+```yaml
+osm:
+  sources:
+    berlin:
+      path: berlin-latest.osm.pbf
+      tags: [highway, name, building]
+      layers:
+        roads:
+          geometry: line
+          where: "highway in ['motorway', 'trunk', 'primary']"
+          attributes: [highway, name]
+        buildings:
+          geometry: polygon
+          minzoom: 14
+          where: "building != null"
+          attributes: []
+```
+
+```bash
+martin cp --mode bulk --config config.yaml --source berlin --output-file berlin.mbtiles
+```
+
+A run renders either `osm` sources or database sources, not both. [Building a basemap from OpenStreetMap](<https://maplibre.org/martin/recipe-osm-basemap/index.md>) has one possible basemap schema.
+
+## Settings
+
+| Key | Meaning |
+| --- | --- |
+| `path` | The `.osm.pbf` file |
+| `tags` | The tag keys the layers read, each a string property |
+| `layers` | Output layers, as for [table sources](<https://maplibre.org/martin/sources-pg-layers/index.md>) |
+| `minzoom`, `maxzoom` | Narrow the zooms of `--min-zoom` and `--max-zoom` |
+| `extent`, `buffer`, `clip_geom` | Defaults for the contained layers |
+
+## Supported Features and handling
+
+| OSM object | Feature | `osm_type` | Feature id |
+| --- | --- | --- | --- |
+| Node with tags | point | `node` | id \* 10 + 1 |
+| Way with tags | line, or polygon if closed and its tags make it an area | `way` | id \* 10 + 2 |
+| Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon | `relation` | id \* 10 + 3 |
+
+Martin leaves out objects without tags, and other relations. Whether a closed way is an area follows [osmflow's `AreaRules`](<https://github.com/nyurik/osmflow/blob/main/crates/osmflow/src/area.rs>) (`building`, `landuse`, `natural` other than `coastline`, `area=yes` and so on). A relation's member ways are joined into rings. A ring inside an odd number of others is a hole, whatever its role. A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.
+
+Each key in `tags` is a string property, `null` where the object does not have the tag or its value is empty. `osm_type` is always one. An expression reading a key not in `tags` fails the run. A tag such as `name:en` is read with `feature['name:en']`.
+
+## Reading only what the layers take
+
+The `where` and `geometry` of every layer are checked while the file is read, as PostgreSQL checks them for table sources:
+
+1. An object type no layer can take is not decoded. Without layers that take lines or polygons, the node locations are not even loaded.
+2. A block of the file whose strings cannot hold a match, such as one without the string `highway` for `highway == 'primary'`, is skipped before it is decompressed in full.
+3. Each object's tags are checked before the locations of a way's nodes are looked up.
+
+This needs the same equivalent of `where` as [table sources](<https://maplibre.org/martin/sources-pg-layers/index.md#features>) do. Without one, Martin reads every tagged object and checks `where` itself, with the same result.
+
+## Node locations
+
+Martin builds ways and relations from node locations, which it loads before it reads the file. For a PBF of up to 512 MiB, it keeps them in memory, about 30 bytes per node. For a larger file, it keeps them in a file of about 5 bytes per node in the first `--temp-dir`, and deletes that file when the run ends.
+
+## Draw order
+
+Without `sort_by`, features keep the order of the file, nodes before ways, then relations by id. The output does not depend on `--threads`.
 
 # Cloud Optimized GeoTIFF File Sources
 
@@ -6524,6 +6598,521 @@ document.querySelectorAll("[data-go]").forEach(b => b.onclick = () =>
 </html>
 ```
 
+# Building a basemap from OpenStreetMap
+
+This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap.org/>) extract, with the layers and attributes using the [Shortbread](<https://shortbread-tiles.org/>) schema, so that [VersaTiles styles](<https://github.com/versatiles-org/versatiles-style>) can draw them. The configuration is a port of Planetiler's [`shortbread.yml`](<https://github.com/onthegomap/planetiler/blob/main/planetiler-custommap/src/main/resources/samples/shortbread.yml>), and Martin's tests use the 66 OpenStreetMap examples of its `shortbread.spec.yml`.
+
+> [!IMPORTANT]
+>
+> **More information on the config used**
+>
+> The `osm` section is described in [OpenStreetMap PBF Sources](<https://maplibre.org/martin/sources-osm/index.md>).
+
+> [!WARNING]
+>
+> **Feature is currently not fully implemented**
+>
+> These are known missing features currently, but are planned:
+>
+> - `ocean` is omitted since Shortbread takes it from shapefile based coastline data outside OpenStreetMap.
+> - `way_area` is left out of `water_polygons`, `water_polygons_labels` and `boundary_labels`, and every `boundary_label` starts at zoom 5. This is because expressions cannot currently read a feature's area.
+> - A closed way is a line or a polygon, as its tags make it an [area](<https://maplibre.org/martin/sources-osm/index.md#supported-features-and-handling>). Planetiler reads it as both unless it has `area=yes` or `area=no`, so its `street_polygons` also have closed `highway=pedestrian` ways, and `area:aeroway` ways, which Martin doesn't currently read as lines.
+> - `boundary_labels` and `streets_polygons_labels` are points at each polygon's centroid. `pois`, `public_transport` and `addresses` at the centroid of each point, line or polygon. Planetiler takes points and a point on the surface of polygons, or for `addresses` the centroid of convex ones while omitting lines.
+
+1. Download an extract, for example Berlin from [Geofabrik](<https://download.geofabrik.de/>):
+
+   ```bash
+   curl -LO https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf
+   ```
+2. Save this as `shortbread.yaml`, next to the extract:
+
+   > **shortbread.yaml**
+   >
+   > ```yaml
+   > osm:
+   >   sources:
+   >     shortbread:
+   >       path: berlin-latest.osm.pbf
+   >       maxzoom: 14
+   >       tags:
+   >         - name
+   >         - "name:en"
+   >         - "name:de"
+   >         - "addr:housename"
+   >         - "addr:housenumber"
+   >         - admin_level
+   >         - aerialway
+   >         - aeroway
+   >         - amenity
+   >         - "area:aeroway"
+   >         - atm
+   >         - bicycle
+   >         - boundary
+   >         - bridge
+   >         - building
+   >         - capital
+   >         - covered
+   >         - cuisine
+   >         - denomination
+   >         - disputed
+   >         - emergency
+   >         - highway
+   >         - historic
+   >         - horse
+   >         - iata
+   >         - information
+   >         - landuse
+   >         - leisure
+   >         - man_made
+   >         - maritime
+   >         - military
+   >         - motor_vehicle
+   >         - natural
+   >         - office
+   >         - oneway
+   >         - place
+   >         - population
+   >         - railway
+   >         - "recycling:clothes"
+   >         - "recycling:glass_bottles"
+   >         - "recycling:paper"
+   >         - "recycling:scrap_metal"
+   >         - ref
+   >         - religion
+   >         - route
+   >         - service
+   >         - shop
+   >         - sport
+   >         - surface
+   >         - tourism
+   >         - "tower:type"
+   >         - tracktype
+   >         - tunnel
+   >         - vending
+   >         - waterway
+   >         - wetland
+   >       layers:
+   >         water_polygons:
+   >           geometry: polygon
+   >           minzoom: "waterway in ['dock', 'canal'] ? 10 : 4"
+   >           where: >-
+   >             natural in ['glacier', 'water'] || waterway in ['riverbank', 'dock', 'canal'] || landuse in ['reservoir',
+   >             'basin']
+   >           attributes:
+   >             kind: >-
+   >               natural in ['glacier', 'water'] ? natural : waterway in ['riverbank', 'dock', 'canal'] ? waterway :
+   >               landuse
+   >         water_polygons_labels:
+   >           geometry: polygon_centroid
+   >           minzoom: "waterway in ['dock', 'canal'] ? 10 : 14"
+   >           where: >-
+   >             name != null && (natural in ['glacier', 'water'] || waterway in ['riverbank', 'dock', 'canal'] || landuse
+   >             in ['reservoir', 'basin'])
+   >           attributes:
+   >             kind: >-
+   >               natural in ['glacier', 'water'] ? natural : waterway in ['riverbank', 'dock', 'canal'] ? waterway :
+   >               landuse
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >         water_lines:
+   >           geometry: line
+   >           minzoom: "waterway in ['stream', 'ditch'] ? 14 : 9"
+   >           where: "waterway in ['canal', 'river', 'stream', 'ditch']"
+   >           attributes:
+   >             kind: waterway
+   >             tunnel:
+   >               expr: "tunnel in ['yes', 'building_passage'] || covered == 'yes'"
+   >               minzoom: 11
+   >             bridge:
+   >               expr: >-
+   >                 bridge in ['yes', 'viaduct', 'boardwalk', 'cantilever', 'covered', 'low_water_crossing', 'movable',
+   >                 'trestle']
+   >               minzoom: 11
+   >         water_lines_labels:
+   >           geometry: line
+   >           minzoom: "waterway in ['stream', 'ditch'] ? 14 : 12"
+   >           where: "name != null && waterway in ['canal', 'river', 'stream', 'ditch']"
+   >           attributes:
+   >             kind: waterway
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >             tunnel: "tunnel in ['yes', 'building_passage'] || covered == 'yes'"
+   >             bridge: >-
+   >               bridge in ['yes', 'viaduct', 'boardwalk', 'cantilever', 'covered', 'low_water_crossing', 'movable',
+   >               'trestle']
+   >         dam_lines:
+   >           geometry: line
+   >           minzoom: 12
+   >           where: "waterway == 'dam'"
+   >           attributes:
+   >             kind: { value: dam }
+   >         dam_polygons:
+   >           geometry: polygon
+   >           minzoom: 12
+   >           where: "waterway == 'dam'"
+   >           attributes:
+   >             kind: { value: dam }
+   >         pier_lines:
+   >           geometry: line
+   >           minzoom: 12
+   >           where: "man_made in ['pier', 'breakwater', 'groyne']"
+   >           attributes:
+   >             kind: man_made
+   >         pier_polygons:
+   >           geometry: polygon
+   >           minzoom: 12
+   >           where: "man_made in ['pier', 'breakwater', 'groyne']"
+   >           attributes:
+   >             kind: man_made
+   >         boundaries:
+   >           geometry: line
+   >           min_size: 0
+   >           minzoom: "admin_level == '2' ? 0 : 7"
+   >           where: "boundary == 'administrative' && admin_level in ['2', '4']"
+   >           attributes:
+   >             maritime: "maritime != null || natural == 'coastline'"
+   >             admin_level: "int(admin_level)"
+   >             disputed: "disputed == 'yes'"
+   >         boundary_labels:
+   >           geometry: polygon_centroid
+   >           minzoom: 5
+   >           where: "boundary == 'administrative' && admin_level in ['2', '4']"
+   >           attributes:
+   >             admin_level: "int(admin_level)"
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >         place_labels:
+   >           geometry: point
+   >           minzoom: >-
+   >             place in ['city', 'town', 'village', 'hamlet'] && capital in ['yes', '4'] ? 4 : place == 'city' ? 6 :
+   >             place == 'town' ? 7 : 10
+   >           where: >-
+   >             name != null && place in ['city', 'town', 'village', 'hamlet', 'suburb', 'quarter', 'neighbourhood',
+   >             'isolated_dwelling', 'farm', 'island', 'locality']
+   >           attributes:
+   >             kind: >-
+   >               place in ['city', 'town', 'village', 'hamlet'] && capital == 'yes' ? 'capital' : place in ['city',
+   >               'town', 'village', 'hamlet'] && capital == '4' ? 'state_capital' : place
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >             population: >-
+   >               population != null ? int(double(population.replace(',', ''))) : place == 'city' ? 100000 : place ==
+   >               'town' ? 5000 : place == 'suburb' ? 1000 : place == 'quarter' ? 500 : place == 'village' ? 100 : place
+   >               == 'hamlet' ? 50 : place in ['isolated_dwelling', 'farm'] ? 5 : 0
+   >         land:
+   >           geometry: polygon
+   >           minzoom: >-
+   >             natural == 'wood' || landuse == 'forest' ? 7 : landuse in ['brownfield', 'commercial', 'farmland',
+   >             'farmyard', 'garages', 'greenfield', 'industrial', 'landfill', 'railway', 'residential', 'retail'] ||
+   >             natural in ['beach', 'sand'] ? 10 : amenity == 'grave_yard' || landuse == 'cemetery' ? 13 : 11
+   >           where: >-
+   >             amenity == 'grave_yard' || landuse in ['allotments', 'brownfield', 'cemetery', 'commercial', 'farmland',
+   >             'farmyard', 'forest', 'garages', 'grass', 'greenfield', 'greenhouse_horticulture', 'industrial',
+   >             'landfill', 'meadow', 'orchard', 'plant_nursery', 'quarry', 'railway', 'recreation_ground', 'residential',
+   >             'retail', 'village_green', 'vineyard'] || leisure in ['garden', 'golf_course', 'miniature_golf', 'park',
+   >             'playground'] || natural in ['bare_rock', 'beach', 'grassland', 'heath', 'sand', 'scree', 'scrub',
+   >             'shingle', 'wood'] || wetland in ['bog', 'marsh', 'string_bog', 'swamp', 'wet_meadow']
+   >           attributes:
+   >             kind: >-
+   >               amenity == 'grave_yard' ? amenity : landuse in ['allotments', 'brownfield', 'cemetery', 'commercial',
+   >               'farmland', 'farmyard', 'forest', 'garages', 'grass', 'greenfield', 'greenhouse_horticulture',
+   >               'industrial', 'landfill', 'meadow', 'orchard', 'plant_nursery', 'quarry', 'railway',
+   >               'recreation_ground', 'residential', 'retail', 'village_green', 'vineyard'] ? landuse : leisure in
+   >               ['garden', 'golf_course', 'miniature_golf', 'park', 'playground'] ? leisure : natural == 'wood' ?
+   >               'forest' : natural in ['bare_rock', 'beach', 'grassland', 'heath', 'sand', 'scree', 'scrub', 'shingle',
+   >               'wood'] ? natural : wetland
+   >         sites:
+   >           geometry: polygon
+   >           minzoom: 14
+   >           where: >-
+   >             military == 'danger_area' || leisure == 'sports_center' || landuse == 'construction' || amenity in
+   >             ['bicycle_parking', 'college', 'hospital', 'parking', 'prison', 'university']
+   >           attributes:
+   >             kind: >-
+   >               military == 'danger_area' ? military : leisure == 'sports_center' ? leisure : landuse == 'construction'
+   >               ? landuse : amenity
+   >         buildings:
+   >           geometry: polygon
+   >           minzoom: 14
+   >           where: "building != null && building != 'no'"
+   >           attributes: []
+   >         addresses:
+   >           geometry: centroid
+   >           minzoom: 14
+   >           where: >-
+   >             (feature['addr:housenumber'] != null || feature['addr:housename'] != null) && !(amenity in ['arts_centre',
+   >             'atm', 'bank', 'bar', 'bench', 'bicycle_rental', 'biergarten', 'cafe', 'car_rental', 'car_sharing',
+   >             'car_wash', 'cinema', 'clinic', 'college', 'community_centre', 'courthouse', 'dentist', 'doctors',
+   >             'dog_park', 'drinking_water', 'embassy', 'fast_food', 'fire_station', 'food_court', 'fountain',
+   >             'grave_yard', 'hospital', 'hunting_stand', 'library', 'marketplace', 'nightclub', 'nursing_home',
+   >             'pharmacy', 'place_of_worship', 'playground', 'police', 'post_box', 'post_office', 'prison', 'pub',
+   >             'public_building', 'recycling', 'restaurant', 'school', 'shelter', 'telephone', 'theatre', 'toilets',
+   >             'townhall', 'university', 'vending_machine', 'veterinary', 'waste_basket'] || emergency in
+   >             ['defibrillator', 'fire_hydrant', 'phone'] || highway == 'emergency_access_point' || historic in
+   >             ['archaeological_site', 'battlefield', 'castle', 'fort', 'memorial', 'monument', 'ruins', 'wayside_cross',
+   >             'wayside_shrine'] || leisure in ['golf_course', 'ice_rink', 'pitch', 'sports_centre', 'stadium',
+   >             'swimming_pool', 'water_park'] || man_made in ['lighthouse', 'surveillance', 'tower', 'wastewater_plant',
+   >             'water_well', 'water_works', 'watermill', 'windmill'] || office == 'diplomatic' || shop in ['alcohol',
+   >             'bakery', 'beauty', 'beverages', 'bicycle', 'books', 'butcher', 'car', 'chemist', 'clothes', 'computer',
+   >             'convenience', 'department_store', 'doityourself', 'dry_cleaning', 'florist', 'furniture',
+   >             'garden_centre', 'general', 'gift', 'greengrocer', 'hairdresser', 'hardware', 'jewelry', 'kiosk',
+   >             'laundry', 'mall', 'mobile_phone', 'newsagent', 'optician', 'outdoor', 'shoes', 'sports', 'stationery',
+   >             'supermarket', 'toys', 'travel_agency', 'video'] || tourism in ['artwork', 'alpine_hut',
+   >             'bed_and_breakfast', 'camp_site', 'caravan_site', 'chalet', 'guest_house', 'hostel', 'hotel',
+   >             'information', 'motel', 'picnic_site', 'theme_park', 'viewpoint', 'zoo'])
+   >           attributes:
+   >             housename: "feature['addr:housename']"
+   >             housenumber: "feature['addr:housenumber']"
+   >         streets:
+   >           geometry: line
+   >           min_size: 0
+   >           minzoom: >-
+   >             highway != null && highway.startsWith('motorway') ? 5 : highway != null && highway.startsWith('trunk') ? 6
+   >             : highway != null && highway.startsWith('primary') || railway in ['rail', 'narrow_gauge'] && service !=
+   >             null ? 8 : highway != null && highway.startsWith('secondary') ? 9 : railway in ['rail', 'narrow_gauge'] &&
+   >             service == null || railway in ['funicular', 'light_rail', 'monorail', 'subway', 'tram'] || highway ==
+   >             'tertiary' ? 10 : aeroway == 'runway' ? 11 : highway in ['bus_guideway', 'busway', 'residential',
+   >             'unclassified'] ? 12 : 13
+   >           where: >-
+   >             highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary',
+   >             'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway',
+   >             'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway'] || aeroway in
+   >             ['runway', 'taxiway'] || railway in ['rail', 'narrow_gauge', 'tram', 'light_rail', 'funicular', 'subway',
+   >             'monorail']
+   >           attributes:
+   >             kind: >-
+   >               (highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary',
+   >               'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway',
+   >               'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway'] ? highway :
+   >               aeroway in ['runway', 'taxiway'] ? aeroway : railway).replace('_link', '')
+   >             link:
+   >               expr: "highway in ['motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link']"
+   >               minzoom: 11
+   >             rail:
+   >               expr: "railway != null"
+   >               minzoom: 5
+   >             tunnel:
+   >               expr: "tunnel in ['yes', 'building_passage'] || covered == 'yes'"
+   >               minzoom: 11
+   >             bridge:
+   >               expr: >-
+   >                 bridge in ['yes', 'viaduct', 'boardwalk', 'cantilever', 'covered', 'low_water_crossing', 'movable',
+   >                 'trestle']
+   >               minzoom: 11
+   >             oneway:
+   >               expr: "railway == null && oneway in ['yes', '1', 'true', '-1']"
+   >               minzoom: 14
+   >             oneway_reverse:
+   >               expr: "railway == null && oneway == '-1'"
+   >               minzoom: 14
+   >             tracktype:
+   >               expr: tracktype
+   >               minzoom: 11
+   >             surface:
+   >               expr: surface
+   >               minzoom: 11
+   >             service:
+   >               expr: service
+   >               minzoom: 11
+   >             bicycle:
+   >               expr: bicycle
+   >               minzoom: 14
+   >             horse:
+   >               expr: horse
+   >               minzoom: 14
+   >         street_polygons:
+   >           geometry: polygon
+   >           minzoom: "feature['area:aeroway'] == 'runway' ? 11 : feature['area:aeroway'] == 'taxiway' ? 13 : 14"
+   >           where: "feature['area:aeroway'] in ['runway', 'taxiway'] || highway in ['pedestrian', 'service']"
+   >           attributes:
+   >             kind: "feature['area:aeroway'] in ['runway', 'taxiway'] ? feature['area:aeroway'] : highway"
+   >             bridge: >-
+   >               bridge in ['yes', 'viaduct', 'boardwalk', 'cantilever', 'covered', 'low_water_crossing', 'movable',
+   >               'trestle']
+   >             rail: { value: false }
+   >             service: service
+   >             surface: surface
+   >             tunnel: "tunnel in ['yes', 'building_passage'] || covered == 'yes'"
+   >         street_labels:
+   >           geometry: line
+   >           minzoom: >-
+   >             highway == 'motorway' || railway in ['rail', 'narrow_gauge', 'tram', 'light_rail', 'funicular', 'subway',
+   >             'monorail'] ? 10 : aeroway == 'runway' ? 11 : highway in ['trunk', 'primary'] ? 12 : highway in
+   >             ['motorway_link', 'trunk_link', 'primary_link', 'secondary', 'secondary_link', 'tertiary'] || aeroway ==
+   >             'taxiway' ? 13 : 14
+   >           where: >-
+   >             (name != null || ref != null) && (highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link',
+   >             'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified',
+   >             'residential', 'busway', 'bus_guideway', 'living_street', 'service', 'pedestrian', 'track', 'footway',
+   >             'steps', 'path', 'cycleway'] || aeroway in ['runway', 'taxiway'] || railway in ['rail', 'narrow_gauge',
+   >             'tram', 'light_rail', 'funicular', 'subway', 'monorail'])
+   >           attributes:
+   >             kind: >-
+   >               highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary',
+   >               'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway',
+   >               'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway'] ? highway :
+   >               aeroway in ['runway', 'taxiway'] ? aeroway : railway
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >             ref: "ref != null ? ref.replace(';', '\\n') : null"
+   >             ref_cols: "ref != null ? max(ref.split(';').map(r, size(r))) : null"
+   >             ref_rows: "ref != null ? size(ref.split(';')) : null"
+   >             tunnel: "tunnel in ['yes', 'building_passage'] || covered == 'yes'"
+   >         streets_polygons_labels:
+   >           geometry: polygon_centroid
+   >           minzoom: 14
+   >           where: "name != null && (aeroway in ['runway', 'taxiway'] || highway in ['pedestrian', 'service'])"
+   >           attributes:
+   >             kind: "aeroway in ['runway', 'taxiway'] ? aeroway : highway"
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >         street_labels_points:
+   >           geometry: point
+   >           minzoom: 12
+   >           where: "highway == 'motorway_junction'"
+   >           attributes:
+   >             kind: highway
+   >             ref: ref
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >         bridges:
+   >           geometry: polygon
+   >           minzoom: 12
+   >           where: "man_made == 'bridge'"
+   >           attributes:
+   >             kind: { value: bridge }
+   >         aerialways:
+   >           geometry: line
+   >           minzoom: 12
+   >           where: >-
+   >             aerialway in ['cable_car', 'gondola', 'goods', 'chair_lift', 'drag_lift', 't-bar', 'j-bar', 'platter',
+   >             'rope_tow']
+   >           attributes:
+   >             kind: aerialway
+   >         ferries:
+   >           geometry: line
+   >           minzoom: "motor_vehicle == 'no' ? 12 : 10"
+   >           where: "route == 'ferry'"
+   >           attributes:
+   >             kind: route
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >         public_transport:
+   >           geometry: centroid
+   >           minzoom: >-
+   >             aeroway == 'aerodrome' ? 11 : amenity == 'ferry_terminal' ? 12 : railway in ['station', 'halt'] ||
+   >             aerialway == 'station' || aeroway == 'helipad' || amenity == 'bus_station' ? 13 : 14
+   >           where: >-
+   >             aerialway == 'station' || aeroway in ['aerodrome', 'helipad'] || amenity in ['bus_station',
+   >             'ferry_terminal'] || highway == 'bus_stop' || railway in ['station', 'halt', 'tram_stop']
+   >           attributes:
+   >             kind: >-
+   >               aeroway in ['aerodrome', 'helipad'] ? aeroway : amenity in ['bus_station', 'ferry_terminal'] ? amenity :
+   >               railway in ['station', 'halt', 'tram_stop'] ? railway : highway == 'bus_stop' ? highway :
+   >               'aerialway_station'
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >             iata: iata
+   >         pois:
+   >           geometry: centroid
+   >           minzoom: 14
+   >           where: >-
+   >             amenity in ['arts_centre', 'atm', 'bank', 'bar', 'bench', 'bicycle_rental', 'biergarten', 'cafe',
+   >             'car_rental', 'car_sharing', 'car_wash', 'cinema', 'clinic', 'college', 'community_centre', 'courthouse',
+   >             'dentist', 'doctors', 'dog_park', 'drinking_water', 'embassy', 'fast_food', 'fire_station', 'food_court',
+   >             'fountain', 'grave_yard', 'hospital', 'hunting_stand', 'library', 'marketplace', 'nightclub',
+   >             'nursing_home', 'pharmacy', 'place_of_worship', 'playground', 'police', 'post_box', 'post_office',
+   >             'prison', 'pub', 'public_building', 'recycling', 'restaurant', 'school', 'shelter', 'telephone',
+   >             'theatre', 'toilets', 'townhall', 'university', 'vending_machine', 'veterinary', 'waste_basket'] ||
+   >             emergency in ['defibrillator', 'fire_hydrant', 'phone'] || highway == 'emergency_access_point' || historic
+   >             in ['archaeological_site', 'battlefield', 'castle', 'fort', 'memorial', 'monument', 'ruins',
+   >             'wayside_cross', 'wayside_shrine'] || leisure in ['golf_course', 'ice_rink', 'pitch', 'sports_centre',
+   >             'stadium', 'swimming_pool', 'water_park'] || man_made in ['lighthouse', 'surveillance', 'tower',
+   >             'wastewater_plant', 'water_well', 'water_works', 'watermill', 'windmill'] || office == 'diplomatic' ||
+   >             shop in ['alcohol', 'bakery', 'beauty', 'beverages', 'bicycle', 'books', 'butcher', 'car', 'chemist',
+   >             'clothes', 'computer', 'convenience', 'department_store', 'doityourself', 'dry_cleaning', 'florist',
+   >             'furniture', 'garden_centre', 'general', 'gift', 'greengrocer', 'hairdresser', 'hardware', 'jewelry',
+   >             'kiosk', 'laundry', 'mall', 'mobile_phone', 'newsagent', 'optician', 'outdoor', 'shoes', 'sports',
+   >             'stationery', 'supermarket', 'toys', 'travel_agency', 'video'] || tourism in ['artwork', 'alpine_hut',
+   >             'bed_and_breakfast', 'camp_site', 'caravan_site', 'chalet', 'guest_house', 'hostel', 'hotel',
+   >             'information', 'motel', 'picnic_site', 'theme_park', 'viewpoint', 'zoo']
+   >           attributes:
+   >             amenity: >-
+   >               amenity in ['arts_centre', 'atm', 'bank', 'bar', 'bench', 'bicycle_rental', 'biergarten', 'cafe',
+   >               'car_rental', 'car_sharing', 'car_wash', 'cinema', 'clinic', 'college', 'community_centre',
+   >               'courthouse', 'dentist', 'doctors', 'dog_park', 'drinking_water', 'embassy', 'fast_food',
+   >               'fire_station', 'food_court', 'fountain', 'grave_yard', 'hospital', 'hunting_stand', 'library',
+   >               'marketplace', 'nightclub', 'nursing_home', 'pharmacy', 'place_of_worship', 'playground', 'police',
+   >               'post_box', 'post_office', 'prison', 'pub', 'public_building', 'recycling', 'restaurant', 'school',
+   >               'shelter', 'telephone', 'theatre', 'toilets', 'townhall', 'university', 'vending_machine', 'veterinary',
+   >               'waste_basket'] ? amenity : null
+   >             leisure: >-
+   >               leisure in ['golf_course', 'ice_rink', 'pitch', 'sports_centre', 'stadium', 'swimming_pool',
+   >               'water_park'] ? leisure : null
+   >             tourism: >-
+   >               tourism in ['artwork', 'alpine_hut', 'bed_and_breakfast', 'camp_site', 'caravan_site', 'chalet',
+   >               'guest_house', 'hostel', 'hotel', 'information', 'motel', 'picnic_site', 'theme_park', 'viewpoint',
+   >               'zoo'] ? tourism : null
+   >             shop: >-
+   >               shop in ['alcohol', 'bakery', 'beauty', 'beverages', 'bicycle', 'books', 'butcher', 'car', 'chemist',
+   >               'clothes', 'computer', 'convenience', 'department_store', 'doityourself', 'dry_cleaning', 'florist',
+   >               'furniture', 'garden_centre', 'general', 'gift', 'greengrocer', 'hairdresser', 'hardware', 'jewelry',
+   >               'kiosk', 'laundry', 'mall', 'mobile_phone', 'newsagent', 'optician', 'outdoor', 'shoes', 'sports',
+   >               'stationery', 'supermarket', 'toys', 'travel_agency', 'video'] ? shop : null
+   >             man_made: >-
+   >               man_made in ['lighthouse', 'surveillance', 'tower', 'wastewater_plant', 'water_well', 'water_works',
+   >               'watermill', 'windmill'] ? man_made : null
+   >             historic: >-
+   >               historic in ['archaeological_site', 'battlefield', 'castle', 'fort', 'memorial', 'monument', 'ruins',
+   >               'wayside_cross', 'wayside_shrine'] ? historic : null
+   >             emergency: "emergency in ['defibrillator', 'fire_hydrant', 'phone'] ? emergency : null"
+   >             highway: "highway == 'emergency_access_point' ? highway : null"
+   >             office: "office == 'diplomatic' ? office : null"
+   >             name: name
+   >             name_en: "feature['name:en']"
+   >             name_de: "feature['name:de']"
+   >             housename: "feature['addr:housename']"
+   >             housenumber: "feature['addr:housenumber']"
+   >             cuisine: "amenity in ['restaurant', 'fast_food', 'pub', 'bar', 'cafe'] ? cuisine : null"
+   >             sport: "leisure in ['pitch', 'sports_centre'] ? sport : null"
+   >             vending: "amenity == 'vending_machine' ? vending : null"
+   >             information: "tourism == 'information' ? information : null"
+   >             "tower:type": "man_made == 'tower' ? feature['tower:type'] : null"
+   >             religion: "amenity == 'place_of_worship' ? religion : null"
+   >             denomination: "amenity == 'place_of_worship' ? denomination : null"
+   >             "recycling:glass_bottles": "amenity == 'recycling' ? feature['recycling:glass_bottles'] == 'yes' : null"
+   >             "recycling:paper": "amenity == 'recycling' ? feature['recycling:paper'] == 'yes' : null"
+   >             "recycling:clothes": "amenity == 'recycling' ? feature['recycling:clothes'] == 'yes' : null"
+   >             "recycling:scrap_metal": "amenity == 'recycling' ? feature['recycling:scrap_metal'] == 'yes' : null"
+   >             atm: "amenity == 'bank' ? atm == 'yes' : null"
+   > ```
+3. Generate the tileset:
+
+   ```bash
+   martin cp --mode bulk --config shortbread.yaml --output-file berlin.mbtiles --format mvt --max-zoom 14
+   ```
+4. Serve it, and point a style's `versatiles-shortbread` source at `http://localhost:3000/berlin`:
+
+   ```bash
+   martin berlin.mbtiles
+   ```
+
+| Extract | PBF | Features | Tiles | Time | Memory |
+| --- | --- | --- | --- | --- | --- |
+| Berlin, 2026-11-11 | 100 MB | 1,631,630 | 914 | 3.1 s | 2.7 GB |
+| Germany, 2026-11-11 | 4.9 GB | 75,134,826 | 228,018 | 3m 9s | 18.2 GB |
+
+Measured on 24 threads, with the extract in the page cache.
+
 # PostgreSQL SSL Certificates
 
 Martin supports SSL certificate authentication for PostgreSQL connections. This guide covers certificate generation, PostgreSQL configuration, and Martin setup.
@@ -6988,7 +7577,8 @@ See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.E
 > - [x] The PostgreSQL source with partitioned whole-table scans
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
-> - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
+> - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) as sources
+> - [ ] Shapefile, GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
@@ -7164,7 +7754,7 @@ martin test generate --config config.yaml --output roads.spec.yaml
 martin test run --config config.yaml roads.spec.yaml
 ```
 
-Tests PostgreSQL table sources with `layers` and an `id_column`, from one `postgres` section.
+Tests PostgreSQL table sources with `layers` and an `id_column`, from one `postgres` section, or the [`osm` sources](<https://maplibre.org/martin/sources-osm/index.md>) of a configuration without one.
 
 ```yaml
 postgres:
@@ -7192,13 +7782,30 @@ postgres:
           attributes: [name]
 ```
 
+### OpenStreetMap sources
+
+A case of an `osm` source is one object of its file, with the [feature id](<https://maplibre.org/martin/sources-osm/index.md#supported-features-and-handling>) as `id` and its WKT as `geometry` in its input, so a source cannot read a tag `id` or `geometry`. `generate` reads the file once per path and takes its first object on the path. A source reading ways or relations loads its node locations once per run.
+
+```yaml
+osm:
+  sources:
+    berlin:
+      path: berlin-latest.osm.pbf
+      tags: [highway, name]
+      layers:
+        roads:
+          geometry: line
+          where: "highway in ['primary', 'residential']"
+          attributes: [highway, name]
+```
+
 ## Paths
 
 Paths are the distinct, interesting cases this configuration can produce.
 
 ![martin test generate finds a row for 6 of 10 paths, renders 3 new cases, and writes the spec](<https://maplibre.org/martin/images/generate/test-generate.gif>)
 
-A row on several paths is one case. `NO ROW`: no row takes the path.
+A path takes the first row found for an earlier path that is on it, else a row of its own, so a row on several paths is one case, and `generate` finds the cases of its own spec again. `NO ROW`: no row takes the path.
 
 ## Spec file
 
@@ -7209,7 +7816,7 @@ max_zoom: 14
 cases:
 - source: roads
   paths:
-  - "road_labels: dropped, `where: name != null` is false"
+  - "road_labels: dropped, `where` is false"
   - "roads: class 'residential' -> minzoom 12"
   input: # (1)!
     class: residential
@@ -8674,7 +9281,8 @@ Each kind has at least one Reload Driver instance. Adding reload support for a n
 > - [x] The PostgreSQL source with partitioned whole-table scans
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
-> - [ ] OSM PBF, shapefile, GeoPackage and CSV files as sources
+> - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) as sources
+> - [ ] Shapefile, GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
