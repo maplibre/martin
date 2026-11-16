@@ -10,10 +10,10 @@ tags:
 # OpenStreetMap PBF Sources
 
 !!! note
-    Only the [bulk mode](martin-generate.md) of `martin cp` reads these sources; the tile server does not serve them.
+    Only the [bulk mode](martin-generate.md) of `martin cp` can process these sources.
+    The tile serving mode can only serve them after they are brought into a more suitible format.
 
-An `osm` source is one `.osm.pbf` file and the [layers](sources-pg-layers.md) made from it. Martin reads the file
-with [osmflow](https://github.com/nyurik/osmflow).
+This source allows reading one `.osm.pbf` file using [layers](sources-pg-layers.md).
 
 ```yaml
 osm:
@@ -38,9 +38,9 @@ martin cp --mode bulk --config config.yaml --source berlin --output-file berlin.
 ```
 
 A run renders either `osm` sources or database sources, not both.
-[Building a basemap from OpenStreetMap](recipe-osm-basemap.md) has a complete basemap schema.
+[Building a basemap from OpenStreetMap](recipe-osm-basemap.md) has one possible basemap schema.
 
-## Source keys
+## Settings
 
 | Key                                   | Meaning                                                              |
 |---------------------------------------|----------------------------------------------------------------------|
@@ -48,22 +48,24 @@ A run renders either `osm` sources or database sources, not both.
 | `tags`                                | The tag keys the layers read, each a string property                 |
 | `layers`                              | Output layers, as for [table sources](sources-pg-layers.md)          |
 | `minzoom`, `maxzoom`                  | Narrow the zooms of `--min-zoom` and `--max-zoom`                    |
-| `extent`, `buffer`, `clip_geom`       | Defaults of the layers, as for table sources                         |
+| `extent`, `buffer`, `clip_geom`       | Defaults for the contained layers                                    |
 
-## Features
+## Supported Features and handling
 
 | OSM object                                           | Feature                                                 | `osm_type` | Feature id  |
 |------------------------------------------------------|---------------------------------------------------------|------------|-------------|
-| Node with tags                                       | point                                                   | `node`     | id × 10 + 1 |
-| Way with tags                                        | line, or polygon if closed and its tags make it an area | `way`      | id × 10 + 2 |
-| Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon                                 | `relation` | id × 10 + 3 |
+| Node with tags                                       | point                                                   | `node`     | id * 10 + 1 |
+| Way with tags                                        | line, or polygon if closed and its tags make it an area | `way`      | id * 10 + 2 |
+| Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon                                 | `relation` | id * 10 + 3 |
 
-Objects without tags, and other relations, are not features. Whether a closed way is an area follows osmflow's
-`AreaRules`: `building`, `landuse`, `natural` other than `coastline`, `area=yes` and so on.
-A relation's member ways are joined into rings; a ring inside an odd number of others is a hole, whatever its role.
+We drop objects without tags or other relations.
+Whether a closed way is an area follows [osmflow's `AreaRules`](https://github.com/nyurik/osmflow/blob/main/crates/osmflow/src/area.rs) (`building`, `landuse`, `natural` other than `coastline`, `area=yes` and so on).
+A relation's member ways are joined into rings.
+A ring inside an odd number of others is a hole, whatever its role.
 A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.
 
-Each key in `tags` is a string property, `null` where the object does not have the tag. `osm_type` is always one.
+Each key in `tags` is a string property, `null` where the object does not have the tag.
+`osm_type` is always one.
 An expression reading a key not in `tags` fails the run. A tag such as `name:en` is read with
 `feature['name:en']`.
 
