@@ -66,6 +66,7 @@ impl TestBackend for Shapefiles {
             zooms: 0..=max_zoom,
             bounds: None,
             encoder: None,
+            order_by: None,
         };
         let mut out = Vec::with_capacity(self.sources.len());
         for (id, (source, file)) in &self.sources {
