@@ -12,19 +12,19 @@ tags:
 This builds a basemap tileset from an [OpenStreetMap](https://www.openstreetmap.org/) extract, with the layers and attributes using the [Shortbread](https://shortbread-tiles.org/) schema, so that [VersaTiles styles](https://github.com/versatiles-org/versatiles-style) can draw them.
 The configuration is a port of Planetiler's [`shortbread.yml`](https://github.com/onthegomap/planetiler/blob/main/planetiler-custommap/src/main/resources/samples/shortbread.yml), and Martin's tests use the 66 OpenStreetMap examples of its `shortbread.spec.yml`.
 
-!!! important "More information on he config used"
+!!! important "More information on the config used"
     The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md).
 
 !!! warning "feature is currently not fully implemented"
-    These are known missing featured currently, but are planned:
-    - `ocean` is ommited since Shortbread takes it from shapefile based coastline data outside OpenStreetMap.
+    These are known missing features currently, but are planned:
+    - `ocean` is omitted since Shortbread takes it from shapefile based coastline data outside OpenStreetMap.
     - `way_area` is left out of `water_polygons`, `water_polygons_labels` and `boundary_labels`, and every `boundary_label` starts at zoom 5.
       This is because expressions cannot currently read a feature's area.
     - A closed way is a line or a polygon, as its tags make it an [area](sources-osm.md#supported-features-and-handling).
       Planetiler reads it as both unless it has `area=yes` or `area=no`, so its `street_polygons` also have closed `highway=pedestrian` ways, and `area:aeroway` ways, which we don't currently consider as lines.
     - `boundary_labels` and `streets_polygons_labels` are points at each polygon's centroid.
       `pois`, `public_transport` and `addresses` at the centroid of each point, line or polygon.
-      Planetiler takes points and a point on the surface of polygons, or for `addresses` the centroid of convex ones while ommitting lines.
+      Planetiler takes points and a point on the surface of polygons, or for `addresses` the centroid of convex ones while omitting lines.
 
 1. Download an extract, for example Berlin from [Geofabrik](https://download.geofabrik.de/):
 
