@@ -406,6 +406,42 @@ fn a_shapefile_in_ellipsoidal_mercator_is_refused() {
 }
 
 #[test]
+fn a_shapefile_in_wgs84_radians_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("roads.shp");
+    let mut writer = shapefile::Writer::from_path(&path, TableWriterBuilder::new()).unwrap();
+    writer
+        .write_shape_and_record(&Point::new(0.2, 0.9), &dbase::Record::default())
+        .unwrap();
+    drop(writer);
+    std::fs::write(
+        dir.path().join("roads.prj"),
+        r#"GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Radian",1.0]]"#,
+    )
+    .unwrap();
+    let err = Shapefile::open(&path, dir.path()).unwrap_err();
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/roads.shp is in `GCS_WGS_1984`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
+}
+
+#[test]
+fn a_prj_file_nested_too_deep_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("roads.shp");
+    let mut writer = shapefile::Writer::from_path(&path, TableWriterBuilder::new()).unwrap();
+    writer
+        .write_shape_and_record(&Point::new(1.0, 2.0), &dbase::Record::default())
+        .unwrap();
+    drop(writer);
+    std::fs::write(
+        dir.path().join("roads.prj"),
+        format!("{}1{}", "A[".repeat(40), "]".repeat(40)),
+    )
+    .unwrap();
+    let err = Shapefile::open(&path, dir.path()).unwrap_err();
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/roads.shp is in `A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
+}
+
+#[test]
 fn a_shapefile_without_a_prj_file_is_refused() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("roads.shp");
