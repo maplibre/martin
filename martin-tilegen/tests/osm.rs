@@ -310,7 +310,7 @@ fn a_shared_store_loads_the_nodes_once_and_only_for_ways(#[case] reads: &[Geomet
             let def = TableDef {
                 columns: columns(&tags),
                 layers: vec![LayerDef {
-                    geometry: Some(*geometry),
+                    geometry: vec![GeometryDef::from(*geometry)],
                     ..LayerDef::new("layer", 0..=14, GRID)
                 }],
             };
