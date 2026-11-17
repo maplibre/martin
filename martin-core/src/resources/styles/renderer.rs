@@ -11,10 +11,11 @@ use std::time::{Duration, Instant};
 
 use image::RgbaImage;
 use maplibre_native_ffi::{
-    CameraOptions, CameraUpdate, CameraUpdateMode, CommandCompletion, GraphicsDeviceHandle, GraphicsDeviceOptions,
-    GraphicsDeviceTextureDescriptor, LogHandler, LogSeverity, LogicalExtent, MapHandle, MapMode, MapOptions,
-    NativeFuture, RenderDriverKind, RenderSessionAttachOptions, RenderSessionHandle, RuntimeEvent, RuntimeEventFlag,
-    RuntimeEventHandler, RuntimeEventType, RuntimeHandle, RuntimeOptions, TextureReadbackResult, set_log_callback,
+    CameraOptions, CameraUpdate, CameraUpdateMode, CommandCompletion, LogHandler, LogSeverity, LogicalExtent,
+    LogicalSize, MapHandle, MapMode, MapOptions, NativeFuture, OffscreenDescriptor, OffscreenDeviceHandle,
+    OffscreenDeviceOptions, RenderDriverKind, RenderSessionAttachOptions, RenderSessionHandle, RuntimeEvent,
+    RuntimeEventFlag, RuntimeEventHandler, RuntimeEventType, RuntimeHandle, RuntimeOptions, TextureReadbackResult,
+    set_log_callback,
 };
 
 use tracing::{error, info, warn};
@@ -43,9 +44,10 @@ impl Drop for Runtime {
     fn drop(&mut self) {
         let signal = Arc::new(Signal::default());
         let Some(handle) = self.handle.take() else { return };
-        let released = (handle.release())
+        let released = handle
+            .release()
             .map(|released| block_on(&signal, released, "runtime release"))
-            .map_err(|(_, err)| StyleError::from(err));
+            .map_err(|err| StyleError::from(err.error));
         if let Err(err) | Ok(Err(err)) = released {
             warn!(error = %err, "Failed to release the MapLibre runtime");
         }
@@ -61,7 +63,7 @@ impl Runtime {
     /// Returns [`StyleError::RenderingError`] when `MapLibre` cannot start.
     pub fn new(ambient_cache_bytes: Option<u64>) -> Result<Self, StyleError> {
         forward_logs();
-        let handle = RuntimeHandle::create(&RuntimeOptions::default())?;
+        let handle = RuntimeHandle::create(Some(&RuntimeOptions::default()))?;
         let listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>> = Arc::default();
         let routes = Arc::downgrade(&listeners);
         let signal = Arc::new(Signal::default());
@@ -96,7 +98,7 @@ impl Runtime {
 #[derive(Debug)]
 pub struct WorkerDevice {
     runtime: Arc<Runtime>,
-    device: GraphicsDeviceHandle,
+    device: OffscreenDeviceHandle,
 }
 
 impl WorkerDevice {
@@ -106,11 +108,11 @@ impl WorkerDevice {
     ///
     /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
     pub fn new(runtime: Arc<Runtime>) -> Result<Self, StyleError> {
-        let options = GraphicsDeviceOptions {
+        let options = OffscreenDeviceOptions {
             single_context: Some(true),
-            ..GraphicsDeviceOptions::default()
+            ..OffscreenDeviceOptions::default()
         };
-        let device = GraphicsDeviceHandle::create(Some(&options)).map_err(|err| StyleError::GraphicsUnavailable {
+        let device = OffscreenDeviceHandle::create(Some(&options)).map_err(|err| StyleError::GraphicsUnavailable {
             reason: err.to_string(),
         })?;
         Ok(Self { runtime, device })
@@ -126,19 +128,16 @@ impl WorkerDevice {
 fn forward_logs() {
     static FORWARDED: Once = Once::new();
     FORWARDED.call_once(|| {
-        let handler = LogHandler::new(|severity, event, code, message| {
-            match severity {
-                LogSeverity::Info => {
-                    info!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-                }
-                LogSeverity::Warning => {
-                    warn!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-                }
-                LogSeverity::Error | LogSeverity::Unknown(_) => {
-                    error!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-                }
+        let handler = LogHandler::new(|severity, event, code, message| match severity {
+            LogSeverity::Info => {
+                info!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
             }
-            true
+            LogSeverity::Warning => {
+                warn!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
+            }
+            LogSeverity::Error | LogSeverity::Unknown(_) => {
+                error!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
+            }
         });
         if let Err(err) = set_log_callback(handler) {
             warn!(error = %err, "Failed to forward MapLibre's log records to tracing");
@@ -230,7 +229,7 @@ impl Renderer {
     /// Creates a map of `mode` drawing `width` x `height` logical pixels at `pixel_ratio` into a texture on `device`.
     pub fn new(
         runtime: &Arc<Runtime>,
-        device: &GraphicsDeviceHandle,
+        device: &OffscreenDeviceHandle,
         mode: MapMode,
         width: u32,
         height: u32,
@@ -247,8 +246,8 @@ impl Renderer {
         block_on(&signal, created, "map creation")?;
 
         let attach = RenderSessionAttachOptions::new(RenderDriverKind::CoreWorker);
-        let descriptor = GraphicsDeviceTextureDescriptor::new(extent);
-        let (session, attached) = map.attach_graphics_device_texture(device, &descriptor, &attach)?;
+        let descriptor = OffscreenDescriptor::new(LogicalSize::new(width, height));
+        let (session, attached) = map.attach_offscreen(&descriptor, &attach, Some(device))?;
         let style = Arc::new(StyleListener::default());
         runtime
             .listeners
@@ -320,10 +319,9 @@ impl Renderer {
 
     /// Resizes the drawing to `width` x `height` logical pixels, keeping the map and its style.
     pub fn resize(&mut self, width: u32, height: u32) -> Result<(), StyleError> {
-        let scale_factor = self.session.get_snapshot()?.extent.scale_factor;
         block_on(
             &self.signal,
-            self.session.resize(LogicalExtent::new(width, height, scale_factor))?,
+            self.session.resize(LogicalSize::new(width, height))?,
             "resize",
         )?;
         Ok(())
@@ -362,25 +360,29 @@ impl Drop for Renderer {
     /// Detaches and releases the session, then the map, waiting for each, so no native
     /// worker still draws when the runtime or the process goes away.
     fn drop(&mut self) {
-        let detached = (self.session.detach())
+        let detached = self
+            .session
+            .detach()
             .map(|detached| block_on(&self.signal, detached, "render session detach"))
             .map_err(StyleError::from);
         if let Err(err) | Ok(Err(err)) = detached {
             warn!(error = %err, "Failed to detach a render session");
         }
         if let Some(session) = self.session.take() {
-            let released = (session.release())
-                .map(|released| block_on(&self.signal, released, "render session release"))
-                .map_err(|(_, err)| StyleError::from(err));
+            let released = session
+                .release()
+                .map(|(released, _)| block_on(&self.signal, released, "render session release"))
+                .map_err(|err| StyleError::from(err.error));
             if let Err(err) | Ok(Err(err)) = released {
                 warn!(error = %err, "Failed to release a render session");
             }
         }
         let Some(map) = self.map.take() else { return };
         let id = map.id();
-        let released = (map.release())
+        let released = map
+            .release()
             .map(|released| block_on(&self.signal, released, "map release"))
-            .map_err(|(_, err)| StyleError::from(err));
+            .map_err(|err| StyleError::from(err.error));
         if let Err(err) | Ok(Err(err)) = released {
             warn!(error = %err, "Failed to release a map");
         }

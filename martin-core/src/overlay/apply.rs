@@ -158,7 +158,7 @@ impl<'r> OverlayGuard<'r> {
                 reason = "every other error passes through unchanged"
             )]
             self.renderer
-                .command(map.add_style_layer_json(&layer.to_string(), ""))
+                .command(map.add_style_layer_json(&layer.to_string(), Some("")))
                 .map_err(|e| match e {
                     StyleError::RenderingError(error) => StyleError::OverlayApply(ApplyError {
                         id: format!("f{index}-{kind}"),
