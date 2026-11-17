@@ -1589,7 +1589,7 @@
               "type": "null"
             }
           ],
-          "description": "How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.\n\nWhen unset, `offline`."
+          "description": "How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.\n\nWhen unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles."
         },
         "profile": {
           "anyOf": [
