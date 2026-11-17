@@ -9,8 +9,9 @@ use martin_core::tiles::postgres::PostgresError::{CannotTransform, EngineTable, 
 use martin_core::tiles::postgres::{
     PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, PostgresTiler, is_typed_property,
 };
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, wgs84_to_webmercator};
 use martin_tilegen::plan::Condition;
+use martin_tilegen::project::MAX_LATITUDE;
 use martin_tilegen::source::Crs;
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
@@ -623,7 +624,9 @@ pub fn scan_sql(
                 format!(" AND {column} && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)")
             }
             3857 => {
-                format!(" AND {column} && ST_Transform(ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326), 3857)")
+                let (left, bottom) = web_mercator_corner(left, bottom);
+                let (right, top) = web_mercator_corner(right, top);
+                format!(" AND {column} && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 3857)")
             }
             _ => format!(
                 " AND ST_Transform({column}::geometry, 4326) && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)"
@@ -638,6 +641,20 @@ pub fn scan_sql(
         has_id: info.id_column.is_some(),
         properties: selected.into_iter().map(str::to_owned).collect(),
     })
+}
+
+/// A corner of a WGS84 box in Web Mercator as SQL numbers, with a latitude at or past the edge of the
+/// Mercator square left open, as no projection can take a pole and the renderer clamps rows there to the edge.
+fn web_mercator_corner(lon: f64, lat: f64) -> (f64, String) {
+    let (x, y) = wgs84_to_webmercator(lon, lat);
+    let y = if lat >= MAX_LATITUDE {
+        "'Infinity'".to_owned()
+    } else if lat <= -MAX_LATITUDE {
+        "'-Infinity'".to_owned()
+    } else {
+        y.to_string()
+    };
+    (x, y)
 }
 
 /// The query a table with `layers` is served from: [`scan_sql`] limited to the geometries meeting
@@ -1058,6 +1075,23 @@ mod tests {
             "(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer)::box2d)"
         );
         assert_eq!(sql.bbox_search, format!("(SELECT {bbox_search})"));
+    }
+
+    #[test]
+    fn a_web_mercator_scan_leaves_its_box_open_past_the_edge_of_the_mercator_square() {
+        let info = TableInfo {
+            schema: "public".to_owned(),
+            table: "roads".to_owned(),
+            geometry_column: "geom".to_owned(),
+            srid: 3857,
+            ..TableInfo::default()
+        };
+        let world = scan_sql(&info, &[], None, Some(Bounds::new(-180.0, -90.0, 180.0, 90.0))).unwrap();
+        let inside = scan_sql(&info, &[], None, Some(Bounds::new(0.0, 0.0, 10.0, 10.0))).unwrap();
+        insta::assert_snapshot!(format!("{}\n{}", world.sql, inside.sql), @r#"
+        SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))) FROM "public"."roads" WHERE "geom" IS NOT NULL AND "geom" && ST_MakeEnvelope(-20037508.34278925, '-Infinity', 20037508.34278925, 'Infinity', 3857)
+        SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))) FROM "public"."roads" WHERE "geom" IS NOT NULL AND "geom" && ST_MakeEnvelope(0, 0, 1113194.9079327362, 1118889.9748579594, 3857)
+        "#);
     }
 
     #[test]
