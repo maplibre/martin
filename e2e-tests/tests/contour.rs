@@ -178,6 +178,133 @@ async fn tracing_one_tile_reads_exactly_nine_upstream_tiles() {
 }
 
 #[tokio::test]
+async fn a_tile_the_source_lacks_is_traced_from_its_parent() {
+    let files = serving(neighbourhood()).await;
+    let base_url = files.base_url();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            passthrough:
+              sources:
+                elevation:
+                  url: {base_url}/{{z}}/{{x}}/{{y}}
+                  format: png
+                  maxzoom: 12
+                  convert_to_contour: auto
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let response = martin.get("/elevation/11/326/792").await;
+    assert_eq!(response.status(), 200);
+
+    let collection = response.geojson(11, 326, 792);
+    assert_ne!(collection.features, [] as [geojson::Feature; 0]);
+    for feature in &collection.features {
+        let geometry = feature.geometry.as_ref().expect("a feature has geometry");
+        let GeometryValue::LineString { coordinates } = &geometry.value else {
+            panic!("expected a linestring, got {}", geometry.value.type_name());
+        };
+        for position in coordinates {
+            let (column, row) = tile_index(position[0], position[1], 11);
+            assert!(
+                column.abs_diff(326) <= 1 && row.abs_diff(792) <= 1,
+                "{position:?} reprojects to 11/{column}/{row}, off the requested tile's neighbourhood"
+            );
+        }
+        let properties = feature.properties.as_ref().expect("a feature has tags");
+        let elevation = properties["ele"].as_i64().expect("an integer elevation");
+        assert_eq!(elevation % 100, 0, "{elevation} m is off the z11 interval");
+    }
+
+    insta::assert_snapshot!(sorted_log(&files).await, @"
+    GET /10/162/395 no range
+    GET /10/162/396 no range
+    GET /10/162/397 no range
+    GET /10/163/395 no range
+    GET /10/163/396 no range
+    GET /10/163/397 no range
+    GET /10/164/395 no range
+    GET /10/164/396 no range
+    GET /10/164/397 no range
+    GET /11/325/791 no range
+    GET /11/325/792 no range
+    GET /11/325/793 no range
+    GET /11/326/791 no range
+    GET /11/326/792 no range
+    GET /11/326/793 no range
+    GET /11/327/791 no range
+    GET /11/327/792 no range
+    GET /11/327/793 no range
+    ");
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn sibling_tiles_traced_from_one_parent_carry_different_etags() {
+    let files = serving(neighbourhood()).await;
+    let base_url = files.base_url();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            passthrough:
+              sources:
+                elevation:
+                  url: {base_url}/{{z}}/{{x}}/{{y}}
+                  format: png
+                  maxzoom: 12
+                  convert_to_contour: auto
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let west = martin.get("/elevation/11/326/792").await;
+    let east = martin.get("/elevation/11/327/792").await;
+    assert_eq!((west.status(), east.status()), (200, 200));
+    assert_ne!(west.header("etag"), None);
+    assert_ne!(west.header("etag"), east.header("etag"));
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_tile_no_zoom_down_to_the_minzoom_holds_serves_no_content() {
+    let files = serving(neighbourhood()).await;
+    let base_url = files.base_url();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            passthrough:
+              sources:
+                elevation:
+                  url: {base_url}/{{z}}/{{x}}/{{y}}
+                  format: png
+                  minzoom: 9
+                  maxzoom: 12
+                  convert_to_contour: auto
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let response = martin.get("/elevation/11/1000/1000").await;
+    assert_eq!(response.status(), 204);
+
+    insta::assert_snapshot!(sorted_log(&files).await, @"
+    GET /10/500/500 no range
+    GET /11/1000/1000 no range
+    GET /11/1000/1001 no range
+    GET /11/1000/999 no range
+    GET /11/1001/1000 no range
+    GET /11/1001/1001 no range
+    GET /11/1001/999 no range
+    GET /11/999/1000 no range
+    GET /11/999/1001 no range
+    GET /11/999/999 no range
+    GET /9/250/250 no range
+    ");
+    martin.stop().await;
+}
+
+#[tokio::test]
 async fn a_disabled_source_serves_the_elevation_tile_unchanged() {
     let files = serving(neighbourhood()).await;
     let base_url = files.base_url();
