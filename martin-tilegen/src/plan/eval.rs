@@ -12,10 +12,10 @@ use super::{
     PlannedZoom,
 };
 use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role};
-use crate::props::{KeyId, KeyInterner, KeyNames, Prop, SourceStr};
+use crate::props::{KeyId, KeyInterner, KeyNames, LayerKinds, Prop, SourceStr};
 use crate::sort::record::EncodedProps;
 use crate::source::SourceFeature;
-use crate::{Feature, FeatureGeom, RenderLayer, TileGenError, TileGenResult};
+use crate::{Feature, FeatureGeom, MixedKinds, RenderLayer, TileGenError, TileGenResult};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExprErrors {
@@ -100,6 +100,7 @@ impl Plan {
             slots: PropSlots::default(),
             names: self.keys.names.clone(),
             errors: vec![0; self.exprs.len()],
+            kinds: LayerKinds::default(),
         }
     }
 
@@ -122,6 +123,24 @@ impl Plan {
                 errors,
             })
             .collect()
+    }
+
+    /// The keys whose values had kinds no single column holds, in plan order, then by key.
+    pub(crate) fn mixed_kinds(&self, kinds: &LayerKinds) -> Vec<MixedKinds> {
+        let mut mixed = Vec::new();
+        for (index, layer) in self.layers.iter().enumerate() {
+            let keys = &self.keys.layers[index];
+            for (key, kind) in kinds.layer(index).iter().enumerate() {
+                if kind.mixed {
+                    let key = KeyId::new(u32::try_from(key).expect("fewer than 2^32 property keys"));
+                    mixed.push(MixedKinds {
+                        layer: layer.info.name.clone(),
+                        key: keys.name(key).unwrap_or_default(),
+                    });
+                }
+            }
+        }
+        mixed
     }
 
     /// The keys of each output layer. Call once no more keys can appear, i.e. after rendering.
@@ -215,18 +234,22 @@ impl Plan {
     }
 
     /// Adds the computed attributes to `props`, and fills `bands` if they have zoom bands.
+    #[expect(clippy::too_many_arguments, reason = "the evaluator's scratch, borrowed apart")]
     fn computed(
         &self,
+        layer: usize,
         attrs: &PlannedAttrs,
         feature: &[(KeyId, Prop<SourceStr>)],
         view: Option<&FeatureView<'_, SourceStr>>,
         errors: &mut [u64],
         props: &mut EncodedProps,
         bands: &mut Vec<(u8, EncodedProps)>,
+        kinds: &mut LayerKinds,
     ) {
         for attr in &attrs.computed {
             if let Some(value) = self.attr(attr, feature, view, errors) {
                 props.push(attr.key, value.as_ref());
+                kinds.add(layer, attr.key, value.as_ref());
             }
         }
         if attrs.bands.is_empty() {
@@ -241,6 +264,7 @@ impl Plan {
             let Some(value) = self.attr(attr, feature, view, errors) else {
                 continue;
             };
+            kinds.add(layer, attr.key, value.as_ref());
             for (from, band) in bands.iter_mut() {
                 if attr.zooms.contains(from) {
                     band.push(attr.key, value.as_ref());
@@ -307,6 +331,8 @@ pub struct Evaluator<'p> {
     names: Vec<(ExprKeys, u32)>,
     /// Failed evaluations by expression of the plan.
     errors: Vec<u64>,
+    /// The kinds of the values each layer's keys took.
+    kinds: LayerKinds,
 }
 
 impl Evaluator<'_> {
@@ -332,6 +358,7 @@ impl Evaluator<'_> {
             slots,
             names,
             errors,
+            kinds,
         } = self;
         let plan: &Plan = plan;
         let index = usize::from(table);
@@ -372,9 +399,10 @@ impl Evaluator<'_> {
                     && (attrs.overrides.is_empty() || attrs.overrides.binary_search(&key).is_err())
                 {
                     props.push(key, value.as_ref());
+                    kinds.add(layer_index, key, value.as_ref());
                 }
             }
-            plan.computed(attrs, &feature.props, view, errors, props, bands);
+            plan.computed(layer_index, attrs, &feature.props, view, errors, props, bands, kinds);
             let id = match layer.id {
                 PlannedId::Keep => feature.id.and_then(|id| u64::try_from(id).ok()),
                 PlannedId::Drop => None,
@@ -407,6 +435,11 @@ impl Evaluator<'_> {
     #[must_use]
     pub fn finish(self) -> ExprTallies {
         ExprTallies(self.errors)
+    }
+
+    /// The kinds of the values each layer's keys took so far, leaving none.
+    pub(crate) fn take_kinds(&mut self) -> LayerKinds {
+        std::mem::take(&mut self.kinds)
     }
 }
 

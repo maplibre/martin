@@ -16,7 +16,7 @@ pub(crate) use crate::phase2::per_tile::LayerOpCounts;
 use crate::phase2::per_tile::OutputExprs;
 pub use crate::phase2::per_tile::{OpCounts, OpKind};
 use crate::plan::Plan;
-use crate::props::KeyNames;
+use crate::props::{KeyNames, LayerKinds};
 use crate::sort::{TileBatches, TileRecords};
 use crate::{EncodedTile, TileGenResult, TileOrder};
 
@@ -43,16 +43,25 @@ pub(crate) struct TileEncoding<'p> {
 
 impl<'p> TileEncoding<'p> {
     /// The encoding of `plan`'s tiles, handing `batches` back. Taking the batches means their sorter
-    /// was consumed, so every render worker is done and every property key has a name.
+    /// was consumed, so every render worker is done and every property key has a name. MLT columns
+    /// take the `kinds` the render tallied, so a key's column has one kind in every tile.
     pub(crate) fn start(
         plan: &'p Plan,
+        kinds: &LayerKinds,
         batches: TileBatches,
         format: TileFormat,
         encoding: Encoding,
         order: TileOrder,
         mvt_keep_unused_keys: bool,
     ) -> (Self, TileBatches) {
-        let names = plan.key_names();
+        let mut names = plan.key_names();
+        if matches!(format, TileFormat::Mlt) {
+            names = names
+                .into_iter()
+                .enumerate()
+                .map(|(layer, names)| names.with_kinds(kinds.layer(layer)))
+                .collect();
+        }
         let encoding = Self {
             infos: plan.layers.iter().map(|layer| layer.info.clone()).collect(),
             exprs: OutputExprs::new(plan, &names),

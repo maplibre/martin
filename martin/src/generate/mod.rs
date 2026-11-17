@@ -502,6 +502,12 @@ fn log_summary(summary: &Summary) {
             failed.layer, failed.expr, failed.errors
         );
     }
+    for mixed in &summary.mixed_kinds {
+        warn!(
+            "Layer `{}`: `{}` has values of different types, which tiles store as text",
+            mixed.layer, mixed.key
+        );
+    }
     for op in &summary.per_tile {
         info!(
             layer.id = %op.layer,

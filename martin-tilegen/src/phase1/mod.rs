@@ -14,6 +14,7 @@ pub use crate::phase1::render::{Feature, FeatureGeom, GeometryError, PixelThresh
 use crate::phase1::render::{Renderer, SliceErrors};
 use crate::phase2::{LayerOpCounts, OpKind, TileEncoder};
 use crate::plan::{Evaluator, ExprTallies, Plan};
+use crate::props::LayerKinds;
 use crate::sort::{Seq, SortBuffer, Sorter};
 use crate::source::{Crs, FeatureBatch, Geometry, WkbError};
 use crate::{LayerSliceErrors, OpSummary, Summary, TileGenError, TileGenResult, TileOrder};
@@ -107,9 +108,10 @@ impl<'a> RenderWorker<'a> {
     }
 
     /// Spills the rest of the buffer, and tells what this worker saw and could not render.
-    pub(crate) fn finish(self) -> TileGenResult<RenderTotals> {
+    pub(crate) fn finish(mut self) -> TileGenResult<RenderTotals> {
         self.buffer.finish()?;
         Ok(RenderTotals {
+            kinds: self.evaluator.take_kinds(),
             features: self.features,
             skipped: self.skipped,
             slice_errors: self.renderer.slice_errors,
@@ -129,6 +131,8 @@ pub(crate) struct RenderTotals {
     exprs: ExprTallies,
     /// What the per-tile operations did, by layer index.
     ops: Vec<LayerOpCounts>,
+    /// The kinds of the values each layer's keys took.
+    kinds: LayerKinds,
 }
 
 impl RenderTotals {
@@ -145,6 +149,12 @@ impl RenderTotals {
         }
         self.exprs.merge(other.exprs);
         add_op_counts(&mut self.ops, &other.ops);
+        self.kinds.merge(other.kinds);
+    }
+
+    /// The kinds of the values each layer's keys took.
+    pub(crate) fn kinds(&self) -> &LayerKinds {
+        &self.kinds
     }
 
     /// Adds what the encoders' per-tile operations did, and their failed evaluations.
@@ -163,6 +173,7 @@ impl RenderTotals {
             tiles,
             slice_errors: layer_slice_errors(plan, &self.slice_errors),
             expr_errors: plan.expr_errors(&self.exprs),
+            mixed_kinds: plan.mixed_kinds(&self.kinds),
             per_tile: op_summaries(plan, &self.ops),
         }
     }
