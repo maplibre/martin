@@ -14,7 +14,7 @@ use tokio::sync::Semaphore;
 use tracing::{debug, warn};
 
 use crate::config::file::{ContourRangeError, ResolvedContour};
-use crate::srv::tiles::process::terrain::neighbourhood::{GATHER_PERMITS, gather};
+use crate::srv::tiles::process::terrain::neighbourhood::{GATHER_PERMITS, Gathered, gather_nearest};
 
 /// Errors that can occur while tracing a contour tile.
 #[derive(thiserror::Error, Debug)]
@@ -60,19 +60,21 @@ static TRACE_PERMITS: LazyLock<Semaphore> = LazyLock::new(|| {
 });
 
 /// Traces the contour tile for `xyz` from `source`'s Terrarium elevation tiles.
+///
+/// Where the source holds no tile at `xyz`, the contours are traced from the nearest ancestor that it does hold.
 pub async fn trace_contour(
     source: &BoxedSource,
     settings: ResolvedContour,
     xyz: TileCoord,
     cache: Option<&TileCache>,
 ) -> Result<Tile, ContourTraceError> {
-    let slots = {
+    let Gathered { window, slots } = {
         let _permit = GATHER_PERMITS
             .acquire()
             .await
             // The only way to fail is a closed semaphore, which happens at shutdown.
             .map_err(|_closed| ContourTraceError::ShuttingDown)?;
-        gather(source, xyz, cache).await.map_err(|e| {
+        gather_nearest(source, xyz, cache).await.map_err(|e| {
             if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) {
                 ContourTraceError::SourceNeedsReload
             } else {
@@ -83,7 +85,7 @@ pub async fn trace_contour(
 
     let info = TileInfo::new(Format::Mvt, Encoding::Uncompressed);
 
-    // An absent centre means the source has no elevation here at all. Tracing the
+    // An absent centre means the source has no elevation here at any zoom down to its minzoom. Tracing the
     // clamped-from-nothing field would answer with a tile a client cannot tell
     // from genuinely contour-free terrain, which a CDN would then hold for the
     // life of its `max-age`. An empty tile becomes a 204 downstream.
@@ -103,7 +105,7 @@ pub async fn trace_contour(
     let etag = {
         let inputs: [InputEtag<'_>; NEIGHBOURHOOD_LEN] =
             std::array::from_fn(|i| InputEtag::from_slot(slots[i].as_ref().map(|(_, etag)| etag)));
-        neighbourhood_etag(&inputs, &settings.fingerprint())
+        neighbourhood_etag(&inputs, window, &settings.fingerprint())
             .map(|hash| URL_SAFE_NO_PAD.encode(hash.to_ne_bytes()))
             .map(CompactString::from)
     };
@@ -119,7 +121,7 @@ pub async fn trace_contour(
         // Marching squares over a 320-square grid is CPU-bound for tens of
         // milliseconds, which would stall every other task on this worker if it
         // ran inline.
-        tokio::task::spawn_blocking(move || trace_contours(&neighbourhood, xyz.z(), &settings.opts))
+        tokio::task::spawn_blocking(move || trace_contours(&neighbourhood, xyz.z(), window, &settings.opts))
             .await
             .map_err(|e| ContourTraceError::TraceFailed(e.to_string()))??
     };
