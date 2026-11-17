@@ -273,7 +273,9 @@ impl TileInfo {
             v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => Some(Format::Png),
             v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => Some(Format::Gif),
             v if v.starts_with(b"\xFF\xD8\xFF") => Some(Format::Jpeg),
-            v if v.starts_with(b"\xFF\x0A") && decode_7bit_length_and_tag(v, &[0x1]).is_err() => Some(Format::Jxl),
+            v if v.starts_with(b"\xFF\x0A") && decode_7bit_length_and_tag(v, MLT_LAYER_TAGS).is_err() => {
+                Some(Format::Jxl)
+            }
             v if v.starts_with(b"\x00\x00\x00\x0C\x4A\x58\x4C\x20\x0D\x0A\x87\x0A") => Some(Format::Jxl),
             v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => Some(Format::Webp),
             _ => None,
@@ -284,7 +286,7 @@ impl TileInfo {
     #[must_use]
     fn detect_vectorish_format(value: &[u8]) -> Format {
         match value {
-            v if decode_7bit_length_and_tag(v, &[0x1]).is_ok() => Format::Mlt,
+            v if decode_7bit_length_and_tag(v, MLT_LAYER_TAGS).is_ok() => Format::Mlt,
             v if is_valid_json(v) => Format::Json,
             // If we can't detect the format, we assume MVT.
             // Reasoning:
@@ -402,6 +404,9 @@ fn is_valid_json(tile: &[u8]) -> bool {
     tile.starts_with(b"{") && tile.ends_with(b"}") && serde_json::from_slice::<serde::de::IgnoredAny>(tile).is_ok()
 }
 
+/// The layer tags an MLT tile starts with: `0x1` for the v1 wire format, `0x2` for v2
+const MLT_LAYER_TAGS: &[u8] = &[0x1, 0x2];
+
 /// How many decompressed bytes detection reads before it decides whether it needs the rest
 const DETECT_PREFIX_LEN: u64 = 16;
 
@@ -409,7 +414,7 @@ const DETECT_PREFIX_LEN: u64 = 16;
 fn rules_out_mlt_and_json(prefix: &[u8]) -> bool {
     !prefix.starts_with(b"{")
         && matches!(
-            decode_7bit_length_and_tag(prefix, &[0x1]),
+            decode_7bit_length_and_tag(prefix, MLT_LAYER_TAGS),
             Err(SevenBitDecodingError::UnexpectedTag(_)
                 | SevenBitDecodingError::SizeOverflow
                 | SevenBitDecodingError::SizeUnderflow)
