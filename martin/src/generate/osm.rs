@@ -46,7 +46,7 @@ pub fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateRes
         let lower_options = LowerOptions {
             zooms: options.zooms.clone(),
             bounds: options.bbox,
-            encoder: mlt_encoder(config.convert_to_mlt.clone(), options.format, id)?,
+            encoder: mlt_encoder(config.convert_to_mlt.clone(), options.copy_format, id)?,
             order_by: None,
         };
         let Some(def) = lower(id, source, &lower_options)? else {

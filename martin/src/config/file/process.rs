@@ -333,10 +333,27 @@ pub struct MltEncoderConfig {
     /// Allow second-order deltas of integer and vertex streams, v2 wire only.
     #[cfg(feature = "unstable-mlt-v2")]
     pub allow_delta2: Option<bool>,
+    /// Allow rANS entropy coding of vertices, v2 wire only.
+    #[cfg(feature = "unstable-mlt-v2")]
+    pub allow_rans_vertices: Option<bool>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
+}
+
+#[cfg(feature = "unstable-mlt-v2")]
+impl MltEncoderConfig {
+    /// The first key set that only the v2 wire format reads.
+    #[must_use]
+    pub fn v2_only_key(&self) -> Option<&'static str> {
+        [
+            ("allow_delta2", self.allow_delta2),
+            ("allow_rans_vertices", self.allow_rans_vertices),
+        ]
+        .into_iter()
+        .find_map(|(key, value)| value.is_some().then_some(key))
+    }
 }
 
 /// The tile consumer an MLT encoder tunes its defaults for.
@@ -475,6 +492,8 @@ impl From<MltEncoderConfig> for EncoderConfig {
             allow_shared_dict,
             #[cfg(feature = "unstable-mlt-v2")]
             allow_delta2,
+            #[cfg(feature = "unstable-mlt-v2")]
+            allow_rans_vertices,
             // Unrecognized keys are reported via the warning path during finalize();
             // they intentionally don't influence the resulting EncoderConfig.
             unrecognized: _unrecognized,
@@ -516,6 +535,10 @@ impl From<MltEncoderConfig> for EncoderConfig {
         #[cfg(feature = "unstable-mlt-v2")]
         if let Some(v) = allow_delta2 {
             cfg = cfg.with_delta2(v);
+        }
+        #[cfg(feature = "unstable-mlt-v2")]
+        if let Some(v) = allow_rans_vertices {
+            cfg = cfg.with_rans_vertices(v);
         }
         cfg
     }

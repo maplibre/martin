@@ -37,6 +37,8 @@ use tracing::{debug, info, warn};
 
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
+#[cfg(feature = "unstable-mlt-v2")]
+use crate::config::file::MltEncoderConfig;
 use crate::config::file::postgres::resolver::{linear_geometry, row_filter};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresInfo as _, SourceSpec, TableInfo};
 use crate::config::file::process::{MltProcessConfig, ProcessConfig};
@@ -66,6 +68,8 @@ struct GenerateOptions {
     sources: Vec<String>,
     output_file: PathBuf,
     format: TileFormat,
+    /// The format as asked for, which also tells the MLT wire version.
+    copy_format: CopyFormat,
     encoding: Encoding,
     zooms: RangeInclusive<u8>,
     bbox: Option<Bounds>,
@@ -114,11 +118,12 @@ impl GenerateOptions {
                 algorithm: algorithm.clone(),
             });
         }
-        let format = match args.format {
-            None | Some(CopyFormat::MltV1) => TileFormat::Mlt,
-            Some(CopyFormat::Mvt) => TileFormat::Mvt,
+        let copy_format = args.format.unwrap_or(CopyFormat::MltV1);
+        let format = match copy_format {
+            CopyFormat::Mvt => TileFormat::Mvt,
             #[cfg(feature = "unstable-mlt-v2")]
-            Some(CopyFormat::MltV2) => return Err(GenerateError::MltV2),
+            CopyFormat::MltV2 => TileFormat::Mlt,
+            CopyFormat::MltV1 => TileFormat::Mlt,
         };
         if !args.mvt_quirks.is_empty() && !matches!(format, TileFormat::Mvt) {
             return Err(GenerateError::MvtQuirkWithoutMvt);
@@ -150,6 +155,7 @@ impl GenerateOptions {
                 .collect(),
             output_file: args.output_file,
             format,
+            copy_format,
             encoding,
             zooms: zoom_range(args.min_zoom, args.max_zoom, args.zoom_levels)?,
             bbox,
@@ -213,9 +219,6 @@ pub enum GenerateError {
     SeveralBboxes,
     #[error("`--mode bulk` renders a range of zooms; `--zoom-levels` must not skip a zoom")]
     ZoomGaps,
-    #[cfg(feature = "unstable-mlt-v2")]
-    #[error("`--mode bulk` cannot write `--format mlt2` yet")]
-    MltV2,
     #[error("`--mvt-quirk` only changes MVT tiles; add `--format mvt`")]
     MvtQuirkWithoutMvt,
     #[error("unknown encoding `{0}`; `--mode bulk` takes one of gzip, zlib, br, zstd or none")]
@@ -234,9 +237,9 @@ pub enum GenerateError {
     MltDisabled { source_id: String },
     #[cfg(feature = "unstable-mlt-v2")]
     #[error(
-        "Source `{source_id}` sets `allow_delta2` in `convert_to_mlt`, which changes only `--format mlt2` tiles; `--mode bulk` cannot write them yet"
+        "Source `{source_id}` sets `{key}` in `convert_to_mlt`, which changes only `--format mlt2` tiles; add `--format mlt2`"
     )]
-    Delta2WithoutMlt2 { source_id: String },
+    V2OnlyKey { source_id: String, key: &'static str },
     #[error("Source `{0}` uses tile grid `{1}`; `--mode bulk` supports Web Mercator only")]
     UnsupportedGrid(String, String),
     #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
@@ -743,7 +746,7 @@ async fn select_sources(
             ..ProcessConfig::default()
         };
         let convert = ProcessConfig::layered(&global, &per_connection, &per_table).convert_to_mlt;
-        let encoder = mlt_encoder(convert, options.format, &id)?;
+        let encoder = mlt_encoder(convert, options.copy_format, &id)?;
         scans.extend(lower_table(
             &id,
             info.clone(),
@@ -796,29 +799,42 @@ fn source_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) -> Option<Bou
     union
 }
 
-/// The MLT encoder settings of a source's `convert_to_mlt`, or `None` for the defaults.
+/// The MLT encoder settings of a source's `convert_to_mlt` for tiles of `format`, or `None` for the defaults.
 ///
 /// # Errors
 ///
 /// If MLT conversion is disabled for a source that is written as MLT, or sets a key MLT v1 tiles ignore.
 fn mlt_encoder(
     convert: Option<MltProcessConfig>,
-    format: TileFormat,
+    format: CopyFormat,
     source_id: &str,
 ) -> GenerateResult<Option<EncoderConfig>> {
-    match convert {
-        #[cfg(feature = "unstable-mlt-v2")]
-        Some(MltProcessConfig::Explicit(cfg)) if cfg.allow_delta2.is_some() && matches!(format, TileFormat::Mlt) => {
-            Err(GenerateError::Delta2WithoutMlt2 {
-                source_id: source_id.to_owned(),
-            })
+    let encoder = match convert {
+        Some(MltProcessConfig::Explicit(cfg)) => {
+            #[cfg(feature = "unstable-mlt-v2")]
+            if matches!(format, CopyFormat::MltV1)
+                && let Some(key) = cfg.v2_only_key()
+            {
+                return Err(GenerateError::V2OnlyKey {
+                    source_id: source_id.to_owned(),
+                    key,
+                });
+            }
+            Some(EncoderConfig::from(cfg))
         }
-        Some(MltProcessConfig::Explicit(cfg)) => Ok(Some(EncoderConfig::from(cfg))),
-        Some(MltProcessConfig::Disabled) if matches!(format, TileFormat::Mlt) => Err(GenerateError::MltDisabled {
-            source_id: source_id.to_owned(),
-        }),
-        _ => Ok(None),
+        Some(MltProcessConfig::Disabled) if !matches!(format, CopyFormat::Mvt) => {
+            return Err(GenerateError::MltDisabled {
+                source_id: source_id.to_owned(),
+            });
+        }
+        _ => None,
+    };
+    #[cfg(feature = "unstable-mlt-v2")]
+    if matches!(format, CopyFormat::MltV2) {
+        let encoder = encoder.unwrap_or_else(|| EncoderConfig::from(MltEncoderConfig::default()));
+        return Ok(Some(encoder.with_wire_version(mlt_core::encoder::WireVersion::V02)));
     }
+    Ok(encoder)
 }
 
 /// Ctrl-C and `SIGTERM` (Ctrl+Break on Windows), registered before the output exists so that neither can leave it behind.

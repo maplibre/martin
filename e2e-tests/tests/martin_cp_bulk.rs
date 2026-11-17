@@ -1039,17 +1039,77 @@ async fn refuses_arguments_bulk_mode_cannot_honour() {
 
 #[cfg(feature = "test-mlt-v2")]
 #[tokio::test]
-async fn refuses_mlt2() {
+async fn mlt2_tiles_hold_the_same_layers_in_the_v2_wire_format() {
     let dir = temp_dir();
-    let log = MartinCp::bulk()
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let v1 = dir.path().join("v1.mbtiles");
+    MartinCp::bulk()
         .with_postgres()
+        .arg("--config")
+        .arg(&config)
         .arg("--output-file")
-        .arg(dir.path().join("out.mbtiles"))
+        .arg(&v1)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let v2 = dir.path().join("v2.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&v2)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--encoding")
+        .arg("none")
         .arg("--format")
         .arg("mlt2")
-        .run_expecting_failure()
+        .run()
         .await;
-    insta::assert_snapshot!(log, @"ERROR `--mode bulk` cannot write `--format mlt2` yet");
+    let (v1, v2) = (tiles(&v1).await, tiles(&v2).await);
+    let same: Vec<_> = v1
+        .iter()
+        .zip(&v2)
+        .map(|((z, x, y, a), (_, _, _, b))| {
+            let v2_wire = mlt_core::Parser::default()
+                .parse_layers(b)
+                .unwrap()
+                .iter()
+                .all(|layer| matches!(layer, mlt_core::Layer::Tag02(_)));
+            let same = mlt_dump(&mlt_layers(a)) == mlt_dump(&mlt_layers(b));
+            format!("{z}/{x}/{y} v2 wire: {v2_wire}, same layers: {same}")
+        })
+        .collect();
+    insta::assert_snapshot!(same.join("\n"), @"
+    0/0/0 v2 wire: true, same layers: true
+    1/0/0 v2 wire: true, same layers: true
+    1/0/1 v2 wire: true, same layers: true
+    1/1/0 v2 wire: true, same layers: true
+    1/1/1 v2 wire: true, same layers: true
+    ");
 }
 
 #[tokio::test]
@@ -1901,7 +1961,7 @@ async fn refuses_allow_delta2_which_mlt_v1_tiles_ignore() {
         .arg(&output)
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(log, @"ERROR Source `points1` sets `allow_delta2` in `convert_to_mlt`, which changes only `--format mlt2` tiles; `--mode bulk` cannot write them yet");
+    insta::assert_snapshot!(log, @"ERROR Source `points1` sets `allow_delta2` in `convert_to_mlt`, which changes only `--format mlt2` tiles; add `--format mlt2`");
     assert!(!output.exists());
 }
 
