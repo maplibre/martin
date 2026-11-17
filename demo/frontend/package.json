@@ -7,7 +7,7 @@
   ],
   "dependencies": {
     "date-fns": "^4.4.0",
-    "debounce": "3.0.0",
+    "debounce": "4.0.0",
     "maplibre-gl": "^6.0.0",
     "normalize.css": "8.0.1",
     "react": "19.3.1",
