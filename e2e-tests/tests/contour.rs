@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 
@@ -236,6 +237,66 @@ async fn a_tile_the_source_lacks_is_traced_from_its_parent() {
     GET /11/327/791 no range
     GET /11/327/792 no range
     GET /11/327/793 no range
+    ");
+    martin.stop().await;
+}
+
+#[tokio::test]
+async fn a_tile_traced_from_its_grandparent_keeps_the_requested_zooms_interval() {
+    let files = serving(neighbourhood()).await;
+    let base_url = files.base_url();
+    let mut martin = Martin::builder()
+        .config(&formatdoc! {"
+            passthrough:
+              sources:
+                elevation:
+                  url: {base_url}/{{z}}/{{x}}/{{y}}
+                  format: png
+                  maxzoom: 12
+                  convert_to_contour: auto
+        "})
+        .start()
+        .await
+        .expect("failed to start martin");
+
+    let response = martin.get("/elevation/12/653/1585").await;
+    assert_eq!(response.status(), 200);
+
+    let elevations = response
+        .geojson(12, 653, 1585)
+        .features
+        .iter()
+        .map(|feature| {
+            let properties = feature.properties.as_ref().expect("a feature has tags");
+            properties["ele"].as_i64().expect("an integer elevation")
+        })
+        .collect::<BTreeSet<_>>();
+    insta::assert_debug_snapshot!(elevations, @"
+    {
+        -50,
+    }
+    ");
+
+    insta::assert_snapshot!(sorted_log(&files).await, @"
+    GET /10/162/395 no range
+    GET /10/162/396 no range
+    GET /10/162/397 no range
+    GET /10/163/395 no range
+    GET /10/163/396 no range
+    GET /10/163/397 no range
+    GET /10/164/395 no range
+    GET /10/164/396 no range
+    GET /10/164/397 no range
+    GET /11/326/792 no range
+    GET /12/652/1584 no range
+    GET /12/652/1585 no range
+    GET /12/652/1586 no range
+    GET /12/653/1584 no range
+    GET /12/653/1585 no range
+    GET /12/653/1586 no range
+    GET /12/654/1584 no range
+    GET /12/654/1585 no range
+    GET /12/654/1586 no range
     ");
     martin.stop().await;
 }
