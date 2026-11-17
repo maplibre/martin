@@ -175,8 +175,8 @@ async fn maplibre_logs_under_its_own_target() {
     martin.stop().await;
     insta::with_settings!({filters => vec![(r"GPU Identifier: .* maplibre\.event", "GPU Identifier: [GPU] maplibre.event")]}, {
         insta::assert_snapshot!(martin.take_log_lines("maplibre.").join("\n"), @"
-        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
-        INFO graphics device uses the EGL surfaceless platform maplibre.event=Render maplibre.code=-1
+        INFO offscreen device uses the EGL surfaceless platform with OpenGL ES 3 maplibre.event=Render maplibre.code=-1
+        INFO offscreen device uses the EGL surfaceless platform with OpenGL ES 3 maplibre.event=Render maplibre.code=-1
         INFO GPU Identifier: [GPU] maplibre.event=General maplibre.code=-1
         ");
     });
