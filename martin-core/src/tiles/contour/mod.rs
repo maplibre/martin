@@ -22,19 +22,27 @@ pub use crate::tiles::contour::isolines::{
     ContourOptions, ElevationUnits, IsolineOptions, ZoomIntervalMap, generate_contours,
 };
 pub use crate::tiles::contour::mvt::{MvtEncodingOptions, encode_contours};
-use crate::tiles::neighbourhood::Neighbourhood;
+use crate::tiles::neighbourhood::{AncestorWindow, Neighbourhood};
 
-/// Builds the contour tile for `zoom` from a neighbourhood of Terrarium tiles.
+/// Builds the contour tile for `zoom` from the `window` of a neighbourhood of Terrarium tiles.
+///
+/// The neighbourhood is centred on the requested tile itself, or on its nearest ancestor when the source does not hold the tile at `zoom`.
+/// Either way the contour interval is the one configured for `zoom`.
 ///
 /// # Errors
 ///
 /// Returns [`ContourError::CorruptCentreTile`] when the centre tile arrived but
 /// could not be decoded, [`ContourError::Isolines`] when marching squares
 /// rejects the grid, and [`ContourError::Encoding`] when the MVT encoder does.
-pub fn trace_contours(tiles: &Neighbourhood, zoom: u8, opts: &ContourOptions) -> Result<TileData, ContourError> {
+pub fn trace_contours(
+    tiles: &Neighbourhood,
+    zoom: u8,
+    window: AncestorWindow,
+    opts: &ContourOptions,
+) -> Result<TileData, ContourError> {
     let field = tiles.assemble()?;
     let tile_size = field.tile_size();
-    let grid = HeightGrid::from_field(&field, opts.fetch_margin);
+    let grid = HeightGrid::from_field(&field, opts.fetch_margin, window);
     let traced = generate_contours(&grid, zoom, &opts.isoline())?;
     let tile_space = opts.geometry_transform(tile_size).apply(traced);
     encode_contours(&tile_space, &opts.mvt_encoding())
@@ -61,7 +69,7 @@ mod tests {
     fn flat_terrain_traces_nothing() {
         for meters in [1000.0, 0.0, -500.0] {
             let field = RgbaField::uniform(terrarium(meters), DEFAULT_TILE_SIZE);
-            let grid = HeightGrid::from_field(&field, 32);
+            let grid = HeightGrid::from_field(&field, 32, AncestorWindow::NATIVE);
             let traced =
                 generate_contours(&grid, 12, &ContourOptions::default().isoline()).expect("flat terrain traces");
             assert!(traced.is_empty(), "{meters} m");
@@ -100,15 +108,20 @@ mod tests {
     fn a_corrupt_centre_is_an_error() {
         let tiles = Neighbourhood::centre_only(TileData::from_static(b"this is not an image"));
         assert!(matches!(
-            trace_contours(&tiles, 12, &ContourOptions::default()),
+            trace_contours(&tiles, 12, AncestorWindow::NATIVE, &ContourOptions::default()),
             Err(ContourError::CorruptCentreTile)
         ));
     }
 
     #[test]
     fn an_absent_neighbourhood_encodes_an_empty_layer() {
-        let bytes = trace_contours(&Neighbourhood::default(), 12, &ContourOptions::default())
-            .expect("an absent neighbourhood is not corrupt");
+        let bytes = trace_contours(
+            &Neighbourhood::default(),
+            12,
+            AncestorWindow::NATIVE,
+            &ContourOptions::default(),
+        )
+        .expect("an absent neighbourhood is not corrupt");
         let reader = MvtReaderRef::new(&bytes).expect("tile should parse");
         let features: usize = reader.layers().map(MvtLayerRef::feature_count).sum();
         assert_eq!(features, 0);

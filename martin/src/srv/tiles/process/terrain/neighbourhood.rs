@@ -7,7 +7,7 @@ use std::sync::{Arc, LazyLock};
 
 use compact_str::CompactString;
 use futures::stream::{self, StreamExt as _};
-use martin_core::tiles::neighbourhood::{NEIGHBOURHOOD_LEN, Neighbourhood};
+use martin_core::tiles::neighbourhood::{AncestorWindow, NEIGHBOURHOOD_LEN, Neighbourhood};
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey};
 use martin_tile_utils::{TileCoord, TileData, TileGrid};
 use tokio::sync::Semaphore;
@@ -81,20 +81,81 @@ pub async fn gather(
     xyz: TileCoord,
     cache: Option<&TileCache>,
 ) -> Result<[Slot; NEIGHBOURHOOD_LEN], Arc<MartinCoreError>> {
+    gather_around(source, xyz, cache, None).await
+}
+
+/// A neighbourhood read for a requested tile, and where that tile sits inside its centre.
+pub struct Gathered {
+    /// Where the requested tile sits inside the centre slot.
+    pub window: AncestorWindow,
+    /// The nine slots, in row-major order.
+    pub slots: [Slot; NEIGHBOURHOOD_LEN],
+}
+
+/// Reads the 3x3 neighbourhood for `xyz`, centred on its nearest ancestor that holds data when the source does not hold `xyz` itself.
+///
+/// A source with variable-depth coverage, such as a DEM that only reaches its highest zooms in some regions, answers an empty tile where it stops.
+/// The walk stops at the source's minzoom.
+/// When no zoom down to it holds data, the slots read at `xyz` come back with an empty centre.
+pub async fn gather_nearest(
+    source: &BoxedSource,
+    xyz: TileCoord,
+    cache: Option<&TileCache>,
+) -> Result<Gathered, Arc<MartinCoreError>> {
+    let slots = gather(source, xyz, cache).await?;
+    if slots[Neighbourhood::CENTRE].is_some() {
+        return Ok(Gathered {
+            window: AncestorWindow::NATIVE,
+            slots,
+        });
+    }
+    let floor = source.get_tilejson().minzoom.unwrap_or(0);
+    for levels in 1..=xyz.z().saturating_sub(floor) {
+        let (ancestor, window) = AncestorWindow::above(xyz, levels);
+        let centre = fetch_raw(source, ancestor, cache).await?;
+        if centre.data.is_empty() {
+            continue;
+        }
+        debug!(
+            source.id = source.get_id(),
+            tile = %xyz,
+            ancestor = %ancestor,
+            "No elevation tile at this zoom; reading its nearest ancestor instead"
+        );
+        let slots = gather_around(source, ancestor, cache, Some((centre.data, centre.etag))).await?;
+        return Ok(Gathered { window, slots });
+    }
+    Ok(Gathered {
+        window: AncestorWindow::NATIVE,
+        slots,
+    })
+}
+
+/// Reads the 3x3 neighbourhood centred on `xyz`, reusing `centre` instead of reading it again when the caller already has it.
+async fn gather_around(
+    source: &BoxedSource,
+    xyz: TileCoord,
+    cache: Option<&TileCache>,
+    centre: Slot,
+) -> Result<[Slot; NEIGHBOURHOOD_LEN], Arc<MartinCoreError>> {
+    let known_centre = centre.is_some();
     let grid = source.tile_grid();
-    let reads = (0..NEIGHBOURHOOD_LEN).map(|index| async move {
-        let (dx, dy) = Neighbourhood::offset(index);
-        let Some(coord) = neighbour_coord(xyz, dx, dy, grid) else {
-            return (index, Ok(None));
-        };
-        let result = fetch_raw(source, coord, cache).await;
-        (index, result.map(Some))
-    });
+    let reads = (0..NEIGHBOURHOOD_LEN)
+        .filter(|&index| !(known_centre && index == Neighbourhood::CENTRE))
+        .map(|index| async move {
+            let (dx, dy) = Neighbourhood::offset(index);
+            let Some(coord) = neighbour_coord(xyz, dx, dy, grid) else {
+                return (index, Ok(None));
+            };
+            let result = fetch_raw(source, coord, cache).await;
+            (index, result.map(Some))
+        });
 
     // All nine at once since they are independent, and the gather as a whole is already bounded process-wide by GATHER_PERMITS.
     let mut collected = stream::iter(reads).buffer_unordered(NEIGHBOURHOOD_LEN);
 
     let mut slots: [Slot; NEIGHBOURHOOD_LEN] = Default::default();
+    slots[Neighbourhood::CENTRE] = centre;
     while let Some((index, result)) = collected.next().await {
         match result {
             Ok(Some(tile)) => {

@@ -5,7 +5,7 @@ use std::hash::Hash;
 use compact_str::CompactString;
 use xxhash_rust::xxh3::Xxh3;
 
-use crate::tiles::neighbourhood::NEIGHBOURHOOD_LEN;
+use crate::tiles::neighbourhood::{AncestorWindow, NEIGHBOURHOOD_LEN};
 
 /// What one of the nine neighbourhood slots contributes to the etag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -32,23 +32,33 @@ impl<'a> InputEtag<'a> {
     }
 }
 
-/// Derives the etag for a tile baked from `inputs` with `fingerprint`.
+/// Derives the etag for a tile baked from the `window` of `inputs` with `fingerprint`.
 ///
 /// `inputs` is the nine slots in row-major order.
+/// The window only enters the hash when the tile was read from an ancestor, so a natively read tile keeps the tag it always had.
 /// Returns `None` if any slot is untagged, since the bake can't be reliably tagged.
 #[must_use]
-pub fn neighbourhood_etag(inputs: &[InputEtag<'_>; NEIGHBOURHOOD_LEN], fingerprint: &str) -> Option<u128> {
+pub fn neighbourhood_etag(
+    inputs: &[InputEtag<'_>; NEIGHBOURHOOD_LEN],
+    window: AncestorWindow,
+    fingerprint: &str,
+) -> Option<u128> {
     if inputs.contains(&InputEtag::Untagged) {
         return None;
     }
     let mut hasher = Xxh3::new();
     fingerprint.hash(&mut hasher);
     inputs.hash(&mut hasher);
+    if !window.is_native() {
+        window.hash(&mut hasher);
+    }
     Some(hasher.digest128())
 }
 
 #[cfg(test)]
 mod tests {
+    use martin_tile_utils::TileCoord;
+
     use super::*;
 
     static TAGS: [CompactString; NEIGHBOURHOOD_LEN] = [
@@ -79,20 +89,20 @@ mod tests {
     #[test]
     fn a_parameter_change_changes_the_tag() {
         assert_ne!(
-            neighbourhood_etag(&full(), "params"),
-            neighbourhood_etag(&full(), "other-params")
+            neighbourhood_etag(&full(), AncestorWindow::NATIVE, "params"),
+            neighbourhood_etag(&full(), AncestorWindow::NATIVE, "other-params")
         );
     }
 
     #[test]
     fn any_input_changing_changes_the_tag() {
-        let baseline = neighbourhood_etag(&full(), "p");
+        let baseline = neighbourhood_etag(&full(), AncestorWindow::NATIVE, "p");
         for slot in 0..NEIGHBOURHOOD_LEN {
             let mut inputs = full();
             let changed = CompactString::const_new("changed");
             inputs[slot] = InputEtag::Tagged(&changed);
             assert_ne!(
-                neighbourhood_etag(&inputs, "p"),
+                neighbourhood_etag(&inputs, AncestorWindow::NATIVE, "p"),
                 baseline,
                 "slot {slot} must affect the tag"
             );
@@ -106,8 +116,8 @@ mod tests {
         let mut missing_south = full();
         missing_south[7] = InputEtag::Clamped;
         assert_ne!(
-            neighbourhood_etag(&missing_north, "p"),
-            neighbourhood_etag(&missing_south, "p")
+            neighbourhood_etag(&missing_north, AncestorWindow::NATIVE, "p"),
+            neighbourhood_etag(&missing_south, AncestorWindow::NATIVE, "p")
         );
     }
 
@@ -115,7 +125,10 @@ mod tests {
     fn a_clamped_slot_is_not_the_same_as_a_present_one() {
         let mut clamped = full();
         clamped[0] = InputEtag::Clamped;
-        assert_ne!(neighbourhood_etag(&clamped, "p"), neighbourhood_etag(&full(), "p"));
+        assert_ne!(
+            neighbourhood_etag(&clamped, AncestorWindow::NATIVE, "p"),
+            neighbourhood_etag(&full(), AncestorWindow::NATIVE, "p")
+        );
     }
 
     #[test]
@@ -124,7 +137,7 @@ mod tests {
             let mut inputs = full();
             inputs[slot] = InputEtag::Untagged;
             assert_eq!(
-                neighbourhood_etag(&inputs, "p"),
+                neighbourhood_etag(&inputs, AncestorWindow::NATIVE, "p"),
                 None,
                 "slot {slot} without an etag must suppress the tag"
             );
@@ -134,7 +147,26 @@ mod tests {
     #[test]
     fn an_entirely_clamped_neighbourhood_still_has_a_tag() {
         let inputs = [InputEtag::Clamped; NEIGHBOURHOOD_LEN];
-        assert!(neighbourhood_etag(&inputs, "p").is_some());
+        assert!(neighbourhood_etag(&inputs, AncestorWindow::NATIVE, "p").is_some());
+    }
+
+    #[test]
+    fn sibling_windows_over_the_same_inputs_have_different_tags() {
+        let (_, west) = AncestorWindow::above(TileCoord::new_unchecked(11, 326, 792), 1);
+        let (_, east) = AncestorWindow::above(TileCoord::new_unchecked(11, 327, 792), 1);
+        assert_ne!(
+            neighbourhood_etag(&full(), west, "p"),
+            neighbourhood_etag(&full(), east, "p")
+        );
+    }
+
+    #[test]
+    fn a_window_read_from_an_ancestor_differs_from_the_native_tile() {
+        let (_, window) = AncestorWindow::above(TileCoord::new_unchecked(11, 326, 792), 1);
+        assert_ne!(
+            neighbourhood_etag(&full(), window, "p"),
+            neighbourhood_etag(&full(), AncestorWindow::NATIVE, "p")
+        );
     }
 
     #[test]
@@ -155,6 +187,9 @@ mod tests {
         let bc = CompactString::const_new("bc");
         right[1] = InputEtag::Tagged(&bc);
 
-        assert_ne!(neighbourhood_etag(&left, "p"), neighbourhood_etag(&right, "p"));
+        assert_ne!(
+            neighbourhood_etag(&left, AncestorWindow::NATIVE, "p"),
+            neighbourhood_etag(&right, AncestorWindow::NATIVE, "p")
+        );
     }
 }

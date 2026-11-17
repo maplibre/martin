@@ -3,6 +3,7 @@
 
 mod assemble;
 mod etag;
+mod window;
 
 #[cfg(feature = "processing")]
 pub(crate) use crate::tiles::neighbourhood::assemble::CHANNELS;
@@ -10,3 +11,4 @@ pub use crate::tiles::neighbourhood::assemble::{
     DEFAULT_TILE_SIZE, GRID_SIDE, NEIGHBOURHOOD_LEN, Neighbourhood, NeighbourhoodError, RgbaField,
 };
 pub use crate::tiles::neighbourhood::etag::{InputEtag, neighbourhood_etag};
+pub use crate::tiles::neighbourhood::window::AncestorWindow;

@@ -7,7 +7,9 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use compact_str::CompactString;
 use martin_core::tiles::hillshade::{Canvas, HillshadeError, bake_with_light};
-use martin_core::tiles::neighbourhood::{InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag};
+use martin_core::tiles::neighbourhood::{
+    AncestorWindow, InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag,
+};
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache};
 use martin_tile_utils::{Encoding, TileCoord, TileInfo};
 use tokio::sync::Semaphore;
@@ -103,7 +105,7 @@ pub async fn bake_hillshade(
     let etag = {
         let inputs: [InputEtag<'_>; NEIGHBOURHOOD_LEN] =
             std::array::from_fn(|i| InputEtag::from_slot(slots[i].as_ref().map(|(_, etag)| etag)));
-        neighbourhood_etag(&inputs, &settings.fingerprint())
+        neighbourhood_etag(&inputs, AncestorWindow::NATIVE, &settings.fingerprint())
             .map(|hash| URL_SAFE_NO_PAD.encode(hash.to_ne_bytes()))
             .map(CompactString::from)
     };

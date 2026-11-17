@@ -86,6 +86,7 @@ manbhav
 mapbox
 maplibre
 maplibregl
+mapterhorn
 maptiler
 maptilers
 maputnik
@@ -179,6 +180,7 @@ tui
 unclipped
 undecoded
 untap
+upsamples
 urlencode
 USGS
 usize
