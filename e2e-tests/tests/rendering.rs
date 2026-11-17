@@ -164,7 +164,7 @@ async fn maplibre_logs_under_its_own_target() {
               sources:
                 version_7: {version_7}
         "})
-        .env("RUST_LOG", "martin=info,maplibre_native=info")
+        .env("RUST_LOG", "martin=info,maplibre_native=warn")
         .start()
         .await
         .expect("failed to start martin");

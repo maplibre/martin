@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "ab_glyph_rasterizer"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "366ffbaa4442f4684d91e2cd7c5ea7c4ed8add41959a31447066e279e432b618"
+
+[[package]]
 name = "actix-codec"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2021,15 +2027,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
-name = "cobs"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
-dependencies = [
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "codespan-reporting"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2927,18 +2924,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embedded-io"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef1a6892d9eef45c8fa6b9e0086428a2cca8491aca8f787c534a3d6d0bcb3ced"
-
-[[package]]
-name = "embedded-io"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
-
-[[package]]
 name = "encode_unicode"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3016,6 +3001,15 @@ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "etagere"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ecb5c40d5683a270e077688f53a99eac51c1cb1ae5ba63b55590370cb3536bf"
+dependencies = [
+ "euclid",
 ]
 
 [[package]]
@@ -3722,9 +3716,6 @@ name = "glam"
 version = "0.34.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "627003914c6057c9c8f0832ee4f870b5a4f599d0cfa83f4072675114860cd0ff"
-dependencies = [
- "serde_core",
-]
 
 [[package]]
 name = "glob"
@@ -5718,7 +5709,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 dependencies = [
  "scopeguard",
- "serde",
 ]
 
 [[package]]
@@ -6276,15 +6266,18 @@ dependencies = [
 
 [[package]]
 name = "mln-rs"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4526b51bdf03202f4119331e467c05be690c4181dad76960fa5e1ef2944d8ce2"
 dependencies = [
  "geo-traits",
  "geo-types",
  "geojson 1.0.0",
  "mln-rs-conversion",
+ "mln-rs-d3d12",
  "mln-rs-expression",
  "mln-rs-feature",
+ "mln-rs-frame-pacer",
  "mln-rs-geojson-vt",
  "mln-rs-geometry",
  "mln-rs-gestures",
@@ -6299,7 +6292,6 @@ dependencies = [
  "mln-rs-polylabel",
  "mln-rs-renderer",
  "mln-rs-runtime",
- "mln-rs-shelf-pack",
  "mln-rs-sprite",
  "mln-rs-storage",
  "mln-rs-storage-offline",
@@ -6318,30 +6310,40 @@ dependencies = [
 ]
 
 [[package]]
-name = "mln-rs-actor"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
-dependencies = [
- "mln-rs-util",
- "parking_lot",
-]
-
-[[package]]
 name = "mln-rs-conversion"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a62802a88126f5571886134b658e605e1fe05a3c9b061ddf3adab2119113d579"
 dependencies = [
+ "foldhash 0.2.0",
  "geojson 1.0.0",
  "mln-rs-feature",
  "serde",
  "serde_json",
+ "serde_json_borrow",
  "thiserror 2.0.21",
 ]
 
 [[package]]
+name = "mln-rs-d3d12"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8430b2ca3444d5fad8e786da3ab27a62a13cab003e619be62f916251e05e0f5d"
+dependencies = [
+ "gpu-allocator",
+ "mln-rs-gfx",
+ "mln-rs-glsl",
+ "mln-rs-util",
+ "naga",
+ "parking_lot",
+ "windows",
+]
+
+[[package]]
 name = "mln-rs-expression"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31604db400e649a016630974533e416bbb9f0849c3d904ed49b96c17e1500cd0"
 dependencies = [
  "cheap-ruler",
  "fixed_decimal",
@@ -6351,7 +6353,9 @@ dependencies = [
  "icu_decimal",
  "icu_experimental",
  "icu_locale",
+ "icu_plurals",
  "icu_provider",
+ "jni",
  "js-sys",
  "mln-rs-conversion",
  "mln-rs-feature",
@@ -6363,9 +6367,10 @@ dependencies = [
  "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-vec-map",
+ "mln-rs-wire",
  "objc2",
- "objc2-core-foundation",
  "objc2-foundation",
+ "parking_lot",
  "serde",
  "serde_json",
  "smallvec",
@@ -6376,21 +6381,38 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-feature"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fc4c5a192178f4160dcd364f39ca76da00dbcbbd6ace7e06f067fa76a738c3f"
 dependencies = [
  "geo-types",
  "geojson 1.0.0",
  "mln-rs-vec-map",
- "serde",
+ "mln-rs-wire",
  "serde_json",
 ]
 
 [[package]]
-name = "mln-rs-geojson-vt"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+name = "mln-rs-frame-pacer"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3055b91347692cea51cb13416a61944507c0a05b9e62867b2b5886872b19dadb"
 dependencies = [
+ "mln-rs-util",
+ "objc2",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "objc2-quartz-core",
+ "parking_lot",
+]
+
+[[package]]
+name = "mln-rs-geojson-vt"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22f4a0e9a15172686157932d52209ee05832ca9b74d36085c7c8cb93aed84c87"
+dependencies = [
+ "foldhash 0.2.0",
  "geo-traits",
  "geo-types",
  "mln-rs-feature",
@@ -6399,17 +6421,19 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-geometry"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0bfa286a188a0ffac0a515915d1d73439c448a302ae7d10fed134fd82d8ef0b"
 dependencies = [
  "geo-types",
- "serde",
+ "mln-rs-wire",
 ]
 
 [[package]]
 name = "mln-rs-gestures"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43ad06880789c28b431926a80565c1475eb8911b781d938374865d0a260bdec8"
 dependencies = [
  "mln-rs-map",
  "mln-rs-util",
@@ -6418,8 +6442,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-gfx"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f8dad7f2186bfa7316aa11556785ea874899cdc2195440c4c861510bb03cf21"
 dependencies = [
  "bytemuck",
  "mln-rs-geometry",
@@ -6427,14 +6452,17 @@ dependencies = [
  "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-vec-map",
+ "mln-rs-wire",
  "raw-window-handle",
- "serde",
+ "slotmap",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "mln-rs-gl"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f062ce587a059797daef9fbebb51666677a2c7555757f8a424933ae6e2751b18"
 dependencies = [
  "bytemuck",
  "glow",
@@ -6453,9 +6481,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "mln-rs-glsl"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fff89949730a8b02b6fafe101add42b6f5a26ed3b17b53fc22d37d6d5163ea8a"
+dependencies = [
+ "mln-rs-gfx",
+ "naga",
+]
+
+[[package]]
 name = "mln-rs-image"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2208ad306bfc44b3eabc000cc81fab24d25b8baacf26168188136b042bc52a4"
 dependencies = [
  "flate2",
  "image-webp",
@@ -6470,54 +6509,62 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-kdbush"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1075f5f4bb467b061f91de509d868008325adb8b9ba03a5193a5faac9f1091d7"
 
 [[package]]
 name = "mln-rs-map"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72e7c5bd79238caa11a999038477eaddd0d3bc8af407dcd792c274fb2a094bb0"
 dependencies = [
  "geo-types",
  "geojson 1.0.0",
- "mln-rs-actor",
  "mln-rs-feature",
  "mln-rs-geometry",
  "mln-rs-map-types",
  "mln-rs-math",
  "mln-rs-renderer",
+ "mln-rs-sprite",
  "mln-rs-storage",
  "mln-rs-style",
  "mln-rs-style-types",
+ "mln-rs-text",
  "mln-rs-tile-id",
  "mln-rs-util",
  "parking_lot",
+ "serde_json",
 ]
 
 [[package]]
 name = "mln-rs-map-types"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f92f359037d201628d9baffe0e40071614a5597c3b743edd773c6d8d6a5c5a0"
 dependencies = [
  "mln-rs-geometry",
  "mln-rs-math",
  "mln-rs-style-types",
  "mln-rs-tile-id",
  "mln-rs-util",
- "serde",
+ "mln-rs-wire",
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "mln-rs-math"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c21d6bb2722669501842ca7f510c947ded0c10728d2a3d648a4539001da3ddd3"
 
 [[package]]
 name = "mln-rs-mtl"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0efdd3248fd2fb982a9a6aa8bd0dffcaf37a046b6f5fac0ab21aaa6c6a660b60"
 dependencies = [
+ "block2",
  "bytemuck",
  "mln-rs-gfx",
  "mln-rs-tile-id",
@@ -6528,26 +6575,29 @@ dependencies = [
  "objc2-io-surface",
  "objc2-metal",
  "objc2-quartz-core",
+ "parking_lot",
 ]
 
 [[package]]
 name = "mln-rs-polylabel"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ed1e6ed8f18865b895052063b99d8c721ae44f356c9f52e5eb505e3763501f2"
 dependencies = [
  "mln-rs-geometry",
 ]
 
 [[package]]
 name = "mln-rs-renderer"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58be148479a80279417cb24b150f99e7cab84905601e02f347ef56b36dae6ebd"
 dependencies = [
  "bytemuck",
  "earcut",
+ "etagere",
  "geo-types",
  "glam",
- "mln-rs-actor",
  "mln-rs-expression",
  "mln-rs-feature",
  "mln-rs-geometry",
@@ -6556,7 +6606,6 @@ dependencies = [
  "mln-rs-map-types",
  "mln-rs-math",
  "mln-rs-polylabel",
- "mln-rs-shelf-pack",
  "mln-rs-storage",
  "mln-rs-style",
  "mln-rs-style-types",
@@ -6565,22 +6614,24 @@ dependencies = [
  "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-vec-map",
+ "mln-rs-wire",
  "parking_lot",
- "postcard",
- "serde",
+ "smallvec",
 ]
 
 [[package]]
 name = "mln-rs-runtime"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45d4c414d48e2837ce4730e68183bcc00cd9c607517025422e8fd63201af47a5"
 dependencies = [
  "geo-types",
  "geojson 1.0.0",
  "js-sys",
- "mln-rs-actor",
  "mln-rs-conversion",
+ "mln-rs-d3d12",
  "mln-rs-feature",
+ "mln-rs-gestures",
  "mln-rs-gfx",
  "mln-rs-gl",
  "mln-rs-map",
@@ -6607,29 +6658,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "mln-rs-shelf-pack"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
-
-[[package]]
 name = "mln-rs-sprite"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b171feb2e5ea6cd3c022f0adf1cba54fc87d14e133e5a3e3d17586e007c83675"
 dependencies = [
- "mln-rs-actor",
  "mln-rs-geometry",
  "mln-rs-image",
  "mln-rs-storage",
  "mln-rs-style-types",
  "mln-rs-util",
- "mln-rs-vec-map",
  "serde_json",
 ]
 
 [[package]]
 name = "mln-rs-storage"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f512b2289ff1a186690fc4a47a1d35015b289b92c3af6fb4a31c9291957a6a41"
 dependencies = [
  "block2",
  "bytes",
@@ -6637,13 +6683,13 @@ dependencies = [
  "geojson 1.0.0",
  "jni",
  "js-sys",
- "mln-rs-actor",
  "mln-rs-feature",
  "mln-rs-util",
  "mln-rs-vec-map",
  "objc2",
  "objc2-foundation",
  "parking_lot",
+ "percent-encoding",
  "pmtiles",
  "rusqlite",
  "rustls",
@@ -6657,10 +6703,10 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-storage-offline"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1791cd19462aa4138b5bda359d92bdd743ecb92e7c02d7d57d20fe37c3ef5e31"
 dependencies = [
- "mln-rs-actor",
  "mln-rs-feature",
  "mln-rs-renderer",
  "mln-rs-storage",
@@ -6674,12 +6720,12 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-style"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc4a45e372a358cb1bf184b651269b81f08ffe852f4233c53ccd6da941ed3ffc"
 dependencies = [
  "geo-types",
  "geojson 1.0.0",
- "mln-rs-actor",
  "mln-rs-conversion",
  "mln-rs-expression",
  "mln-rs-feature",
@@ -6687,7 +6733,6 @@ dependencies = [
  "mln-rs-image",
  "mln-rs-map-types",
  "mln-rs-math",
- "mln-rs-sprite",
  "mln-rs-storage",
  "mln-rs-style-types",
  "mln-rs-supercluster",
@@ -6695,29 +6740,32 @@ dependencies = [
  "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-vec-map",
+ "mln-rs-wire",
  "parking_lot",
- "serde",
  "serde_json",
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "mln-rs-style-types"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "659282a09d5a013b609789aad98ab7fe6d6e85c302f8ec19805f0554d917a0a6"
 dependencies = [
  "mln-rs-feature",
  "mln-rs-math",
  "mln-rs-util",
  "mln-rs-vec-map",
- "serde",
+ "mln-rs-wire",
 ]
 
 [[package]]
 name = "mln-rs-supercluster"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "427c07eb13d38390e66bb0b712bd6d92d6804237317cc3b091b3f35d5d784d28"
 dependencies = [
+ "foldhash 0.2.0",
  "geo-types",
  "mln-rs-feature",
  "mln-rs-geometry",
@@ -6726,8 +6774,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-system-fonts"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c6af2164475e4450e01093e632c8d4dc545c261b7979d72690e7d1dc3d77cf2"
 dependencies = [
  "fontdb",
  "jni",
@@ -6745,9 +6794,11 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-text"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ba896da2a2d3a53a39439effaf5400160144ad4eb71f9a644123e1fe3cfdc01"
 dependencies = [
+ "ab_glyph_rasterizer",
  "buffa",
  "flate2",
  "harfrust 0.15.0",
@@ -6756,8 +6807,8 @@ dependencies = [
  "mln-rs-style-types",
  "mln-rs-util",
  "mln-rs-vec-map",
+ "mln-rs-wire",
  "parking_lot",
- "serde",
  "skrifa 0.49.0",
  "thiserror 2.0.21",
  "unicode-bidi",
@@ -6769,8 +6820,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-tile"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09d5f5cbd489345bb2b438c5c2ce1dd3ab1a2a1567208ee648f6bb2c23c7eb94"
 dependencies = [
  "fast-mvt",
  "geo-types",
@@ -6780,39 +6832,42 @@ dependencies = [
  "mln-rs-math",
  "mln-rs-tile-id",
  "mln-rs-util",
+ "mln-rs-wire",
  "mlt-core",
- "parking_lot",
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "mln-rs-tile-id"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d987dfb87793090901ea525c851fb820b1b5183f3446a380a0c56c06100f66a"
 dependencies = [
  "mln-rs-feature",
  "mln-rs-geometry",
  "mln-rs-math",
  "mln-rs-util",
- "serde",
+ "mln-rs-wire",
 ]
 
 [[package]]
 name = "mln-rs-util"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe8ff502f4906bcb680fa6abce4ffa8e1904a1e0952ed62ee2c516008b7ac25c"
 dependencies = [
  "bytemuck",
  "csscolorparser 0.9.1",
  "flate2",
+ "foldhash 0.2.0",
  "geo-types",
  "httpdate",
  "js-sys",
  "mln-rs-feature",
  "mln-rs-geometry",
  "mln-rs-math",
+ "mln-rs-wire",
  "parking_lot",
- "serde",
  "thiserror 2.0.21",
  "unicode-properties",
  "web-time",
@@ -6820,22 +6875,25 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-vec-map"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2a06c660d3b8e645259796e5e149057d2529e6b058026c0280e206a8e49039f"
 dependencies = [
- "serde",
+ "mln-rs-wire",
 ]
 
 [[package]]
 name = "mln-rs-vulkan"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cef8daeaa8bc0132c0ddb124af18e584b4861ce0254716a37e4b41d9565d88ba"
 dependencies = [
  "ash",
  "bytemuck",
  "gpu-allocator",
  "libc",
  "mln-rs-gfx",
+ "mln-rs-glsl",
  "mln-rs-tile-id",
  "mln-rs-util",
  "naga",
@@ -6845,11 +6903,11 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-web-host"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3af339a9f42085d404bf12f239dd89762dc034b435f3f23a5af699adc785ebe"
 dependencies = [
  "js-sys",
- "mln-rs-actor",
  "mln-rs-renderer",
  "mln-rs-text",
  "mln-rs-util",
@@ -6861,17 +6919,39 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-webgpu"
-version = "0.0.11"
-source = "git+https://github.com/CommanderStorm/maplibre-native-next?branch=rusqlite-range#ed5ef2d4eb6ee914301a4513c13724b1565ecbd7"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87f83918a11eb89109df9e6832ca03aabb2a5dfce22dc70780fec61f7c78b78b"
 dependencies = [
- "bytemuck",
  "mln-rs-gfx",
- "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-vec-map",
  "parking_lot",
  "pollster",
  "wgpu",
+]
+
+[[package]]
+name = "mln-rs-wire"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "755f85a045047218188637b85c100694047f0e7c01ca221701b25b871543a8a0"
+dependencies = [
+ "geo-types",
+ "glam",
+ "mln-rs-wire-derive",
+ "parking_lot",
+]
+
+[[package]]
+name = "mln-rs-wire-derive"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea4d5991efb6ec3e17ba360fcc0302a02861813ca4b79f2ab2259e6a785fa764"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -8154,18 +8234,6 @@ dependencies = [
  "shell-words",
  "winapi",
  "winreg",
-]
-
-[[package]]
-name = "postcard"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6764c3b5dd454e283a30e6dfe78e9b31096d9e32036b5d1eaac7a6119ccb9a24"
-dependencies = [
- "cobs",
- "embedded-io 0.4.0",
- "embedded-io 0.6.1",
- "serde",
 ]
 
 [[package]]
@@ -9669,6 +9737,16 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "serde_json_borrow"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2780994ebdf8677793192229715c7f5d9dd4c37cefc7fb760b9418903ffb5c34"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

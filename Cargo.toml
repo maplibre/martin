@@ -157,7 +157,7 @@ mbtiles = { path = "./mbtiles", version = "0.23.0" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
-mln-rs = { version = "0.0.11", git = "https://github.com/CommanderStorm/maplibre-native-next", branch = "rusqlite-range" }
+mln-rs = "0.0.13"
 mlt-core = { version = "0.22.1", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
