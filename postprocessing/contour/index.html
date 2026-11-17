@@ -1746,6 +1746,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#variable-depth-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Variable-depth sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#per-request-overrides" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2267,7 +2278,8 @@ It is settable per source only since an inherited value would also reach vector 
 <div class="admonition warning">
 <p class="admonition-title">Declare <code>maxzoom</code> on the source</p>
 <p>Zoom limits are inherited from the source's <code>TileJSON</code>, and absent limits mean every zoom is valid.
-A source upstream typically stops at some zoom, so without a declared <code>maxzoom</code> Martin keeps requesting tiles past it unnecessarily.</p>
+Set <code>maxzoom</code> to the deepest zoom the source holds anywhere.
+Without it, Martin keeps requesting tiles past that zoom and traces every one of them from an ancestor (see <a href="#variable-depth-sources">variable-depth sources</a>).</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Normal ("mapzen") maps are not currently supported</p>
@@ -2404,6 +2416,24 @@ For <code>feet</code> the default is <code>0</code> below z5, then <code>1000</c
 <p>A flat tile sits above exactly one threshold, so tracing it produces a single line around the tile's own edge - which over open ocean means every water tile answers with a rectangle.
 Suppressing the sea-level line removes that artifact.
 Set it to another elevation to suppress a different one, or to <code>disabled</code> to draw them all.</p>
+<h2 id="variable-depth-sources">Variable-depth sources</h2>
+<p>Some elevation sources reach different depths in different places.
+<a href="https://mapterhorn.com">Mapterhorn</a>, for example, stops at z12 in much of the world and reaches z17 in parts of the Alps.</p>
+<p><svg id="variable-depth" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 310" width="100%" role="img" aria-label="A z14 tile the source lacks: Martin walks up past the missing z13 tile to the z12 ancestor, reads its 3 by 3 neighborhood, and upsamples the part under the z14 tile to trace it with the z14 contour interval"><title>A z14 tile the source lacks: Martin walks up past the missing z13 tile to the z12 ancestor, reads its 3 by 3 neighborhood, and upsamples the part under the z14 tile to trace it with the z14 contour interval</title><style>#variable-depth{font-family:var(--md-text-font-family,system-ui),system-ui,sans-serif;font-size:13px}#variable-depth .fg{fill:var(--md-default-fg-color,#000000de)}#variable-depth .muted{fill:var(--md-default-fg-color--light,#0000008a)}#variable-depth .line{stroke:var(--md-default-fg-color--lighter,#00000052);fill:none}#variable-depth .arrow{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}#variable-depth .head{fill:var(--md-default-fg-color--light,#0000008a)}#variable-depth text{dominant-baseline:central}#variable-depth .t{font-weight:600}#variable-depth .s{font-size:11px}#variable-depth .mono{font-family:var(--md-code-font-family,ui-monospace),ui-monospace,monospace;font-size:11px}#variable-depth .box{fill:var(--md-code-bg-color,#f5f5f5);stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5}#variable-depth .hi{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.1;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#variable-depth .sel{fill:var(--md-primary-fg-color,#673ab7);fill-opacity:.3;stroke:var(--md-primary-fg-color,#673ab7);stroke-width:1.5}#variable-depth .acc{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5}#variable-depth .ghost{fill:none;stroke:var(--md-default-fg-color--lighter,#00000052);stroke-width:1.5;stroke-dasharray:4 3}#variable-depth .apron{fill:var(--md-accent-fg-color,#7c4dff);fill-opacity:.12;stroke:var(--md-accent-fg-color,#7c4dff);stroke-width:1.5;stroke-dasharray:5 3}#variable-depth .accline{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:2}#variable-depth .accdot{fill:var(--md-accent-fg-color,#7c4dff)}#variable-depth .accarrow{stroke:var(--md-accent-fg-color,#7c4dff);fill:none;stroke-width:1.5}#variable-depth .acchead{fill:var(--md-accent-fg-color,#7c4dff)}#variable-depth .contour{stroke:var(--md-default-fg-color--light,#0000008a);fill:none;stroke-width:1.5}</style><text class="fg t" x="145" y="14" text-anchor="middle">nearest ancestor</text><rect class="sel" x="95" y="50" width="50" height="50" rx="0"/><text class="fg s t" x="120" y="75" text-anchor="middle">z12</text><text class="muted mono" x="165" y="75" text-anchor="start">200</text><rect class="ghost" x="95" y="122" width="50" height="50" rx="0"/><text class="fg s t" x="120" y="147" text-anchor="middle">z13</text><text class="muted mono" x="165" y="147" text-anchor="start">404</text><path class="arrow" d="M120 118 L120 104"/><path class="head" d="M120 104 L124 112 L116 112 Z"/><rect class="ghost" x="95" y="194" width="50" height="50" rx="0"/><text class="fg s t" x="120" y="219" text-anchor="middle">z14</text><text class="muted mono" x="165" y="219" text-anchor="start">404</text><path class="arrow" d="M120 190 L120 176"/><path class="head" d="M120 176 L124 184 L116 184 Z"/><text class="muted s" x="145" y="282" text-anchor="middle">one zoom at a time, down to minzoom</text><text class="fg t" x="465" y="14" text-anchor="middle">3×3 neighborhood at z12</text><rect class="box" x="360" y="50" width="70" height="70" rx="0"/><rect class="box" x="430" y="50" width="70" height="70" rx="0"/><rect class="box" x="500" y="50" width="70" height="70" rx="0"/><rect class="box" x="360" y="120" width="70" height="70" rx="0"/><rect class="hi" x="430" y="120" width="70" height="70" rx="0"/><rect class="box" x="500" y="120" width="70" height="70" rx="0"/><rect class="box" x="360" y="190" width="70" height="70" rx="0"/><rect class="box" x="430" y="190" width="70" height="70" rx="0"/><rect class="box" x="500" y="190" width="70" height="70" rx="0"/><rect class="apron" x="478.5" y="168.5" width="25.5" height="25.5" rx="0"/><rect class="sel" x="482.5" y="172.5" width="17.5" height="17.5" rx="0"/><text class="fg s t" x="465" y="140" text-anchor="middle">ancestor</text><text class="muted s" x="465" y="282" text-anchor="middle">solid: part under the z14 tile</text><text class="fg t" x="785" y="14" text-anchor="middle">upsampled to z14</text><path class="line" d="M504 168.5 L699 69 M504 194 L699 241" stroke-dasharray="3 3"/><rect class="apron" x="699" y="69" width="172" height="172" rx="0"/><rect class="sel" x="715" y="85" width="140" height="140" rx="0"/><path class="contour" d="M699 112 C735 96 775 150 871 124"/><path class="contour" d="M699 150 C745 128 800 196 871 166"/><path class="contour" d="M699 196 C735 180 790 226 871 206"/><text class="muted s" x="785" y="282" text-anchor="middle">z14 contour interval, dashed: fetch_margin apron</text></svg></p>
+<p>Where the source answers a tile as missing (<code>404</code> or <code>204</code> from a <a href="../../sources-passthrough/">passthrough</a> source, or a gap in an archive), Martin traces the contour tile from its nearest ancestor that the source does hold.
+It reads that ancestor's 3x3 neighborhood, upsamples the part under the requested tile with bilinear interpolation, and traces it with the contour interval of the requested zoom.
+So a z14 tile over a region that stops at z12 still gets z14's contour interval, traced across z12 elevation data.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">passthrough</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">mapterhorn</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://tiles.mapterhorn.com/{z}/{x}/{y}.webp</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">maxzoom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">17</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">convert_to_contour</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</span></code></pre></div>
+<p>Martin walks up one zoom at a time and stops at the source's <code>minzoom</code>.
+With nothing found by then, the tile serves no content (a <code>204</code>).</p>
+<p>Each missing zoom costs one request before an ancestor is found.
+For a uniform source that stops at one zoom everywhere, raising <code>maxzoom</code> above it has Martin trace the deeper zooms from that zoom.</p>
 <h2 id="per-request-overrides">Per-request overrides</h2>
 <div class="admonition warning">
 <p class="admonition-title">This is an expensive feature</p>
@@ -2413,7 +2443,7 @@ Tracing contours is CPU-intensive.
 Contours for fixed settings never change (+/- data changes), so they are near-perfectly cacheable at the edge.</p>
 </div>
 <p>With <code>allow_request_overrides: true</code>, a request may override any of the five numeric tracing parameters by name:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>GET /elevation/12/2100/1300?resolution=16&amp;simplification_tolerance=0
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>GET /elevation/12/2100/1300?resolution=16&amp;simplification_tolerance=0
 </span></code></pre></div>
 <p><code>zoom_intervals</code>, <code>elevation_units</code>, <code>filtered_threshold</code>, <code>layer_name</code>, <code>extent</code>, and <code>allow_request_overrides</code> itself are not overridable.
 Values that are out of range or not a number are rejected with <code>400</code>, while query parameters that are not contour settings are ignored.</p>
@@ -2436,7 +2466,8 @@ Without it, a line crossing a tile edge would stop short of its continuation in 
 <li>y stops at the poles, where there is no tile at all, and the slot is edge-clamped from the center instead.</li>
 <li>A missing or undecodable <em>neighbor</em> degrades one seam and is clamped over.</li>
 <li>An undecodable <em>center</em> is an error, since serving a clamped-from-nothing trace would look like genuinely contour-free terrain.</li>
-<li>An absent <em>center</em> serves no content (a <code>204</code>), for the same reason.</li>
+<li>An absent <em>center</em> is read from its nearest ancestor instead (see <a href="#variable-depth-sources">variable-depth sources</a>).
+  With no ancestor down to the source's <code>minzoom</code>, it serves no content (a <code>204</code>), for the same reason.</li>
 </ul>
 
 

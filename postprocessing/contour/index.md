@@ -35,7 +35,7 @@ passthrough:
 >
 > **Declare `maxzoom` on the source**
 >
-> Zoom limits are inherited from the source's `TileJSON`, and absent limits mean every zoom is valid. A source upstream typically stops at some zoom, so without a declared `maxzoom` Martin keeps requesting tiles past it unnecessarily.
+> Zoom limits are inherited from the source's `TileJSON`, and absent limits mean every zoom is valid. Set `maxzoom` to the deepest zoom the source holds anywhere. Without it, Martin keeps requesting tiles past that zoom and traces every one of them from an ancestor (see [variable-depth sources](<#variable-depth-sources>)).
 
 > [!NOTE]
 >
@@ -101,6 +101,25 @@ That is the default for `elevation_units: meters`. For `feet` the default is `0`
 
 A flat tile sits above exactly one threshold, so tracing it produces a single line around the tile's own edge - which over open ocean means every water tile answers with a rectangle. Suppressing the sea-level line removes that artifact. Set it to another elevation to suppress a different one, or to `disabled` to draw them all.
 
+## Variable-depth sources
+
+Some elevation sources reach different depths in different places. [Mapterhorn](<https://mapterhorn.com>), for example, stops at z12 in much of the world and reaches z17 in parts of the Alps.
+
+Where the source answers a tile as missing (`404` or `204` from a [passthrough](<https://maplibre.org/martin/sources-passthrough/index.md>) source, or a gap in an archive), Martin traces the contour tile from its nearest ancestor that the source does hold. It reads that ancestor's 3x3 neighborhood, upsamples the part under the requested tile with bilinear interpolation, and traces it with the contour interval of the requested zoom. So a z14 tile over a region that stops at z12 still gets z14's contour interval, traced across z12 elevation data.
+
+```yaml
+passthrough:
+  sources:
+    mapterhorn:
+      url: https://tiles.mapterhorn.com/{z}/{x}/{y}.webp
+      maxzoom: 17
+      convert_to_contour: auto
+```
+
+Martin walks up one zoom at a time and stops at the source's `minzoom`. With nothing found by then, the tile serves no content (a `204`).
+
+Each missing zoom costs one request before an ancestor is found. For a uniform source that stops at one zoom everywhere, raising `maxzoom` above it has Martin trace the deeper zooms from that zoom.
+
 ## Per-request overrides
 
 > [!WARNING]
@@ -139,4 +158,4 @@ The neighborhood is assembled the same way [hillshade](<https://maplibre.org/mar
 - y stops at the poles, where there is no tile at all, and the slot is edge-clamped from the center instead.
 - A missing or undecodable *neighbor* degrades one seam and is clamped over.
 - An undecodable *center* is an error, since serving a clamped-from-nothing trace would look like genuinely contour-free terrain.
-- An absent *center* serves no content (a `204`), for the same reason.
+- An absent *center* is read from its nearest ancestor instead (see [variable-depth sources](<#variable-depth-sources>)). With no ancestor down to the source's `minzoom`, it serves no content (a `204`), for the same reason.
