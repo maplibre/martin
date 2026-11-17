@@ -230,11 +230,11 @@ bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta'
     cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     {{insta_test}} --package martin-e2e-tests --features test-duckdb --test duckdb
 
-# Bless the style rendering tests end-to-end
+# Bless the style rendering and OGC API - Maps tests end-to-end
 [linux]
 bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    cargo build --package martin --no-default-features --features rendering
-    {{insta_test}} --package martin-e2e-tests --features test-rendering --test rendering
+    cargo build --package martin --no-default-features --features ogcapi,cog,mbtiles,pmtiles,rendering
+    {{insta_test}} --package martin-e2e-tests --features test-rendering,test-ogc-maps --test rendering --test ogc_maps
 
 # Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
