@@ -1,6 +1,9 @@
 //! `martin cp --mode bulk`: bulk tile generation from whole-table scans.
 
 pub mod layers;
+mod metadata;
+#[cfg(feature = "osm")]
+mod osm;
 pub mod postgres;
 mod progress;
 pub mod serve;
@@ -15,7 +18,8 @@ use std::time::Instant;
 
 use martin_core::tiles::postgres::{PostgresError, PostgresPool};
 use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
-use martin_tilegen::plan::Untranslatable;
+use martin_tilegen::plan::{Plan, Untranslatable};
+use martin_tilegen::source::FeatureSource;
 use martin_tilegen::source::WkbError;
 use martin_tilegen::{
     GenerateConfig, MbtilesOptions, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError,
@@ -24,7 +28,7 @@ use martin_tilegen::{
 use mbtiles::{HASH_ALGORITHM, HashAlgorithm, MbtType, MbtTypeCli, check_metadata_edit};
 use mlt_core::encoder::EncoderConfig;
 use postgres_protocol::escape::escape_identifier;
-use tilejson::{Bounds, tilejson};
+use tilejson::Bounds;
 #[cfg(unix)]
 use tokio::signal::unix::{Signal, SignalKind, signal};
 #[cfg(windows)]
@@ -34,13 +38,14 @@ use tracing::{debug, info, warn};
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
 use crate::config::file::postgres::resolver::{linear_geometry, row_filter};
-use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec, TableInfo};
+use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresInfo as _, SourceSpec, TableInfo};
 use crate::config::file::process::{MltProcessConfig, ProcessConfig};
 use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::cp::{CopierArgs, CopyArgs, CopyFormat, MartinCpError, MvtQuirk, check_bboxes};
 use crate::generate::layers::{LowerOptions, lower_table};
+use crate::generate::metadata::BulkMetadata;
 use crate::generate::postgres::{PgScanSource, ScanTable};
 use crate::generate::progress::Monitor;
 use crate::logging::LogFormat;
@@ -231,6 +236,22 @@ pub enum GenerateError {
     UnsupportedGrid(String, String),
     #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
     Unsupported { layer: String, what: String },
+    #[cfg(feature = "osm")]
+    #[error("`--mode bulk` renders OSM sources or database sources in one run, not both; pick them with `--source`")]
+    MixedSources,
+    #[cfg(feature = "osm")]
+    #[error("`martin test` tests OSM sources or database sources, not both; put them in separate configuration files")]
+    MixedTestSources,
+    #[cfg(feature = "osm")]
+    #[error("Source `{source_id}` reads the tag `{tag}`, which `martin test` reserves in each case's input")]
+    OsmReservedTag { source_id: String, tag: String },
+    #[cfg(feature = "osm")]
+    #[error("Cannot read OSM file {}: {error}", path.display())]
+    OsmFile {
+        path: PathBuf,
+        #[source]
+        error: std::io::Error,
+    },
     #[error("Sources come from more than one database; generate them separately")]
     MultipleDatabases,
     #[error("No table sources to generate")]
@@ -343,16 +364,84 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
     config.finalize().await?;
     config.warn_unrecognized_keys();
 
-    let (pool, scans) = select_sources(&config, &options).await?;
+    #[cfg(feature = "osm")]
+    if let Some(tables) = osm::select_sources(&config, &options)? {
+        monitor.set_tables(tables.len());
+        let partition_bytes = osm::partition_bytes(&tables, options.threads);
+        let source =
+            tokio::task::spawn_blocking(move || martin_tilegen::osm::OsmSource::new(tables, partition_bytes)).await??;
+        let metadata = bulk_metadata(&options, options.bbox, Vec::new());
+        return run(source, options, metadata, progress, monitor, started, Vec::new()).await;
+    }
+
+    let (pool, scans, bounds) = select_sources(&config, &options).await?;
     monitor.set_tables(scans.len());
     let geometry_finders: Vec<(String, String)> = scans
         .iter()
         .map(|scan| Ok((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)))
         .collect::<GenerateResult<_>>()?;
+    let metadata = bulk_metadata(
+        &options,
+        bounds,
+        scans
+            .iter()
+            .map(|scan| scan.info.discovered.tilejson.as_ref())
+            .collect(),
+    );
     let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
+    run(source, options, metadata, progress, monitor, started, geometry_finders).await
+}
+
+/// A source of `martin cp --mode bulk`, with the plan it was made for.
+trait PlannedSource: FeatureSource + Send + 'static {
+    /// The plan the source reads its tables for.
+    fn source_plan(&self) -> &Plan;
+}
+
+impl PlannedSource for PgScanSource {
+    fn source_plan(&self) -> &Plan {
+        self.plan()
+    }
+}
+
+#[cfg(feature = "osm")]
+impl PlannedSource for martin_tilegen::osm::OsmSource {
+    fn source_plan(&self) -> &Plan {
+        self.plan()
+    }
+}
+
+/// The metadata of a bulk tileset covering `bounds`, merged from the tables' SQL `comments`.
+fn bulk_metadata(
+    options: &GenerateOptions,
+    bounds: Option<Bounds>,
+    comments: Vec<Option<&serde_json::Value>>,
+) -> tilejson::TileJSON {
+    BulkMetadata {
+        name: options
+            .output_file
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned()),
+        bounds,
+        compression: (!is_pmtiles(&options.output_file)).then_some(options.encoding),
+        comments,
+        generator: format!("martin cp v{VERSION} (bulk)"),
+    }
+    .into_tilejson()
+}
+
+/// Renders `source` into the output file with `metadata`.
+async fn run<S: PlannedSource>(
+    source: S,
+    options: GenerateOptions,
+    metadata: tilejson::TileJSON,
+    progress: Arc<Progress>,
+    monitor: Monitor,
+    started: Instant,
+    geometry_finders: Vec<(String, String)>,
+) -> GenerateResult<()> {
     let generate_config = generate_config(&options);
     let encoding = options.encoding;
-    let metadata = metadata(&options);
     let output = options.output_file;
     let mut interrupt = Interrupt::register()?;
     let sink = {
@@ -479,16 +568,16 @@ impl Output {
         }
     }
 
-    fn generate(
+    fn generate<S: PlannedSource>(
         self,
-        source: &PgScanSource,
+        source: &S,
         config: &GenerateConfig,
         metadata: tilejson::TileJSON,
         progress: &Progress,
     ) -> TileGenResult<Summary> {
         match self {
-            Self::Mbtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
-            Self::Pmtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
+            Self::Mbtiles(sink) => generate(source, source.source_plan(), sink, config, metadata, progress),
+            Self::Pmtiles(sink) => generate(source, source.source_plan(), sink, config, metadata, progress),
         }
     }
 }
@@ -530,34 +619,26 @@ fn generate_config(options: &GenerateOptions) -> GenerateConfig {
     }
 }
 
-/// What the tileset says about itself; the generator adds zooms, format and `vector_layers`.
-fn metadata(options: &GenerateOptions) -> tilejson::TileJSON {
-    let mut metadata = tilejson! { tiles: vec![] };
-    metadata.name = options
-        .output_file
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned());
-    metadata.bounds = options.bbox;
-    metadata
-        .other
-        .insert("generator".to_owned(), format!("martin cp v{VERSION} (bulk)").into());
-    metadata
+/// The sources discovered on every PostgreSQL connection of a config.
+struct Discovered {
+    /// The discovery of each connection, in config order.
+    builders: Vec<PostgresAutoDiscoveryBuilder>,
+    /// Table sources by id, with the index of their connection.
+    tables: BTreeMap<String, (TableInfo, usize)>,
+    /// Ids of the function sources, which bulk mode cannot scan.
+    functions: HashSet<String>,
 }
 
-/// Discovers the table sources and lowers the requested ones.
-async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateResult<(PostgresPool, Vec<ScanTable>)> {
+/// Discovers the sources of every PostgreSQL connection, handling the warnings as `on_invalid` says.
+async fn discover(config: &Config) -> GenerateResult<Discovered> {
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
     let grids = TileGrids::resolve(&config.tile_grids)?;
-    let mut pools = Vec::new();
-    let mut tables: BTreeMap<String, (TableInfo, usize)> = BTreeMap::new();
-    let mut functions = HashSet::new();
-    let mut warnings = Vec::new();
-    let global = ProcessConfig {
-        convert_to_mlt: config.convert_to_mlt.clone(),
-        convert_to_mvt: config.convert_to_mvt.clone(),
-        ..ProcessConfig::default()
+    let mut discovered = Discovered {
+        builders: Vec::new(),
+        tables: BTreeMap::new(),
+        functions: HashSet::new(),
     };
-    let mut connections = Vec::new();
+    let mut warnings = Vec::new();
     for pg in &config.postgres {
         let builder = PostgresAutoDiscoveryBuilder::new(pg, resolver.clone(), config.cache.policy(), &grids).await?;
         let (specs, pg_warnings) = builder.discover().await?;
@@ -565,31 +646,45 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
         for (id, spec) in specs {
             match spec {
                 SourceSpec::Table(info) => {
-                    tables.insert(id, (info, pools.len()));
+                    discovered.tables.insert(id, (info, discovered.builders.len()));
                 }
                 SourceSpec::Function(..) => {
-                    functions.insert(id);
+                    discovered.functions.insert(id);
                 }
             }
         }
-        pools.push(builder.pool().clone());
-        connections.push(ProcessConfig {
-            convert_to_mlt: pg.convert_to_mlt.clone(),
-            convert_to_mvt: pg.convert_to_mvt.clone(),
-            ..ProcessConfig::default()
-        });
+        discovered.builders.push(builder);
     }
     config.on_invalid.unwrap_or_default().handle_tile_warnings(&warnings)?;
+    Ok(discovered)
+}
+
+/// Discovers the table sources and lowers the requested ones, within `--bbox` or else the bounds of the
+/// lowered sources, which it returns too.
+async fn select_sources(
+    config: &Config,
+    options: &GenerateOptions,
+) -> GenerateResult<(PostgresPool, Vec<ScanTable>, Option<Bounds>)> {
+    let Discovered {
+        mut builders,
+        tables,
+        functions,
+    } = discover(config).await?;
+    let global = ProcessConfig {
+        convert_to_mlt: config.convert_to_mlt.clone(),
+        convert_to_mvt: config.convert_to_mvt.clone(),
+        ..ProcessConfig::default()
+    };
     let requested: Vec<String> = if options.sources.is_empty() {
         tables.keys().cloned().collect()
     } else {
         options.sources.clone()
     };
-
     let lower = LowerOptions {
         zooms: options.zooms.clone(),
         bounds: options.bbox,
         encoder: None,
+        order_by: None,
     };
     let mut scans = Vec::with_capacity(requested.len());
     let mut pool = None;
@@ -603,10 +698,11 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
                 tables.keys().cloned().collect::<Vec<_>>().join(", "),
             ));
         };
+        let connection = &config.postgres[*pool_idx];
         if let Some(grid) = info
             .tile_grid
             .as_deref()
-            .or(config.postgres[*pool_idx].tile_grid.as_deref())
+            .or(connection.tile_grid.as_deref())
             .filter(|g| *g != "WebMercatorQuad")
         {
             return Err(GenerateError::UnsupportedGrid(id, grid.to_owned()));
@@ -614,23 +710,24 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
         if pool.replace(*pool_idx).is_some_and(|p| p != *pool_idx) {
             return Err(GenerateError::MultipleDatabases);
         }
+        let per_connection = ProcessConfig {
+            convert_to_mlt: connection.convert_to_mlt.clone(),
+            convert_to_mvt: connection.convert_to_mvt.clone(),
+            ..ProcessConfig::default()
+        };
         let per_table = ProcessConfig {
             convert_to_mlt: info.convert_to_mlt.clone(),
             convert_to_mvt: info.convert_to_mvt.clone(),
             ..ProcessConfig::default()
         };
-        let encoder = match ProcessConfig::layered(&global, &connections[*pool_idx], &per_table).convert_to_mlt {
-            Some(MltProcessConfig::Explicit(cfg)) => Some(EncoderConfig::from(cfg)),
-            Some(MltProcessConfig::Disabled) if matches!(options.format, TileFormat::Mlt) => {
-                return Err(GenerateError::MltDisabled { source_id: id });
-            }
-            _ => None,
-        };
+        let convert = ProcessConfig::layered(&global, &per_connection, &per_table).convert_to_mlt;
+        let encoder = mlt_encoder(convert, options.format, &id)?;
         scans.extend(lower_table(
             &id,
             info.clone(),
             &LowerOptions {
                 encoder,
+                order_by: connection.order_by,
                 ..lower.clone()
             },
         )?);
@@ -639,7 +736,61 @@ async fn select_sources(config: &Config, options: &GenerateOptions) -> GenerateR
     if scans.is_empty() {
         return Err(GenerateError::NoLayers(*options.zooms.start(), *options.zooms.end()));
     }
-    Ok((pools.swap_remove(pool), scans))
+    let bounds = if options.bbox.is_some() {
+        options.bbox
+    } else {
+        let mut all = Vec::with_capacity(scans.len());
+        for scan in &mut scans {
+            builders[pool].resolve_bounds(&scan.id, &mut scan.info).await?;
+            all.push(scan.info.to_tilejson(scan.id.clone()).bounds);
+        }
+        let bounds = source_bounds(all);
+        for layer in scans.iter_mut().flat_map(|scan| &mut scan.def.layers) {
+            layer.bounds = bounds;
+        }
+        bounds
+    };
+    Ok((builders.swap_remove(pool).pool().clone(), scans, bounds))
+}
+
+/// The union of `bounds`, clamped to the tiled world, as tile mode renders without `--bbox`. `None`, the
+/// whole world, when a source has no valid bounds.
+fn source_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) -> Option<Bounds> {
+    let world = Bounds::MAX_TILED;
+    let mut union: Option<Bounds> = None;
+    for bounds in bounds {
+        let bounds = bounds.filter(|b| b.left <= b.right && b.bottom <= b.top)?;
+        let clamped = Bounds::new(
+            bounds.left.clamp(world.left, world.right),
+            bounds.bottom.clamp(world.bottom, world.top),
+            bounds.right.clamp(world.left, world.right),
+            bounds.top.clamp(world.bottom, world.top),
+        );
+        union = Some(union.map_or(clamped, |union| union + clamped));
+    }
+    if let Some(bounds) = union {
+        info!(bounds = %bounds, "No bbox specified, using source bounds");
+    }
+    union
+}
+
+/// The MLT encoder settings of a source's `convert_to_mlt`, or `None` for the defaults.
+///
+/// # Errors
+///
+/// If MLT conversion is disabled for a source that is written as MLT.
+fn mlt_encoder(
+    convert: Option<MltProcessConfig>,
+    format: TileFormat,
+    source_id: &str,
+) -> GenerateResult<Option<EncoderConfig>> {
+    match convert {
+        Some(MltProcessConfig::Explicit(cfg)) => Ok(Some(EncoderConfig::from(cfg))),
+        Some(MltProcessConfig::Disabled) if matches!(format, TileFormat::Mlt) => Err(GenerateError::MltDisabled {
+            source_id: source_id.to_owned(),
+        }),
+        _ => Ok(None),
+    }
 }
 
 /// Ctrl-C and `SIGTERM` (Ctrl+Break on Windows), registered before the output exists so that neither can leave it behind.

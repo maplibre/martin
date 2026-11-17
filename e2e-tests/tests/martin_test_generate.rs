@@ -491,7 +491,7 @@ async fn a_gone_case_shows_that_accepting_removes_it() {
     "   2      │-  id: 9                                                                                 "
     "   3      │-  geometry: point                                                                       "
     "   4      │-  zooms: 12-14                                                                          "
-    "        1 │+(no path takes the row any more)                                                        "
+    "        1 │+(no path needs the row any more)                                                        "
     "                                                                                                    "
     "                                                                                                    "
     "                                                                                                    "

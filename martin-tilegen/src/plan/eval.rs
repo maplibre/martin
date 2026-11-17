@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 use tracing::warn;
 
 use super::{
-    AttributesDef, Case, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedTable, PlannedValue,
+    AttributesDef, Case, IdOrder, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedTable, PlannedValue,
     PlannedZoom,
 };
 use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role};
@@ -249,12 +249,32 @@ impl Plan {
         }
     }
 
-    /// The layer's `sort_by` keys, concatenated; a failed one sorts as `null`.
-    fn sort_key(&self, layer: &PlannedLayer, view: &FeatureView<'_, SourceStr>, errors: &mut [u64], out: &mut Vec<u8>) {
+    /// The layer's `sort_by` keys, then its `id_order` key of `id`, concatenated; a failed `sort_by` key
+    /// sorts as `null`. `None` when the layer has neither.
+    fn sort_key<'o>(
+        &self,
+        layer: &PlannedLayer,
+        view: Option<&FeatureView<'_, SourceStr>>,
+        id: Option<i64>,
+        errors: &mut [u64],
+        out: &'o mut Vec<u8>,
+    ) -> Option<&'o [u8]> {
         out.clear();
-        for expr in &layer.sort_by {
-            self.eval(expr, view, errors).encode(expr.role.descending, out);
+        if !layer.sort_by.is_empty() {
+            let view = view.expect("a table whose layers have expressions binds a view of each feature");
+            for expr in &layer.sort_by {
+                self.eval(expr, view, errors).encode(expr.role.descending, out);
+            }
         }
+        if let Some(order) = layer.id_order {
+            let ascending = id.map(|id| (id.cast_unsigned() ^ (1 << 63)).to_be_bytes());
+            match (ascending, order) {
+                (Some(id), IdOrder::Ascending) => out.extend(std::iter::once(0).chain(id)),
+                (Some(id), IdOrder::Descending) => out.extend(std::iter::once(0).chain(id.map(|byte| !byte))),
+                (None, _) => out.push(1),
+            }
+        }
+        (!layer.sort_by.is_empty() || layer.id_order.is_some()).then_some(out.as_slice())
     }
 
     fn attr<'v>(
@@ -356,17 +376,11 @@ impl Evaluator<'_> {
             }
             plan.computed(attrs, &feature.props, view, errors, props, bands);
             let id = match layer.id {
-                PlannedId::Keep => feature.id,
+                PlannedId::Keep => feature.id.and_then(|id| u64::try_from(id).ok()),
                 PlannedId::Drop => None,
                 PlannedId::Expr(expr) => view.and_then(|view| plan.eval(&expr, view, errors)),
             };
-            let sort_key = match view {
-                Some(view) if !layer.sort_by.is_empty() => {
-                    plan.sort_key(layer, view, errors, sort);
-                    Some(sort.as_slice())
-                }
-                _ => None,
-            };
+            let sort_key = plan.sort_key(layer, view, feature.id, errors, sort);
             let (props, bands): (&EncodedProps, &[(u8, EncodedProps)]) = match bands.split_first() {
                 Some((first, rest)) if !attrs.bands.is_empty() => (&first.1, rest),
                 _ => (props, &[]),

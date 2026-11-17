@@ -119,21 +119,21 @@ async fn postgres_selects_a_row_on_each_path_of_a_where() {
     insta::assert_debug_snapshot!(found, @r#"
     [
         (
-            "places: kept by `where: population > 1000`",
+            "places: kept by `where`",
             Selected {
                 rows: "\"population\" > 1000",
                 key: 1,
             },
         ),
         (
-            "places: dropped, `where: population > 1000` is false",
+            "places: dropped, `where` is false",
             Selected {
                 rows: "\"population\" <= 1000",
                 key: 2,
             },
         ),
         (
-            "places: dropped, `population` is null in `where: population > 1000`",
+            "places: dropped, `population` is null in `where`",
             Selected {
                 rows: "\"population\" IS NULL",
                 key: 3,
@@ -182,20 +182,20 @@ async fn postgres_selects_no_row_for_a_path_no_row_takes() {
     insta::assert_debug_snapshot!(found, @r#"
     [
         (
-            "places: kept by `where: population > 1000`",
+            "places: kept by `where`",
             Selected {
                 rows: "\"population\" > 1000",
                 key: 1,
             },
         ),
         (
-            "places: dropped, `where: population > 1000` is false",
+            "places: dropped, `where` is false",
             NoneSelected {
                 rows: "\"population\" <= 1000",
             },
         ),
         (
-            "places: dropped, `population` is null in `where: population > 1000`",
+            "places: dropped, `population` is null in `where`",
             NoneSelected {
                 rows: "\"population\" IS NULL",
             },
@@ -287,9 +287,9 @@ async fn postgres_selects_lines_by_their_shape_at_the_max_zoom() {
         CREATE SCHEMA martin_test_shapes;
         CREATE TABLE martin_test_shapes.roads (id int8 PRIMARY KEY, geom geometry(LineString, 4326));
         INSERT INTO martin_test_shapes.roads VALUES
-          (1, 'SRID=4326;LINESTRING(16.37 48.20, 16.40 48.22)'),
+          (1, 'SRID=4326;LINESTRING(16.3712 48.2012, 16.3714 48.2012)'),
           (2, 'SRID=4326;LINESTRING(16.371 48.201, 16.371002 48.201)'),
-          (3, 'SRID=4326;LINESTRING(16.3712 48.2012, 16.3714 48.2012)');
+          (3, 'SRID=4326;LINESTRING(16.37 48.20, 16.40 48.22)');
     "})
     .await;
     let backend = load(indoc! {"
@@ -337,7 +337,7 @@ async fn postgres_selects_lines_by_their_shape_at_the_max_zoom() {
             "roads: crosses a z14 tile edge",
             Selected {
                 rows: "(ST_GeometryType(\"geom\"::geometry) IN ('ST_LineString', 'ST_MultiLineString') OR ST_GeometryType(\"geom\"::geometry) IN ('ST_Polygon', 'ST_MultiPolygon', 'ST_Triangle')) AND (floor((ST_XMin(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) <> floor((ST_XMax(ST_Transform(\"geom\"::geometry, 3857)::box2d) + 20037508.34278925) / 2445.984905125641) OR floor((20037508.34278925 - least(greatest(ST_YMin(ST_Transform(\"geom\"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641) <> floor((20037508.34278925 - least(greatest(ST_YMax(ST_Transform(\"geom\"::geometry, 3857)::box2d), -20037508.34278925), 20037508.34278925)) / 2445.984905125641))",
-                key: 1,
+                key: 3,
             },
         ),
     ]
@@ -1422,4 +1422,84 @@ async fn postgres_needs_a_pool_of_two_connections() {
     .unwrap();
     let error = Postgres::load(file.path()).await.err().unwrap();
     insta::assert_snapshot!(error, @"`martin test` holds one connection open for its snapshot and reads through another, but `pool_size` is 1; set it to at least 2");
+}
+
+#[tokio::test]
+async fn postgres_generate_again_from_its_spec_keeps_every_case() {
+    seed(indoc! {"
+        DROP SCHEMA IF EXISTS martin_test_again CASCADE;
+        CREATE SCHEMA martin_test_again;
+        CREATE TABLE martin_test_again.places (id int8 PRIMARY KEY, kind text, name text, geom geometry(Point, 4326));
+        INSERT INTO martin_test_again.places VALUES
+          (1, NULL, NULL, 'SRID=4326;POINT(16.37 48.20)'),
+          (2, 'park', 'Stadtpark', 'SRID=4326;POINT(16.38 48.21)'),
+          (3, 'park', 'Prater', 'SRID=4326;POINT(16.39 48.22)');
+    "})
+    .await;
+    let backend = load(indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            places:
+              schema: martin_test_again
+              table: places
+              srid: 4326
+              geometry_column: geom
+              geometry_type: POINT
+              id_column: id
+              properties:
+                id: int8
+                kind: text
+                name: text
+              layers:
+                prater:
+                  where: name == 'Prater'
+                  attributes: []
+                parks:
+                  where: kind == 'park'
+                  attributes: []
+    "})
+    .await;
+    let mut first = review(&backend, 14, None, 100, &Reporter::new()).await.unwrap();
+    first.accept_all();
+    let spec = first.spec();
+    let again = review(&backend, 14, Some(&spec), 100, &Reporter::new()).await.unwrap();
+    insta::assert_snapshot!(format!("{}\n{}\n{}", yaml(&spec), first.summary(), again.summary()), @r#"
+    max_zoom: 14
+    cases:
+    - source: places
+      paths:
+      - "prater: kept by `where`"
+      - "parks: kept by `where`"
+      input:
+        geometry: POINT(16.39 48.22)
+        id: 3
+        kind: park
+        name: Prater
+      output:
+      - layer: prater
+        id: 3
+        geometry: point
+        zooms: 0-14
+      - layer: parks
+        id: 3
+        geometry: point
+        zooms: 0-14
+    - source: places
+      paths:
+      - "prater: dropped, `where` is false"
+      - "prater: dropped, `name` is null in `where`"
+      - "parks: dropped, `where` is false"
+      - "parks: dropped, `kind` is null in `where`"
+      input:
+        geometry: POINT(16.37 48.2)
+        id: 1
+        kind: null
+        name: null
+      output: []
+
+    6 paths: 6 found, 2 cases: 2 new
+    6 paths: 6 found, 2 cases: 2 same
+    "#);
 }

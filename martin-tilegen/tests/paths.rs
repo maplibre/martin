@@ -136,7 +136,7 @@ fn a_place_above_the_population_is_where() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: kept by `where: population > 1000`",
+        "places: kept by `where`",
     ]
     "#);
 }
@@ -161,7 +161,7 @@ fn a_place_below_the_population_is_not_where() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: dropped, `where: population > 1000` is false",
+        "places: dropped, `where` is false",
     ]
     "#);
 }
@@ -186,7 +186,7 @@ fn a_place_without_a_population_is_where_with_the_column_null() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "places: dropped, `population` is null in `where: population > 1000`",
+        "places: dropped, `population` is null in `where`",
     ]
     "#);
 }
@@ -470,8 +470,8 @@ fn a_known_column_in_a_where_has_no_null_path() {
         .collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "devices: type 'stop' -> kept by `where: type == 'stop'`",
-        "devices: type 'yield' -> dropped, `where: type == 'stop'` is false",
+        "devices: type 'stop' -> kept by `where`",
+        "devices: type 'yield' -> dropped, `where` is false",
     ]
     "#);
 }
@@ -503,9 +503,9 @@ fn a_known_column_that_may_be_null_has_a_null_path() {
         .collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "devices: type 'stop' -> kept by `where: type == 'stop'`",
-        "devices: type 'yield' -> dropped, `where: type == 'stop'` is false",
-        "devices: type null -> dropped, `where: type == 'stop'` is false",
+        "devices: type 'stop' -> kept by `where`",
+        "devices: type 'yield' -> dropped, `where` is false",
+        "devices: type null -> dropped, `where` is false",
     ]
     "#);
 }
@@ -537,9 +537,9 @@ fn a_null_path_names_a_where_that_fails_on_null() {
         .collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "devices: type 'stop' -> kept by `where: type.startsWith('s')`",
-        "devices: type 'yield' -> dropped, `where: type.startsWith('s')` is false",
-        "devices: type null -> dropped, `where: type.startsWith('s')` fails",
+        "devices: type 'stop' -> kept by `where`",
+        "devices: type 'yield' -> dropped, `where` is false",
+        "devices: type null -> dropped, `where` fails",
     ]
     "#);
 }
@@ -568,8 +568,8 @@ fn a_column_that_is_never_null_has_no_null_path_without_known_values() {
         .collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "devices: kept by `where: population > 1000`",
-        "devices: dropped, `where: population > 1000` is false",
+        "devices: kept by `where`",
+        "devices: dropped, `where` is false",
     ]
     "#);
 }
@@ -602,7 +602,7 @@ fn a_feature_without_a_known_column_takes_its_null_path() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "devices: type null -> dropped, `where: type == 'stop'` is false",
+        "devices: type null -> dropped, `where` is false",
     ]
     "#);
 }
@@ -748,9 +748,9 @@ fn a_json_column_that_may_replace_a_known_column_keeps_its_choice_paths() {
         .collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "devices: kept by `where: type == 'stop'`",
-        "devices: dropped, `where: type == 'stop'` is false",
-        "devices: dropped, `type` is null in `where: type == 'stop'`",
+        "devices: kept by `where`",
+        "devices: dropped, `where` is false",
+        "devices: dropped, `type` is null in `where`",
     ]
     "#);
 }
@@ -779,7 +779,7 @@ fn a_known_column_with_no_values_has_only_a_null_path() {
         .collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "devices: type null -> dropped, `where: type == 'stop'` is false",
+        "devices: type null -> dropped, `where` is false",
     ]
     "#);
 }
@@ -808,8 +808,8 @@ fn a_column_read_as_text_has_no_path_for_a_number() {
         .collect();
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        "payments: kept by `where: amount != ''`",
-        "payments: dropped, `where: amount != ''` is false",
+        "payments: kept by `where`",
+        "payments: dropped, `where` is false",
     ]
     "#);
 }
@@ -834,7 +834,7 @@ fn a_float_column_compares_a_whole_number_as_a_float() {
     insta::assert_debug_snapshot!(branches.last().unwrap(), @r#"
     Branch {
         layer: "poles",
-        path: "height 2 -> kept by `where: height > 1.0`",
+        path: "height 2 -> kept by `where`",
         rows: Ok(
             And(
                 [
@@ -962,7 +962,7 @@ fn an_integer_property_takes_the_path_of_its_known_integer_value() {
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
     insta::assert_debug_snapshot!(taken, @r#"
     [
-        "roads: lanes 2 -> kept by `where: lanes > 1`",
+        "roads: lanes 2 -> kept by `where`",
     ]
     "#);
 }

@@ -91,6 +91,7 @@ default = [
     "mbtiles",
     "metrics",
     "ogcapi",
+    "osm",
     "passthrough",
     "pmtiles",
     "postgres",
@@ -125,6 +126,8 @@ lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles", "_file_kinds"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 ogcapi = ["_tiles"]
+# OpenStreetMap PBF files as `martin cp --mode bulk` sources
+osm = ["postgres", "martin-tilegen/osm"]
 passthrough = ["martin-core/passthrough", "_tiles"]
 pmtiles = [
     "martin-core/pmtiles",

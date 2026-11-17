@@ -150,7 +150,11 @@ pub(crate) fn features_from_rows(rows: &[Row], has_id_column: bool) -> PostgresR
             continue;
         };
         let (geometry, m_values) = parse_tile_wkb(wkb)?;
-        let id = if has_id_column { feature_id(row)? } else { None };
+        let id = if has_id_column {
+            feature_id(row)?.and_then(|id| u64::try_from(id).ok())
+        } else {
+            None
+        };
         let mut properties = Vec::with_capacity(types.len());
         for (idx, prop_type) in (first_property..).zip(&types) {
             properties.push((
@@ -168,8 +172,8 @@ pub(crate) fn features_from_rows(rows: &[Row], has_id_column: bool) -> PostgresR
     Ok(features)
 }
 
-/// The feature id in the row's second column, following `ST_AsMVT`.
-pub(super) fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
+/// The signed feature id in the row's second column; `ST_AsMVT` drops a negative one.
+pub(super) fn feature_id(row: &Row) -> PostgresResult<Option<i64>> {
     let column = &row.columns()[1];
     let value = PropType::of_column(row, 1)?.read(row, 1, "reading a tile feature's id")?;
     let PostgresProperty::Value(PropValue::I64(value)) = value else {
@@ -178,5 +182,5 @@ pub(super) fn feature_id(row: &Row) -> PostgresResult<Option<u64>> {
             pg_type: column.type_().name().to_owned(),
         });
     };
-    Ok(value.and_then(|v| u64::try_from(v).ok()))
+    Ok(value)
 }

@@ -96,7 +96,7 @@ impl Reviewed {
                 .as_ref()
                 .map_or_else(|| "(not in the spec)\n".to_owned(), shown),
             new: if gone {
-                "(no path takes the row any more)\n".to_owned()
+                "(no path needs the row any more)\n".to_owned()
             } else {
                 shown(&self.case)
             },

@@ -24,7 +24,7 @@ You may also want to generate a [config file](../config-file/index.md) using the
 it and use it with `--config my-config.yaml` option.
 
 !!! tip
-    See [our tile sources explanation](../sources-tiles/index.md) for a more detailed explanation on the difference between our available data sources.
+    See [the tile sources explanation](../sources-tiles/index.md) for a more detailed explanation on the difference between the available data sources.
 
 Both formats have their own dedicated page describing how to configure them:
 
@@ -76,7 +76,7 @@ pmtiles:
 
 ## Autodiscovery
 
-For mbtiles or local pmtiles files, we support auto discovering at startup.
+For mbtiles or local pmtiles files, Martin supports auto discovering at startup.
 This means that the following will discover all mbtiles and pmtiles files in the directory:
 
 ```bash

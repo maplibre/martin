@@ -8,7 +8,7 @@ tags:
 
 # Generating Tiles in Bulk
 
-We offer the `martin cp` subcommand for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file.
+Martin offers the `martin cp` subcommand for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file.
 
 `martin cp` can be used to generate tiles for a large area or multiple areas (bounding boxes).
 If multiple areas overlap, it will ensure each tile is generated only once

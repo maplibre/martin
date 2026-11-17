@@ -112,7 +112,7 @@ Values that are out of range or not a number are rejected with `400`, while quer
 ## Caching and cache-busting
 
 Baking reads a 3x3 neighborhood (to avoid boundary seams) of normal maps, so nine tiles are read per uncached tile served.
-We cache the normal maps rather than the baked output since an undecoded normal map is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a baked tile is specific to one parameter set.
+Martin caches the normal maps rather than the baked output since an undecoded normal map is identical for every parameter combination and is read nine times over by neighboring tiles, whereas a baked tile is specific to one parameter set.
 
 Each tile's `ETag` is derived from the nine tiles it read plus the settings it was baked with, so it moves whenever any input or any setting does.
 

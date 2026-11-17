@@ -59,7 +59,7 @@ runs:
       shell: bash
       run: rm -rf target/duckdb-sources target/*/duckdb-sources
     - if: inputs.tools != ''
-      uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+      uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
       with: { tool: '${{ inputs.tools }}' }
     - if: inputs.rendering == 'true' && runner.os == 'Linux'
       shell: bash
@@ -68,7 +68,7 @@ runs:
       shell: bash
       run: just env-info
     - if: inputs.coverage == 'true'
-      uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+      uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
       with: { tool: 'cargo-llvm-cov' }
     - if: inputs.coverage == 'true'
       shell: bash

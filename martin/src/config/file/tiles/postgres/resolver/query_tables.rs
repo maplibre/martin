@@ -9,8 +9,9 @@ use martin_core::tiles::postgres::PostgresError::{CannotTransform, EngineTable, 
 use martin_core::tiles::postgres::{
     PostgresPool, PostgresResult, PostgresRowQuery, PostgresSqlInfo, PostgresTiler, is_typed_property,
 };
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, EARTH_CIRCUMFERENCE_DEGREES, wgs84_to_webmercator};
 use martin_tilegen::plan::Condition;
+use martin_tilegen::project::MAX_LATITUDE;
 use martin_tilegen::source::Crs;
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
@@ -192,17 +193,15 @@ pub(super) fn property_column<'a>(info: &'a TableInfo, field: &'a str) -> Proper
     }
 }
 
-/// Generate a query to fetch tiles from a table.
-/// The function is async because it may need to query the database for the table bounds (could be very slow).
-pub async fn table_to_query(
-    id: String,
-    mut info: TableInfo,
-    pool: PostgresPool,
+/// Fills in the bounds of a table without configured ones, as `bounds_type` says, unless the tile grid is not
+/// geographic or the table's SRID cannot be transformed to WGS84.
+pub async fn resolve_bounds(
+    id: &str,
+    info: &mut TableInfo,
+    pool: &PostgresPool,
     bounds_type: BoundsCalcType,
-    max_feature_count: Option<usize>,
-    order_by: Option<OrderByType>,
     grid: &PgTileGrid,
-) -> PostgresResult<(String, PostgresTiler, TableInfo)> {
+) -> PostgresResult<()> {
     let srid = info.srid;
 
     if info.bounds.is_none() && grid.grid().is_simple() {
@@ -214,13 +213,13 @@ pub async fn table_to_query(
         );
     } else if info.bounds.is_none()
         && bounds_type != BoundsCalcType::Skip
-        && transforms_to_wgs84(&pool, &info, srid).await?
+        && transforms_to_wgs84(pool, info, srid).await?
     {
         match bounds_type {
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
                 debug!(source.id = %id, table.id = %info.format_id(), "Computing table bounds");
-                info.bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Exact).await?;
+                info.bounds = calc_bounds(pool, info, srid, BoundsCalcMode::Exact).await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
@@ -230,7 +229,7 @@ pub async fn table_to_query(
                     "Computing table bounds with timeout"
                 );
                 let bounds = {
-                    let bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Estimate);
+                    let bounds = calc_bounds(pool, info, srid, BoundsCalcMode::Estimate);
                     pin_mut!(bounds);
                     timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await
                 };
@@ -256,6 +255,21 @@ pub async fn table_to_query(
             );
         }
     }
+    Ok(())
+}
+
+/// Generate a query to fetch tiles from a table.
+/// The function is async because it may need to query the database for the table bounds (could be very slow).
+pub async fn table_to_query(
+    id: String,
+    mut info: TableInfo,
+    pool: PostgresPool,
+    bounds_type: BoundsCalcType,
+    max_feature_count: Option<usize>,
+    order_by: Option<OrderByType>,
+    grid: &PgTileGrid,
+) -> PostgresResult<(String, PostgresTiler, TableInfo)> {
+    resolve_bounds(&id, &mut info, &pool, bounds_type, grid).await?;
 
     if info.layers.is_some() {
         if !grid.is_web_mercator() {
@@ -610,7 +624,9 @@ pub fn scan_sql(
                 format!(" AND {column} && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)")
             }
             3857 => {
-                format!(" AND {column} && ST_Transform(ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326), 3857)")
+                let (left, bottom) = web_mercator_corner(left, bottom);
+                let (right, top) = web_mercator_corner(right, top);
+                format!(" AND {column} && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 3857)")
             }
             _ => format!(
                 " AND ST_Transform({column}::geometry, 4326) && ST_MakeEnvelope({left}, {bottom}, {right}, {top}, 4326)"
@@ -625,6 +641,20 @@ pub fn scan_sql(
         has_id: info.id_column.is_some(),
         properties: selected.into_iter().map(str::to_owned).collect(),
     })
+}
+
+/// A corner of a WGS84 box in Web Mercator as SQL numbers, with a latitude at or past the edge of the
+/// Mercator square left open, as no projection can take a pole and the renderer clamps rows there to the edge.
+fn web_mercator_corner(lon: f64, lat: f64) -> (f64, String) {
+    let (x, y) = wgs84_to_webmercator(lon, lat);
+    let y = if lat >= MAX_LATITUDE {
+        "'Infinity'".to_owned()
+    } else if lat <= -MAX_LATITUDE {
+        "'-Infinity'".to_owned()
+    } else {
+        y.to_string()
+    };
+    (x, y)
 }
 
 /// The query a table with `layers` is served from: [`scan_sql`] limited to the geometries meeting
@@ -757,7 +787,7 @@ fn grid_sql(
         };
         return GridSql {
             geometry,
-            envelope: format!("(SELECT ST_TileEnvelope({TILE}))"),
+            envelope: format!("(SELECT ST_TileEnvelope({TILE})::box2d)"),
             bbox_search: format!("(SELECT {bbox_search})"),
         };
     }
@@ -808,7 +838,7 @@ fn grid_sql(
     };
     GridSql {
         geometry,
-        envelope: format!("(SELECT {envelope})"),
+        envelope: format!("(SELECT {envelope}::box2d)"),
         bbox_search,
     }
 }
@@ -1042,9 +1072,26 @@ mod tests {
         assert_eq!(sql.geometry, geometry);
         assert_eq!(
             sql.envelope,
-            "(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer))"
+            "(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer)::box2d)"
         );
         assert_eq!(sql.bbox_search, format!("(SELECT {bbox_search})"));
+    }
+
+    #[test]
+    fn a_web_mercator_scan_leaves_its_box_open_past_the_edge_of_the_mercator_square() {
+        let info = TableInfo {
+            schema: "public".to_owned(),
+            table: "roads".to_owned(),
+            geometry_column: "geom".to_owned(),
+            srid: 3857,
+            ..TableInfo::default()
+        };
+        let world = scan_sql(&info, &[], None, Some(Bounds::new(-180.0, -90.0, 180.0, 90.0))).unwrap();
+        let inside = scan_sql(&info, &[], None, Some(Bounds::new(0.0, 0.0, 10.0, 10.0))).unwrap();
+        insta::assert_snapshot!(format!("{}\n{}", world.sql, inside.sql), @r#"
+        SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))) FROM "public"."roads" WHERE "geom" IS NOT NULL AND "geom" && ST_MakeEnvelope(-20037508.34278925, '-Infinity', 20037508.34278925, 'Infinity', 3857)
+        SELECT ST_AsBinary(ST_Force2D(ST_CurveToLine("geom"::geometry))) FROM "public"."roads" WHERE "geom" IS NOT NULL AND "geom" && ST_MakeEnvelope(0, 0, 1113194.9079327362, 1118889.9748579594, 3857)
+        "#);
     }
 
     #[test]
@@ -1058,7 +1105,7 @@ mod tests {
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
-        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)))");
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193))::box2d)");
         insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Expand(ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(-3260586.7284, 10438190.1652 - 10018754.1714, -3260586.7284 + 10018754.1714, 10438190.1652, 2193)), (0.015625 * 10018754.1714) / 2^$1::integer))");
     }
 
@@ -1095,7 +1142,7 @@ mod tests {
     fn two_tiles_at_zoom0_are_one_zoom_of_a_double_square() {
         let grid = PgTileGrid::new(martin_tile_utils::WORLD_CRS84_QUAD, 4326);
         let sql = grid_sql(&grid, 4326, "\"geom\"", 64, MARGIN, None);
-        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)))");
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326))::box2d)");
         insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_Expand(ST_TileEnvelope($1::integer + 1, $2::integer, $3::integer, ST_MakeEnvelope(-180, 90 - 2 * 180, -180 + 2 * 180, 90, 4326)), (0.015625 * 180) / 2^$1::integer))");
     }
 
@@ -1111,7 +1158,7 @@ mod tests {
             None,
         );
         insta::assert_snapshot!(sql.geometry, @r#"ST_CurveToLine("geom"::geometry)"#);
-        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0)))");
+        insta::assert_snapshot!(sql.envelope, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0))::box2d)");
         insta::assert_snapshot!(sql.bbox_search, @"(SELECT ST_TileEnvelope($1::integer, $2::integer, $3::integer, ST_MakeEnvelope(0, 1000 - 1000, 0 + 1000, 1000, 0)))");
     }
 

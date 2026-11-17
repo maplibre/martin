@@ -1,0 +1,51 @@
+---
+source: martin/src/generate/spec/mod.rs
+expression: "format!(\"{}\\n{}\\n{}\", yaml(&spec), first.summary(), again.summary())"
+---
+max_zoom: 14
+cases:
+- source: places
+  paths:
+  - "prater: dropped, `where` is false"
+  - "parks: dropped, `where` is false"
+  input:
+    geometry: POINT(16.39 48.22)
+    id: 3
+    kind: shop
+    name: Billa
+  output: []
+- source: places
+  paths:
+  - "parks: kept by `where`"
+  - "prater: dropped, `where` is false"
+  input:
+    geometry: POINT(16.38 48.21)
+    id: 2
+    kind: park
+    name: Stadtpark
+  output:
+  - layer: parks
+    id: 2
+    geometry: point
+    zooms: 0-14
+- source: places
+  paths:
+  - "prater: kept by `where`"
+  - "parks: kept by `where`"
+  input:
+    geometry: POINT(16.37 48.2)
+    id: 1
+    kind: park
+    name: Prater
+  output:
+  - layer: prater
+    id: 1
+    geometry: point
+    zooms: 0-14
+  - layer: parks
+    id: 1
+    geometry: point
+    zooms: 0-14
+
+6 paths: 4 found, 2 no row, 3 cases: 3 new
+6 paths: 4 found, 2 no row, 3 cases: 3 same

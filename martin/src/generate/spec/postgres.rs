@@ -224,6 +224,7 @@ pub fn test_table(id: &str, info: &TableInfo, max_zoom: u8) -> GenerateResult<Op
         zooms: 0..=max_zoom,
         bounds: None,
         encoder: None,
+        order_by: None,
     };
     let Some(scan) = lower_table(id, info.clone(), &options)? else {
         return Ok(None);
@@ -523,11 +524,11 @@ mod tests {
                 geometry: point
                 where: population > 1000
         "}), @r#"
-        places: kept by `where: population > 1000`
+        places: kept by `where`
             ST_GeometryType("geom"::geometry) IN ('ST_Point', 'ST_MultiPoint') AND "population" > 1000
-        places: dropped, `where: population > 1000` is false
+        places: dropped, `where` is false
             ST_GeometryType("geom"::geometry) IN ('ST_Point', 'ST_MultiPoint') AND "population" <= 1000
-        places: dropped, `population` is null in `where: population > 1000`
+        places: dropped, `population` is null in `where`
             ST_GeometryType("geom"::geometry) IN ('ST_Point', 'ST_MultiPoint') AND "population" IS NULL
         "#);
     }

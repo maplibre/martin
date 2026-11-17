@@ -175,7 +175,8 @@ impl TryFrom<GeoGeometry<f64>> for Geometry {
 #[derive(Clone, Debug, PartialEq)]
 #[expect(missing_docs)]
 pub struct SourceFeature {
-    pub id: Option<u64>,
+    /// The source id, which orders features by `id_order`; tiles drop a negative one, as `ST_AsMVT` does.
+    pub id: Option<i64>,
     pub geometry: Geometry,
     pub props: Vec<(KeyId, Prop<SourceStr>)>,
 }
@@ -230,6 +231,15 @@ pub trait FeatureSource: Sync {
         Ok((0..count)
             .map(|_| Box::new(Stateless(self)) as Box<dyn FeatureReader + '_>)
             .collect())
+    }
+
+    /// Called once every partition is read, before any tile is written: fails if the reads may have left
+    /// features out.
+    ///
+    /// # Errors
+    /// If the source cannot vouch for what it read.
+    fn finish(&self) -> SourceResult<()> {
+        Ok(())
     }
 }
 

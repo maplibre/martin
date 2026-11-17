@@ -12,7 +12,7 @@ mod toolkit 'map-tile-toolkit/justfile'
 mod ui 'martin-ui/justfile'
 
 # list of features we deem stable for release packaging (also the default feature set)
-stable_features := 'cog,lambda,mbtiles,metrics,ogcapi,passthrough,pmtiles,postgres,processing,resources,tui,webui'
+stable_features := 'cog,lambda,mbtiles,metrics,ogcapi,osm,passthrough,pmtiles,postgres,processing,resources,tui,webui'
 # stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
 full_features := stable_features + ',rendering'
 
@@ -230,11 +230,11 @@ bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta'
     cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     {{insta_test}} --package martin-e2e-tests --features test-duckdb --test duckdb
 
-# Bless the style rendering tests end-to-end
+# Bless the style rendering and OGC API - Maps tests end-to-end
 [linux]
 bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    cargo build --package martin --no-default-features --features rendering
-    {{insta_test}} --package martin-e2e-tests --features test-rendering --test rendering
+    cargo build --package martin --no-default-features --features ogcapi,cog,mbtiles,pmtiles,rendering
+    {{insta_test}} --package martin-e2e-tests --features test-rendering,test-ogc-maps --test rendering --test ogc_maps
 
 # Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -395,9 +395,9 @@ clean: stop ui::clean
     cargo clean -p static-files
     cargo clean
 
-# Run cargo clippy to lint the code
+# Run cargo clippy to lint the code (with `rendering` on Linux, the only platform it builds on)
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb{{ if os() == "linux" { ",martin/rendering" } else { "" } }} {{args}}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:

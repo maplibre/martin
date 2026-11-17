@@ -200,3 +200,9 @@ ctid
 quadkey
 libvulkan
 webgpu
+landuse
+openstreetmap
+osmflow
+versatiles
+aeroway
+pois

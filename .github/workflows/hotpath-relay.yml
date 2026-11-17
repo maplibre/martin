@@ -24,7 +24,7 @@ jobs:
           - composite-miss
           - cache-hit
           - toolkit-slice
-    uses: hotpath-rs/hotpath/.github/workflows/hotpath-relay.yml@a9b63a7472d299ed43f0f25dd30b6c969f636814 # v0.29.1
+    uses: hotpath-rs/hotpath/.github/workflows/hotpath-relay.yml@144b74342bbb6a17ea5705dba9c0cc86af5128a0 # v0.31.2
     permissions:
       actions: read
       id-token: write

@@ -3542,7 +3542,7 @@ dependencies = [
  "float_next_after 2.0.0",
  "geo-types",
  "geographiclib-rs",
- "i_overlay",
+ "i_overlay 4.5.2",
  "log",
  "num-traits",
  "rand 0.10.3",
@@ -4062,9 +4062,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.31.2"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4baf9bc6956d262f9a3d32b8fbfe0982ceed74dfc0d875dc85024c215ffe1b9b"
+checksum = "043fbbb2b52a2f17e4c42aa9883ae54663442e933e2387691c5538a5d4961a5b"
 dependencies = [
  "arc-swap",
  "axum",
@@ -4081,7 +4081,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros 0.31.2",
+ "hotpath-macros 0.32.0",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -4101,9 +4101,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-drain"
-version = "0.31.2"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3ece2eee10c28b08fe868496b5706a5b1e722978bfeeb87dee2f4b29d3c8f9e"
+checksum = "1ceb735d6078e79fe22c9afcad2aca23e0ce0c8b21042035870889bebab64f7f"
 
 [[package]]
 name = "hotpath-macros"
@@ -4113,9 +4113,9 @@ checksum = "08c0a42eb299ebb7ec6b9161489e5bf132603a34ca12cecadb8490937aa0492a"
 
 [[package]]
 name = "hotpath-macros"
-version = "0.31.2"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dafa23c1942a84050bad239618e74080aecffb50d9a728b32ed10d639207a9d0"
+checksum = "946c96b684ac92ba5bd051e3ab21e456bf3a1b59b3bfbbc7c0d8e7f38797d880"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4351,6 +4351,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "i_float"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ecaff1ce29bcacd72cdf581ba6fce636ef4c4e0b2da7e7846dd0137d98141e2"
+dependencies = [
+ "libm",
+]
+
+[[package]]
 name = "i_key_sort"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4360,16 +4369,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "i_key_sort"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14269ee362009550495e20650ff3c2bca14a8147fe251e216760381ffed90b6f"
+
+[[package]]
 name = "i_overlay"
 version = "4.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8dd314b4668e2b3a12508f2e125558c82a6c0a8636fa5107a900f79ce414e450"
 dependencies = [
- "i_float",
- "i_key_sort",
- "i_shape",
- "i_tree",
+ "i_float 1.16.0",
+ "i_key_sort 0.10.3",
+ "i_shape 1.18.0",
+ "i_tree 0.18.0",
  "rayon",
+]
+
+[[package]]
+name = "i_overlay"
+version = "9.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e19f30f6631721dcdfdd424da135bde0ffb0f6aca1036947eff2137527f5e926"
+dependencies = [
+ "i_float 5.0.0",
+ "i_key_sort 0.12.0",
+ "i_shape 5.0.0",
+ "i_tree 0.20.0",
 ]
 
 [[package]]
@@ -4378,7 +4405,16 @@ version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa9eac533d7509a8ab87672b60ac610c17240f9ea4851d26227689fdfe349c8"
 dependencies = [
- "i_float",
+ "i_float 1.16.0",
+]
+
+[[package]]
+name = "i_shape"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa1878f91ef7921feaf1b2346253ebc5e661878b22d5715195c1d5dcf0f20ae5"
+dependencies = [
+ "i_float 5.0.0",
 ]
 
 [[package]]
@@ -4386,6 +4422,12 @@ name = "i_tree"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4804bdc1dc124eb7e1aa9e144ecc04096bcf787a10a15fa44af682b51f0f6cce"
+
+[[package]]
+name = "i_tree"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "048af31de955890c62a8506fec511335a5089e91e1c516537add16f96c507d84"
 
 [[package]]
 name = "iana-time-zone"
@@ -5134,9 +5176,9 @@ dependencies = [
 
 [[package]]
 name = "json-patch"
-version = "4.2.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7421438de105a0827e44fadd05377727847d717c80ce29a229f85fd04c427b72"
+checksum = "aa295c8f71b9bad32d060e0e145f96dcba0cc6c6171e129646140d1c96b05617"
 dependencies = [
  "jsonptr",
  "serde",
@@ -5158,9 +5200,9 @@ dependencies = [
 
 [[package]]
 name = "jsonptr"
-version = "0.7.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5a3cc660ba5d72bce0b3bb295bf20847ccbb40fd423f3f05b61273672e561fe"
+checksum = "72c22d99362c7aac7d77efab6b49c2181674b165d7e6e7c755b3432ded64bf51"
 dependencies = [
  "serde",
  "serde_json",
@@ -5758,7 +5800,7 @@ dependencies = [
  "geo",
  "geo-types",
  "geojson 1.0.0",
- "hotpath 0.31.2",
+ "hotpath 0.32.0",
  "insta",
  "serde_json",
  "stats_alloc",
@@ -5805,7 +5847,7 @@ dependencies = [
  "fnv",
  "futures",
  "geojson 1.0.0",
- "hotpath 0.31.2",
+ "hotpath 0.32.0",
  "humantime-serde",
  "image",
  "indexmap 2.14.2",
@@ -5905,7 +5947,7 @@ dependencies = [
  "geo-traits",
  "geo-types",
  "geojson 1.0.0",
- "hotpath 0.31.2",
+ "hotpath 0.32.0",
  "humantime",
  "image",
  "insta",
@@ -6006,7 +6048,7 @@ dependencies = [
  "brotli 9.1.1",
  "bytes",
  "flate2",
- "hotpath 0.31.2",
+ "hotpath 0.32.0",
  "rstest",
  "serde",
  "serde_json",
@@ -6028,7 +6070,8 @@ dependencies = [
  "geo",
  "geo-traits",
  "geo-types",
- "hotpath 0.31.2",
+ "hotpath 0.32.0",
+ "indoc",
  "insta",
  "lasso",
  "map-tile-toolkit",
@@ -6037,6 +6080,7 @@ dependencies = [
  "mbtiles",
  "memmap2",
  "mlt-core",
+ "osmflow",
  "perf-event2",
  "pmtiles",
  "radsort",
@@ -6102,7 +6146,7 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath 0.31.2",
+ "hotpath 0.32.0",
  "indicatif",
  "insta",
  "itertools 0.15.0",
@@ -6826,7 +6870,7 @@ checksum = "09d5f5cbd489345bb2b438c5c2ce1dd3ab1a2a1567208ee648f6bb2c23c7eb94"
 dependencies = [
  "fast-mvt",
  "geo-types",
- "i_overlay",
+ "i_overlay 4.5.2",
  "mln-rs-feature",
  "mln-rs-geometry",
  "mln-rs-math",
@@ -7675,6 +7719,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bb71e1b3fa6ca1c61f383464aaf2bb0e2f8e772a1f01d486832464de363b951"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "osmflow"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b42e9f3123130a2b10547e8cf12683650fadc08562de3c47caa5b2956bf2d5c0"
+dependencies = [
+ "buffa",
+ "bytemuck",
+ "crc32fast",
+ "flate2",
+ "geo-types",
+ "i_overlay 9.2.0",
+ "memmap2",
+ "rayon",
+ "rustix",
+ "strum 0.28.0",
+ "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]
@@ -9151,25 +9215,29 @@ dependencies = [
 
 [[package]]
 name = "rmcp"
-version = "1.8.0"
+version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d1f571c72940a19d9532fe52dbea8bc9912bf1d766c2970bb824056b86f3f59"
+checksum = "391f153431ab68664d946513ea0cb3edbca78eaf99c5a983036cacab6220d85b"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.1",
  "bytes",
  "chrono",
  "futures",
  "http 1.5.0",
  "http-body 1.1.0",
  "http-body-util",
+ "indexmap 2.14.2",
+ "libc",
  "pastey",
+ "percent-encoding",
  "pin-project-lite",
  "rand 0.10.3",
  "rmcp-macros",
  "schemars 1.2.3",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "sse-stream",
  "thiserror 2.0.21",
  "tokio",
@@ -9177,20 +9245,22 @@ dependencies = [
  "tokio-util",
  "tower-service",
  "tracing",
+ "unicode-general-category",
+ "unicode-normalization",
  "uuid",
 ]
 
 [[package]]
 name = "rmcp-macros"
-version = "1.8.0"
+version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aad0035b69380782d78ea95b508327e6deaa2235909053e596eea8f27b5e1d5"
+checksum = "3598e3f36f4af2b5219b133baf7d97a2197039225adc3d4acf3dd8805b5a2aef"
 dependencies = [
- "darling 0.23.0",
+ "darling 0.24.1",
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 2.0.119",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -11578,6 +11648,12 @@ name = "unicode-bidi"
 version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c1cb5db39152898a79168971543b1cb5020dff7fe43c8dc468b0885f5e29df5"
+
+[[package]]
+name = "unicode-general-category"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b993bddc193ae5bd0d623b49ec06ac3e9312875fdae725a975c51db1cc1677f"
 
 [[package]]
 name = "unicode-ident"

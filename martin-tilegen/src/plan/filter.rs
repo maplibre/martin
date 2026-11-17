@@ -1,5 +1,7 @@
 //! Which rows of a table its layers keep, as a condition a source can check before reading them.
 
+use std::fmt::{self, Display, Formatter};
+
 use crate::plan::GeometryType;
 
 /// The type every non-null value of a column has, as an expression sees it.
@@ -287,6 +289,89 @@ impl Condition {
             1 => kept.pop().expect("one part"),
             _ if all => Self::And(kept),
             _ => Self::Or(kept),
+        }
+    }
+}
+
+/// The condition as SQL, with columns quoted where they are not plain identifiers.
+impl Display for Condition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let negated = |polarity: &Polarity| if *polarity == Polarity::Negated { "NOT " } else { "" };
+        match self {
+            Self::Const(v) => f.write_str(if *v { "TRUE" } else { "FALSE" }),
+            Self::And(parts) | Self::Or(parts) => {
+                let join = if matches!(self, Self::And(_)) { " AND " } else { " OR " };
+                for (i, part) in parts.iter().enumerate() {
+                    if i > 0 {
+                        f.write_str(join)?;
+                    }
+                    if matches!(part, Self::And(_) | Self::Or(_)) {
+                        write!(f, "({part})")?;
+                    } else {
+                        write!(f, "{part}")?;
+                    }
+                }
+                Ok(())
+            }
+            Self::Compare { left, op, right, .. } => write!(f, "{left} {} {right}", op.sql()),
+            Self::Distinct {
+                left, right, polarity, ..
+            } => write!(f, "{left} IS {}DISTINCT FROM {right}", negated(polarity)),
+            Self::IsNull { term, polarity } => write!(f, "{term} IS {}NULL", negated(polarity)),
+            Self::In {
+                term, values, polarity, ..
+            } => {
+                write!(f, "{term} {}IN (", negated(polarity))?;
+                for (i, value) in values.iter().enumerate() {
+                    if i > 0 {
+                        f.write_str(", ")?;
+                    }
+                    write!(f, "{}", Term::Literal(value.clone()))?;
+                }
+                f.write_str(")")
+            }
+            Self::Like {
+                term,
+                pattern,
+                polarity,
+            } => {
+                let (before, text, after) = match pattern {
+                    Pattern::Prefix(text) => ("", text, "%"),
+                    Pattern::Suffix(text) => ("%", text, ""),
+                    Pattern::Contains(text) => ("%", text, "%"),
+                };
+                let text = text.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+                let pattern = Term::Literal(Literal::String(format!("{before}{text}{after}")));
+                write!(f, "{term} {}LIKE {pattern}", negated(polarity))
+            }
+            Self::Geometry(kind) => write!(f, "geometry is a {kind:?}"),
+        }
+    }
+}
+
+/// The term as SQL.
+impl Display for Term {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Column(name) => {
+                let plain = name.starts_with(|c: char| c.is_ascii_lowercase() || c == '_')
+                    && name
+                        .chars()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+                if plain {
+                    f.write_str(name)
+                } else {
+                    write!(f, "\"{}\"", name.replace('"', "\"\""))
+                }
+            }
+            Self::Literal(Literal::Bool(v)) => f.write_str(if *v { "TRUE" } else { "FALSE" }),
+            Self::Literal(Literal::Int(v)) => write!(f, "{v}"),
+            Self::Literal(Literal::UInt(v)) => write!(f, "{v}"),
+            Self::Literal(Literal::Float(v)) => write!(f, "{v:?}"),
+            Self::Literal(Literal::String(v)) => write!(f, "'{}'", v.replace('\'', "''")),
+            Self::Length(term) => write!(f, "length({term})"),
+            Self::LowerAscii(term) => write!(f, "lower({term})"),
+            Self::UpperAscii(term) => write!(f, "upper({term})"),
         }
     }
 }

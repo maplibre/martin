@@ -9,6 +9,8 @@ pub mod duckdb;
 pub mod geojson;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
+#[cfg(feature = "osm")]
+pub mod osm;
 #[cfg(feature = "passthrough")]
 pub mod passthrough;
 #[cfg(feature = "pmtiles")]

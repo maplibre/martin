@@ -6,7 +6,7 @@ use std::fs;
 use indoc::indoc;
 use martin_e2e_tests::{
     Martin, MartinCp, MbtilesCli, assert_pmtiles_matches_mbtiles, metadata_listing, mlt_dump, mlt_layers, mvt_dump,
-    summary, summary_filters, temp_dir, tile_listing, tiles,
+    seed_postgres, summary, summary_filters, temp_dir, tile_listing, tiles,
 };
 
 #[tokio::test]
@@ -83,6 +83,165 @@ async fn generates_a_valid_tileset() {
         .run()
         .await;
     assert_eq!(tiles(&again).await, tiles(&output).await);
+}
+
+#[tokio::test]
+async fn keeps_the_metadata_of_the_table_comment() {
+    seed_postgres(indoc! {r#"
+        DROP SCHEMA IF EXISTS martin_cp_bulk_comment CASCADE;
+        CREATE SCHEMA martin_cp_bulk_comment;
+        CREATE TABLE martin_cp_bulk_comment.places (id int8 PRIMARY KEY, kind text, geom geometry(Point, 4326));
+        INSERT INTO martin_cp_bulk_comment.places VALUES
+            (1, 'city', 'SRID=4326;POINT(16.37 48.20)'),
+            (2, 'town', 'SRID=4326;POINT(14.29 48.31)');
+        COMMENT ON TABLE martin_cp_bulk_comment.places IS '{
+            "attribution": "Places contributors",
+            "center": [16.37, 48.2, 5],
+            "description": "Cities and towns",
+            "vector_layers": [{"id": "places", "description": "One point per place", "fields": {"kind": "Kind of place"}}],
+            "foo": {"bar": "foo"}
+        }';
+    "#})
+    .await;
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              auto_bounds: calc
+              tables:
+                places:
+                  schema: martin_cp_bulk_comment
+                  table: places
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  id_column: id
+                  properties:
+                    kind: text
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("places.mbtiles");
+    MartinCp::bulk()
+        .with_seeded_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("2")
+        .run()
+        .await;
+    let metadata = metadata_listing(&output).await;
+    insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
+        insta::assert_snapshot!(metadata, @r#"
+        agg_tiles_hash = CFAA1077541C6E75968EFEE7FCD1F799
+        attribution = Places contributors
+        bounds = 14.29,48.2,16.37,48.31
+        center = 16.37,48.2,5
+        compression = gzip
+        description = Cities and towns
+        foo = {"bar":"foo"}
+        format = mlt
+        generator = martin cp v[VERSION] (bulk)
+        hash_algorithm = md5
+        json = {
+          "vector_layers": [
+            {
+              "description": "One point per place",
+              "fields": {
+                "kind": "Kind of place"
+              },
+              "id": "places"
+            }
+          ]
+        }
+        maxzoom = 2
+        minzoom = 0
+        name = places
+        "#);
+    });
+}
+
+#[tokio::test]
+async fn ignores_the_hash_keys_of_the_table_comment() {
+    seed_postgres(indoc! {r#"
+        DROP SCHEMA IF EXISTS martin_cp_bulk_comment_hash CASCADE;
+        CREATE SCHEMA martin_cp_bulk_comment_hash;
+        CREATE TABLE martin_cp_bulk_comment_hash.places (id int8 PRIMARY KEY, geom geometry(Point, 4326));
+        INSERT INTO martin_cp_bulk_comment_hash.places VALUES
+            (1, 'SRID=4326;POINT(16.37 48.20)'),
+            (2, 'SRID=4326;POINT(14.29 48.31)');
+        COMMENT ON TABLE martin_cp_bulk_comment_hash.places IS '{
+            "hash_algorithm": "xxh64",
+            "agg_tiles_hash": "0",
+            "agg_tiles_hash_before_apply": "1",
+            "agg_tiles_hash_after_apply": "2"
+        }';
+    "#})
+    .await;
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              auto_bounds: calc
+              tables:
+                places:
+                  schema: martin_cp_bulk_comment_hash
+                  table: places
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  id_column: id
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("places.mbtiles");
+    MartinCp::bulk()
+        .with_seeded_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("2")
+        .arg("--mbtiles-type")
+        .arg("flat-with-hash")
+        .run()
+        .await;
+    MbtilesCli::new("validate").arg(&output).run().await;
+    let metadata = metadata_listing(&output).await;
+    insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
+        insta::assert_snapshot!(metadata, @r#"
+        agg_tiles_hash = D38F31787DF00038D79ED7244E569FDD
+        bounds = 14.29,48.2,16.37,48.31
+        compression = gzip
+        format = mlt
+        generator = martin cp v[VERSION] (bulk)
+        hash_algorithm = md5
+        json = {
+          "vector_layers": [
+            {
+              "fields": {},
+              "id": "places",
+              "maxzoom": 2,
+              "minzoom": 0
+            }
+          ]
+        }
+        maxzoom = 2
+        minzoom = 0
+        name = places
+        "#);
+    });
 }
 
 #[tokio::test]
@@ -782,6 +941,8 @@ async fn writes_the_mbtiles_type_and_metadata_edits() {
         .run()
         .await;
     insta::assert_snapshot!(metadata_listing(&output).await, @r#"
+    bounds = -179.2731475830078,-67.52519226074219,162.60118103027344,84.93092346191406
+    compression = gzip
     format = mlt
     json = {
       "vector_layers": [
@@ -1105,6 +1266,7 @@ async fn logs_each_finished_stage_without_a_terminal() {
     ] }, {
         insta::assert_snapshot!(log, @"
         INFO Starting Martin tile generator martin.version=[VERSION]
+        INFO No bbox specified, using source bounds bounds=-179.2731475830078,-67.52519226074219,162.60118103027344,84.93092346191406
         INFO Prepared partitions partitions=1 elapsed=[ELAPSED]
         INFO Rendered features features=30 sort.runs=1 sort.spilled=4.7 KiB elapsed=[ELAPSED]
         INFO Wrote tiles tiles=38 tiles.bytes=2.6 KiB elapsed=[ELAPSED]
@@ -1160,6 +1322,8 @@ async fn skips_a_source_with_no_zoom_in_range() {
     insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!(metadata, @r#"
         agg_tiles_hash = E0468BC04F4DE5AE1C2E0CC5B1FE4284
+        bounds = -179.2731475830078,-67.52519226074219,162.60118103027344,84.93092346191406
+        compression = gzip
         format = mlt
         generator = martin cp v[VERSION] (bulk)
         hash_algorithm = md5
@@ -1419,6 +1583,197 @@ async fn sort_by_sets_the_draw_order() {
     insta::with_settings!({ filters => vec![(r"martin cp v[0-9.]+[^\s]*", "martin cp v[VERSION]")] }, {
         insta::assert_snapshot!("sort_by_metadata", metadata);
     });
+}
+
+#[tokio::test]
+async fn order_by_sets_the_draw_order_of_a_table_without_layers() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              order_by: id-desc
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  id_column: gid
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("ordered.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let order: Vec<String> = tiles(&output)
+        .await
+        .iter()
+        .flat_map(|(z, x, y, data)| {
+            mlt_layers(data).into_iter().map(move |layer| {
+                let ids: Vec<String> = layer
+                    .features()
+                    .iter()
+                    .map(|feature| feature.id().map_or("-".to_owned(), |id| id.to_string()))
+                    .collect();
+                format!("{z}/{x}/{y} {} {}", layer.name(), ids.join(" "))
+            })
+        })
+        .collect();
+    insta::assert_snapshot!(order.join("\n"), @"0/0/0 table_source 28 27 26 25 24 23 22 21 20 19 18 17 16 15 13 12 11 10 9 8 7 6 5 4 3 2 1");
+}
+
+#[tokio::test]
+async fn order_by_id_asc_puts_negative_ids_first_and_null_ids_last() {
+    seed_postgres(indoc! {"
+        DROP SCHEMA IF EXISTS martin_cp_bulk_order_asc CASCADE;
+        CREATE SCHEMA martin_cp_bulk_order_asc;
+        CREATE TABLE martin_cp_bulk_order_asc.places (id int8, name text, geom geometry(Point, 4326));
+        INSERT INTO martin_cp_bulk_order_asc.places VALUES
+            (3, 'three', 'SRID=4326;POINT(16.37 48.20)'),
+            (-2, 'minus two', 'SRID=4326;POINT(14.29 48.31)'),
+            (NULL, 'null', 'SRID=4326;POINT(15.44 47.07)'),
+            (1, 'one', 'SRID=4326;POINT(13.04 47.80)'),
+            (-7, 'minus seven', 'SRID=4326;POINT(11.40 47.26)');
+    "})
+    .await;
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              order_by: id-asc
+              tables:
+                places:
+                  schema: martin_cp_bulk_order_asc
+                  table: places
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  id_column: id
+                  properties:
+                    name: text
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("ordered.mbtiles");
+    MartinCp::bulk()
+        .with_seeded_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let z0 = tiles(&output).await.into_iter().next().expect("a z0 tile");
+    let order: Vec<String> = mlt_layers(&z0.3)
+        .iter()
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|feature| format!("{:?} {:?}", feature.id(), feature.properties()))
+        })
+        .collect();
+    insta::assert_snapshot!(order.join("\n"), @r#"
+    None [Str(Some("minus seven"))]
+    None [Str(Some("minus two"))]
+    Some(1) [Str(Some("one"))]
+    Some(3) [Str(Some("three"))]
+    None [Str(Some("null"))]
+    "#);
+}
+
+#[tokio::test]
+async fn order_by_id_desc_puts_negative_ids_after_positive_ones_and_null_ids_last() {
+    seed_postgres(indoc! {"
+        DROP SCHEMA IF EXISTS martin_cp_bulk_order_desc CASCADE;
+        CREATE SCHEMA martin_cp_bulk_order_desc;
+        CREATE TABLE martin_cp_bulk_order_desc.places (id int8, name text, geom geometry(Point, 4326));
+        INSERT INTO martin_cp_bulk_order_desc.places VALUES
+            (3, 'three', 'SRID=4326;POINT(16.37 48.20)'),
+            (-2, 'minus two', 'SRID=4326;POINT(14.29 48.31)'),
+            (NULL, 'null', 'SRID=4326;POINT(15.44 47.07)'),
+            (1, 'one', 'SRID=4326;POINT(13.04 47.80)'),
+            (-7, 'minus seven', 'SRID=4326;POINT(11.40 47.26)');
+    "})
+    .await;
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              order_by: id-desc
+              tables:
+                places:
+                  schema: martin_cp_bulk_order_desc
+                  table: places
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  id_column: id
+                  properties:
+                    name: text
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("ordered.mbtiles");
+    MartinCp::bulk()
+        .with_seeded_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("0")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let z0 = tiles(&output).await.into_iter().next().expect("a z0 tile");
+    let order: Vec<String> = mlt_layers(&z0.3)
+        .iter()
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|feature| format!("{:?} {:?}", feature.id(), feature.properties()))
+        })
+        .collect();
+    insta::assert_snapshot!(order.join("\n"), @r#"
+    Some(3) [Str(Some("three"))]
+    Some(1) [Str(Some("one"))]
+    None [Str(Some("minus two"))]
+    None [Str(Some("minus seven"))]
+    None [Str(Some("null"))]
+    "#);
 }
 
 #[tokio::test]
@@ -1761,6 +2116,125 @@ async fn refuses_zooms_no_layer_has() {
 }
 
 #[tokio::test]
+async fn renders_the_union_of_the_source_bounds_without_a_bbox() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  bounds: [0, 0, 10, 10]
+                points2:
+                  schema: public
+                  table: points2
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  bounds: [20, 20, 30, 30]
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("3")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let bounds: Vec<String> = metadata_listing(&output)
+        .await
+        .lines()
+        .filter(|line| line.starts_with("bounds"))
+        .map(str::to_owned)
+        .collect();
+    let listing = format!("{}\n{}", bounds.join("\n"), tile_listing(&output).await);
+    insta::assert_snapshot!(listing, @"
+    bounds = 0,0,30,30
+    0/0/0 299 bytes
+    1/1/0 105 bytes
+    1/1/1 140 bytes
+    2/2/1 81 bytes
+    2/2/2 79 bytes
+    3/4/3 33 bytes
+    3/4/4 60 bytes
+    ");
+}
+
+#[tokio::test]
+async fn renders_the_computed_bounds_of_a_table_without_a_bbox() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              auto_bounds: calc
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--max-zoom")
+        .arg("2")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let bounds: Vec<String> = metadata_listing(&output)
+        .await
+        .lines()
+        .filter(|line| line.starts_with("bounds"))
+        .map(str::to_owned)
+        .collect();
+    let listing = format!("{}\n{}", bounds.join("\n"), tile_listing(&output).await);
+    insta::assert_snapshot!(listing, @"
+    bounds = -2,-1,142.84131509869133,45
+    0/0/0 412 bytes
+    1/0/0 174 bytes
+    1/0/1 192 bytes
+    1/1/0 182 bytes
+    1/1/1 454 bytes
+    2/1/1 165 bytes
+    2/1/2 216 bytes
+    2/2/1 172 bytes
+    2/2/2 473 bytes
+    2/3/2 59 bytes
+    ");
+}
+
+#[tokio::test]
 async fn bbox_tiles_keep_every_feature_they_cover() {
     let dir = temp_dir();
     let config = dir.path().join("config.yaml");
@@ -1986,6 +2460,7 @@ async fn logs_the_postgres_error_when_a_scan_fails() {
             postgres:
               connection_string: ${DATABASE_URL}
               auto_publish: false
+              auto_bounds: skip
               tables:
                 table_source:
                   schema: public
@@ -2100,11 +2575,11 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
     insta::assert_snapshot!(logs[0], @"
-    INFO Ran `merge_lines` layer.id=merged tiles=1182 features.input=3951 features.output=3834
-    INFO Ran `merge_polygons` layer.id=merged tiles=1182 features.input=3834 features.output=2840
-    INFO Ran `thinning` layer.id=merged tiles=91 features.input=618 features.output=481
-    INFO Ran `merge_multi` layer.id=merged tiles=1182 features.input=2703 features.output=2641
-    INFO Ran `limit` layer.id=merged tiles=1182 features.input=2641 features.output=2607
+    INFO Ran `merge_lines` layer.id=merged tiles=1167 features.input=3927 features.output=3810
+    INFO Ran `merge_polygons` layer.id=merged tiles=1167 features.input=3810 features.output=2821
+    INFO Ran `thinning` layer.id=merged tiles=90 features.input=608 features.output=479
+    INFO Ran `merge_multi` layer.id=merged tiles=1167 features.input=2692 features.output=2630
+    INFO Ran `limit` layer.id=merged tiles=1167 features.input=2630 features.output=2596
     ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
@@ -2203,8 +2678,8 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
         "multi-line": 99,
         "multi-point": 35,
         "multi-polygon": 61,
-        "point": 130,
-        "polygon": 1845,
+        "point": 128,
+        "polygon": 1836,
     }
     "#);
 }

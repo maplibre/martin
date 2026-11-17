@@ -66,6 +66,25 @@ features, zooms, attributes and draw order.
 
 The same data and options give the same tiles, however many threads are used.
 
+### Draw order
+
+A source with `layers` orders the features of each layer by its [`sort_by`](sources-pg-layers.md#draw-order)
+and ignores `order_by`.
+A source without `layers` follows `order_by` (`--order-by` on the command line) of its PostgreSQL
+connection, as tile mode does, when the source has an `id_column`. Each tile then lists its features by id:
+
+| `order_by` | Order of the ids `3`, `-2`, `NULL`, `1`, `-7` in each tile |
+|------------|------------------------------------------------------------|
+| `id-asc`   | `-7`, `-2`, `1`, `3`, `NULL`                               |
+| `id-desc`  | `3`, `1`, `-2`, `-7`, `NULL`                               |
+
+- Features without an id come last with either value.
+- Features with equal ids keep the order the source reads them in.
+- A tile drops a negative id, as `ST_AsMVT` does. The feature keeps its place, without an id.
+
+Without `order_by`, or without an `id_column`, the features keep the
+[order the source reads them in](sources-pg-layers.md#draw-order).
+
 ## Configuration file
 
 The configuration file only describes the sources. The options of a run are command-line arguments,
@@ -122,7 +141,7 @@ martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-z
 | `--min-zoom`    | `0`                                                               | Lowest zoom, raised by a source's `minzoom`                                                           |
 | `--max-zoom`    | `14`                                                              | Highest zoom, lowered by a source's `maxzoom`                                                         |
 | `--zoom-levels` |                                                                   | Instead of `--min-zoom` and `--max-zoom`, zooms that do not skip a level, e.g. `5,6,7`                |
-| `--bbox`        | whole world                                                       | Only tiles touching `min_lon,min_lat,max_lon,max_lat`, at most once                                   |
+| `--bbox`        | the sources' `bounds`, else whole world                           | Only tiles touching `min_lon,min_lat,max_lon,max_lat`, at most once                                   |
 | `--memory`      | `2GiB`                                                            | Memory for sorting, e.g. `512MB` or `4GiB`, split over the threads                                    |
 | `--temp-dir`    | system temp dir                                                   | Where sorted runs go, repeatable to spread them over several disks                                    |
 | `--threads`     | CPU count                                                         | Worker threads                                                                                        |
@@ -137,6 +156,15 @@ workers are `--threads`), `--save-config`, and `max_feature_count` in the config
 `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads` and `--mvt-quirk`.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
+Without `--bbox`, bulk mode picks the tiles touching the union of the `bounds` of every selected source
+that renders at least one zoom of the run, clamped to latitudes ±85.0511°, as tile mode does:
+
+- A source's `bounds` is the one its TileJSON shows: the configured `bounds`, else what the connection's
+  `auto_bounds` computes. A `bounds` in the table comment replaces either.
+- If one of these sources has no `bounds`, for example with `auto_bounds: skip` or when `auto_bounds: quick`
+  stops after 5 seconds, bulk mode renders the whole world.
+- The output records `--bbox`, or else this union, as its `bounds` metadata.
+
 The scan reads everything the tiles of the lowest zoom cover, so with `--min-zoom 0` it reads the whole world.
 Each zoom lower reads up to four times the area, and zooms below `--min-zoom` do not count.
 For a small box, raise `--min-zoom` to keep the scan close to it.
@@ -145,6 +173,24 @@ The highest zoom is 27. The tile grid can lower it further, since `extent × 2^z
 `2^30`. With the default extent of 4096, that is zoom 18.
 
 A failed or interrupted run removes the output file. Temporary files are always removed.
+
+### Metadata
+
+To set metadata such as `attribution`, `center` or `description`, add it to the
+[TileJSON in the table comment](sources-pg-tables.md#tilejson-in-sql-comments) of a rendered source.
+Bulk mode merges the comments of all rendered sources, in `--source` order or else by source id, and
+sets the computed keys itself:
+
+| Key                                                                                             | Value in the output                                                                                                            |
+|-------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| `name`                                                                                          | The comments' names, without repeats, joined by `,`. Without one, the output's file stem, e.g. `tileset` for `tileset.mbtiles` |
+| `attribution`, `description`                                                                    | The comments' values, without repeats, one per line                                                                            |
+| `vector_layers`                                                                                 | One computed entry per layer with features. A comment entry with the same `id` replaces it, other comment entries are added    |
+| `bounds`                                                                                        | `--bbox`, or else the union of the sources' `bounds`, see [Options](#options)                                                  |
+| `minzoom`, `maxzoom`, `format`, `generator`                                                     | Computed. `generator` is `martin cp v<version> (bulk)`                                                                         |
+| `compression`                                                                                   | MBTiles only: `gzip`, `deflate` for `--encoding zlib`, or none for `--encoding none`                                           |
+| `hash_algorithm`, `agg_tiles_hash`, `agg_tiles_hash_before_apply`, `agg_tiles_hash_after_apply` | Set by the MBTiles writer only, never by a comment. Pick the algorithm with `--set-meta hash_algorithm=xxh3`                   |
+| `center`, `version`, `legend`, `template` and custom keys                                       | The value of the first comment that sets it                                                                                    |
 
 ### MVT quirks
 

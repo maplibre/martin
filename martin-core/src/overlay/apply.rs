@@ -134,6 +134,10 @@ impl<'r> OverlayGuard<'r> {
         let source_id = format!("{ID_PREFIX}f{index}");
         let source = json!({"type": "geojson", "data": geometry});
         let map = self.renderer.map();
+        #[expect(
+            clippy::wildcard_enum_match_arm,
+            reason = "every other error passes through unchanged"
+        )]
         self.renderer
             .command(renderer::add_source_json(map, &source_id, &source.to_string()))
             .map_err(|e| match e {
@@ -148,6 +152,10 @@ impl<'r> OverlayGuard<'r> {
         for kind in kinds {
             let layer_id = format!("{ID_PREFIX}f{index}-{kind}");
             let layer = layer_json(kind, &layer_id, &source_id, &props);
+            #[expect(
+                clippy::wildcard_enum_match_arm,
+                reason = "every other error passes through unchanged"
+            )]
             self.renderer
                 .command(renderer::add_layer_json(map, &layer.to_string()))
                 .map_err(|e| match e {

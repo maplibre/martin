@@ -15,7 +15,7 @@ The bucket can stay private.
 Martin signs its S3 requests with the credentials Lambda gives the function, so the execution role only needs `s3:GetObject` on the archive.
 
 Lambda has two deployment models: zip file and container-based. When using zip file deployment, there is an online code editor to edit the yaml configuration.
-When using container-based deployment, we can pass our configuration on the command line or environment variables.
+When using container-based deployment, you can pass your configuration on the command line or environment variables.
 
 Everything can be performed via AWS CloudShell, or you can install the AWS CLI and the AWS SAM CLI, and configure authentication.
 The CloudShell also runs in a particular AWS region.
@@ -47,7 +47,7 @@ Open [Lambda console](https://console.aws.amazon.com/lambda) and create your fun
    * If you cannot find it, see if you are in the same region?
 5. Expand "Container image overrides", and under CMD put the URL of a `.pmtiles` file.
    An `s3://` URL works once the execution role may read the object, see the zip section below.
-6. Set "Architecture" to `arm64` to match the platform that we pulled.
+6. Set "Architecture" to `arm64` to match the platform that you pulled.
    Lambda has better ARM CPUs than x86.
 7. Click "Create function".
 8. Find the "Configuration" tab, select "Function URL", "Create function URL".
@@ -58,8 +58,8 @@ Open [Lambda console](https://console.aws.amazon.com/lambda) and create your fun
 
 ### Zip deployment
 
-It's possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model.
-Our function will consist of a "Layer", containing the Martin binary, and our function itself will contain the configuration in yaml format.
+It's possible to deploy the entire codebase from the AWS console, but you will use Serverless Application Model.
+Your function will consist of a "Layer", containing the Martin binary, and your function itself will contain the configuration in yaml format.
 
 #### The layer
 

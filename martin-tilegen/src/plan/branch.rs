@@ -17,7 +17,7 @@ use crate::plan::{
     key_id,
 };
 use crate::props::{Prop, SourceStr};
-use crate::source::{Crs, Geometry, SourceFeature};
+use crate::source::{Crs, Geometry, SourceFeature, WkbError};
 use crate::{FeatureGeom, PixelThreshold, TileGenError};
 
 /// One path through a layer.
@@ -58,6 +58,20 @@ pub struct SizeBand {
 }
 
 impl Shape {
+    /// Whether `geometry`, in `crs`, has this shape, as a path through the layers tests it.
+    ///
+    /// # Errors
+    /// If the geometry cannot be decoded.
+    pub fn fits(self, crs: Crs, geometry: &Geometry) -> Result<bool, WkbError> {
+        let mut geometry = geometry.clone();
+        if !project_geometry(crs, &mut geometry)? {
+            return Ok(false);
+        }
+        Ok(geometry.feature_geom().is_some_and(|geom| {
+            !matches!(geom, FeatureGeom::Points(_)) && bounding_box(geom).is_some_and(|bbox| self.holds(bbox))
+        }))
+    }
+
     /// Whether a geometry with the bounding box `bbox`, in the renderer's unit square, has this shape.
     fn holds(self, bbox: Rect<f64>) -> bool {
         let scale = |zoom: u8| f64::from(1u32 << zoom);
@@ -347,22 +361,18 @@ impl<'a> LayerPaths<'a, '_> {
             return;
         }
         let source = &filter.source;
-        out.push(self.path(
-            format!("kept by `where: {source}`"),
-            self.base(),
-            self.test(Reach::Layer),
-        ));
+        out.push(self.path("kept by `where`".to_owned(), self.base(), self.test(Reach::Layer)));
         let mut parts = self.geometry();
         parts.push(self.part(filter, Polarity::Negated));
         let mut test = self.test(Reach::Geometry);
         test.checks.push((filter.expr.ast().clone(), Want::False));
-        out.push(self.path(format!("dropped, `where: {source}` is false"), parts, test));
+        out.push(self.path("dropped, `where` is false".to_owned(), parts, test));
         for column in filter.expr.columns().filter(|c| self.may_be_null(c)) {
             let mut parts = self.geometry();
             parts.push((source.as_str(), Ok(column_is_null(column))));
             let mut test = self.test(Reach::Geometry);
             test.checks.push((property(column), Want::Null));
-            let path = format!("dropped, `{column}` is null in `where: {source}`");
+            let path = format!("dropped, `{column}` is null in `where`");
             out.push(self.path(path, parts, test));
         }
     }
@@ -518,14 +528,13 @@ impl<'a> LayerPaths<'a, '_> {
         let mut outcomes = Vec::new();
         let mut dropped = false;
         if let Some(f) = filter.filter(|_| filter_decided) {
-            let source = &f.source;
             let (outcome, kept) = match eval(f.expr.ast()) {
-                Ok(Value::Bool(true)) => (format!("kept by `where: {source}`"), true),
-                Err(_) => (format!("dropped, `where: {source}` fails"), false),
-                Ok(_) => (format!("dropped, `where: {source}` is false"), false),
+                Ok(Value::Bool(true)) => ("kept by `where`", true),
+                Err(_) => ("dropped, `where` fails", false),
+                Ok(_) => ("dropped, `where` is false", false),
             };
             dropped = !kept;
-            outcomes.push(outcome);
+            outcomes.push(outcome.to_owned());
         }
         if !dropped {
             let fields = match self.decided_case(&decides, &eval) {
