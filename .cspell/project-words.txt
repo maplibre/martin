@@ -200,6 +200,8 @@ zstd
 zune
 ctid
 quadkey
+libvulkan
+webgpu
 landuse
 openstreetmap
 osmflow

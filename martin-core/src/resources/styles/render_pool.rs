@@ -6,12 +6,11 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use image::RgbaImage as Image;
-use maplibre_native_ffi::{CameraOptions, LatLng, MapMode};
 use tokio::sync::oneshot;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
-use crate::resources::styles::renderer::{Renderer, Runtime, WorkerDevice};
+use crate::resources::styles::renderer::{CameraOptions, LatLng, MapMode, Renderer, Runtime, WorkerDevice, lat_lng};
 use crate::resources::styles::{StyleError, TileSize};
 
 /// A style to render: a file, or a style document already in memory.
@@ -74,6 +73,8 @@ pub struct RenderParams {
     /// Overlay spec to composite for this render. An empty spec (no features)
     /// is the canonical "nothing to draw" and short-circuits to a plain render.
     overlays: Arc<OverlaySpec>,
+    /// Draws in Web Mercator even when the style sets another projection.
+    force_mercator: bool,
 }
 
 impl RenderParams {
@@ -92,6 +93,7 @@ impl RenderParams {
             bearing: 0.0,
             pitch: 0.0,
             overlays: Arc::new(OverlaySpec::default()),
+            force_mercator: false,
         }
     }
 
@@ -120,6 +122,13 @@ impl RenderParams {
     #[must_use]
     pub fn with_overlays(mut self, spec: Arc<OverlaySpec>) -> Self {
         self.overlays = spec;
+        self
+    }
+
+    /// Draw in Web Mercator even when the style sets another projection, such as `globe`.
+    #[must_use]
+    pub const fn force_mercator(mut self) -> Self {
+        self.force_mercator = true;
         self
     }
 }
@@ -440,7 +449,7 @@ fn tile_center(z: u8, x: u32, y: u32) -> LatLng {
     let n = f64::from(1_u32 << z);
     let lng = (f64::from(x) + 0.5) / n * 360.0 - 180.0;
     let lat = (PI * (1.0 - 2.0 * (f64::from(y) + 0.5) / n)).sinh().atan().to_degrees();
-    LatLng::new(lat, lng)
+    lat_lng(lat, lng)
 }
 
 /// How many renderers a tile worker keeps loaded when none is configured.
@@ -640,20 +649,60 @@ impl StaticRenderer {
     fn render(&mut self, params: &RenderParams) -> Result<Image, StyleError> {
         load_style_cached(&mut self.renderer, &mut self.loaded_style, &params.style)?;
         let camera = CameraOptions {
-            center: Some(LatLng::new(params.lat, params.lon)),
+            center: Some(lat_lng(params.lat, params.lon)),
             zoom: Some(params.zoom),
             bearing: Some(params.bearing),
             pitch: Some(params.pitch),
             ..CameraOptions::default()
         };
 
-        if params.overlays.is_empty() {
+        let style_projection = if params.force_mercator {
+            self.set_mercator()?
+        } else {
+            None
+        };
+        let image = self.render_camera(camera, &params.overlays);
+        if let Some(projection) = style_projection {
+            let restored = image.is_ok()
+                && self
+                    .renderer
+                    .set_root_property(PROJECTION, &projection)
+                    .inspect_err(|err| warn!(error = %err, "Failed to restore the style's projection"))
+                    .is_ok();
+            if !restored {
+                self.loaded_style = None;
+            }
+        }
+        image
+    }
+
+    /// Switches the loaded style to Web Mercator, returning the projection it set, or `None` if it set none.
+    fn set_mercator(&mut self) -> Result<Option<String>, StyleError> {
+        let Some(projection) = self.renderer.root_property(PROJECTION)? else {
+            return Ok(None);
+        };
+        if let Err(err) = self.renderer.set_root_property(PROJECTION, MERCATOR) {
+            self.loaded_style = None;
+            return Err(err);
+        }
+        Ok(Some(projection))
+    }
+
+    /// Renders `camera` with `overlays` drawn over the loaded style.
+    fn render_camera(&mut self, camera: CameraOptions, overlays: &OverlaySpec) -> Result<Image, StyleError> {
+        if overlays.is_empty() {
             return self.renderer.render(camera);
         }
-        let mut overlay = RendererWithOverlay::apply(&mut self.renderer, &params.overlays)?;
+        let mut overlay = RendererWithOverlay::apply(&mut self.renderer, overlays)?;
         overlay.renderer().render(camera)
     }
 }
+
+/// The style root property that picks the map projection.
+const PROJECTION: &str = "projection";
+
+/// The [`PROJECTION`] value of Web Mercator.
+const MERCATOR: &str = r#"{"type":"mercator"}"#;
 
 #[cfg(test)]
 mod tests {
@@ -1067,5 +1116,117 @@ mod tests {
             .expect("render the document");
 
         assert_eq!(in_memory, from_file);
+    }
+
+    #[tokio::test]
+    async fn a_forced_mercator_render_draws_a_globe_style_flat() {
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
+            .expect("spawn render pool");
+        let globe = RenderStyle::Json(
+            r##"{
+            "version": 8,
+            "projection": {"type": "globe"},
+            "sources": {
+                "poly": {
+                    "type": "geojson",
+                    "data": {
+                        "type": "Feature",
+                        "properties": {},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[-60, -60], [60, -60], [60, 60], [-60, 60], [-60, -60]]]
+                        }
+                    }
+                }
+            },
+            "layers": [
+                {"id": "bg", "type": "background", "paint": {"background-color": "#ffffff"}},
+                {"id": "poly", "type": "fill", "source": "poly", "paint": {"fill-color": "#ff0000"}}
+            ]
+        }"##
+            .into(),
+        );
+        let mercator = RenderStyle::Json(
+            r##"{
+            "version": 8,
+            "sources": {
+                "poly": {
+                    "type": "geojson",
+                    "data": {
+                        "type": "Feature",
+                        "properties": {},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[-60, -60], [60, -60], [60, 60], [-60, 60], [-60, -60]]]
+                        }
+                    }
+                }
+            },
+            "layers": [
+                {"id": "bg", "type": "background", "paint": {"background-color": "#ffffff"}},
+                {"id": "poly", "type": "fill", "source": "poly", "paint": {"fill-color": "#ff0000"}}
+            ]
+        }"##
+            .into(),
+        );
+
+        let forced = pool
+            .render(RenderParams::new(globe, 0.0, 0.0, 0.5).force_mercator())
+            .await
+            .expect("render the globe style in mercator");
+        let flat = pool
+            .render(RenderParams::new(mercator, 0.0, 0.0, 0.5))
+            .await
+            .expect("render the mercator style");
+
+        assert!(forced == flat, "the forced render differs from the mercator style's");
+    }
+
+    #[tokio::test]
+    async fn a_globe_style_keeps_its_globe_after_a_forced_mercator_render() {
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
+            .expect("spawn render pool");
+        let globe = RenderStyle::Json(
+            r##"{
+            "version": 8,
+            "projection": {"type": "globe"},
+            "sources": {
+                "poly": {
+                    "type": "geojson",
+                    "data": {
+                        "type": "Feature",
+                        "properties": {},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[-60, -60], [60, -60], [60, 60], [-60, 60], [-60, -60]]]
+                        }
+                    }
+                }
+            },
+            "layers": [
+                {"id": "bg", "type": "background", "paint": {"background-color": "#ffffff"}},
+                {"id": "poly", "type": "fill", "source": "poly", "paint": {"fill-color": "#ff0000"}}
+            ]
+        }"##
+            .into(),
+        );
+
+        let before = pool
+            .render(RenderParams::new(globe.clone(), 0.0, 0.0, 0.5))
+            .await
+            .expect("render the globe");
+        let forced = pool
+            .render(RenderParams::new(globe.clone(), 0.0, 0.0, 0.5).force_mercator())
+            .await
+            .expect("render the globe style in mercator");
+        let after = pool
+            .render(RenderParams::new(globe, 0.0, 0.0, 0.5))
+            .await
+            .expect("render the globe again");
+
+        assert!(forced != before, "the forced render still draws a globe");
+        assert!(after == before, "the globe did not come back after the forced render");
     }
 }

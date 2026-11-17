@@ -337,15 +337,14 @@ build-release-full target: fetch ui::build
     cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}}
 
 # Build debian package
-# Note: the rendering feature is not packaged yet, although its prebuilt MapLibre library only needs
-# glibc 2.35, which the ubuntu-22.04 build has.
+# Note: the rendering feature is not packaged yet.
 build-deb output: fetch ui::build (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
     RUSTFLAGS='-C strip=symbols {{x86_cpu_flag}}' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Cross-compile for a musl or FreeBSD target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
-# Note: the rendering feature is excluded; maplibre-native-ffi publishes no FreeBSD library and musl is not wired up yet.
+# Note: the rendering feature is excluded; it renders on Linux-gnu only so far.
 # -A linker_messages: rustc passes -Wl,-O1 to cc-flavored linkers at opt-level 2+, and zig's linker has no -O levels so it always warns on it.
 # Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/158192
 build-release-zig target: fetch ui::build
@@ -534,7 +533,7 @@ help:
     @echo "Full list: just --list"
 
 # Install what rendering needs at runtime (Ubuntu/Debian): EGL, OpenGL ES, and Mesa's drivers, whose llvmpipe renders without a GPU.
-# Building needs nothing extra; the MapLibre library is downloaded prebuilt.
+# Building needs nothing extra; mln-rs loads them when the first renderer starts.
 [linux]
 install-dependencies:
     sudo apt-get update
