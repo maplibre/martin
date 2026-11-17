@@ -11,12 +11,12 @@ use mlt_core::encoder::EncoderConfig;
 use mlt_core::fast_mvt::MvtTileBuilder;
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::phase2::assemble::{AssembledLayer, LayerAssembler};
+use crate::phase2::assemble::{AssembledLayer, LayerAssembler, Rounded};
 use crate::phase2::per_tile::{LayerOpCounts, OutputExprs, TileOps};
 use crate::plan::PlannedTileOp;
 use crate::props::KeyNames;
 use crate::sort::{LayerRecordRef, Seq, TileRecords};
-use crate::{EncodedTile, LayerGrid, TileGenResult, TileId, TileOrder};
+use crate::{EncodedTile, LayerGrid, TileGenError, TileGenResult, TileId, TileOrder};
 
 #[derive(Clone, Copy, Debug)]
 pub enum TileFormat {
@@ -155,6 +155,8 @@ pub struct TileEncoder {
     ops: Vec<LayerOpCounts>,
     /// The failed evaluations before the tile being encoded, to tell its own.
     errors_before: Vec<u64>,
+    /// The integers float columns rounded, by layer.
+    rounded: Vec<Rounded>,
 }
 
 struct Previous {
@@ -166,6 +168,8 @@ struct Previous {
     ops: Vec<(u8, LayerOpCounts)>,
     /// The operations' failed evaluations by plan expression index, for the same reason.
     errors: Vec<(usize, u64)>,
+    /// The integers float columns rounded per layer, for the same reason.
+    rounded: Vec<(u8, Rounded)>,
 }
 
 impl TileEncoder {
@@ -178,6 +182,20 @@ impl TileEncoder {
     /// What the per-tile operations did, by layer; shorter than the layers if the last ones had none.
     pub(crate) fn op_counts(&self) -> &[LayerOpCounts] {
         &self.ops
+    }
+
+    /// The integers float columns rounded, by layer; shorter than the layers if the last ones had none.
+    pub(crate) fn rounded(&self) -> &[Rounded] {
+        &self.rounded
+    }
+
+    /// Adds the integers float columns rounded in one layer of one tile.
+    fn add_rounded(&mut self, layer: u8, rounded: &Rounded) {
+        let layer = usize::from(layer);
+        if self.rounded.len() <= layer {
+            self.rounded.resize_with(layer + 1, Rounded::default);
+        }
+        self.rounded[layer].merge(rounded);
     }
 
     /// Adds what the operations did to one layer of one tile.
@@ -235,6 +253,9 @@ impl TileEncoder {
         for &(index, errors) in &previous.errors {
             self.assembler.ops.errors[index] += errors;
         }
+        for (layer, rounded) in &previous.rounded {
+            self.add_rounded(*layer, rounded);
+        }
         Previous {
             records,
             tile: EncodedTile { coord, ..previous.tile },
@@ -249,11 +270,14 @@ impl TileEncoder {
         coord: TileCoord,
         dedup: &DedupIndex,
     ) -> TileGenResult<Previous> {
-        let (mut features, mut ops) = (Vec::new(), Vec::new());
+        let (mut features, mut ops, mut rounded) = (Vec::new(), Vec::new(), Vec::new());
         self.errors_before.clone_from(&self.assembler.ops.errors);
-        let data = self.encode_tile(settings, &records, coord.z(), &mut features, &mut ops)?;
+        let data = self.encode_tile(settings, &records, coord, &mut features, &mut ops, &mut rounded)?;
         for (layer, counts) in &ops {
             self.add_op_counts(*layer, counts);
+        }
+        for (layer, layer_rounded) in &rounded {
+            self.add_rounded(*layer, layer_rounded);
         }
         let errors = self
             .assembler
@@ -275,6 +299,7 @@ impl TileEncoder {
             features,
             ops,
             errors,
+            rounded,
         })
     }
 
@@ -282,10 +307,12 @@ impl TileEncoder {
         &mut self,
         settings: &EncodeSettings<'_>,
         tile: &TileRecords,
-        zoom: u8,
+        coord: TileCoord,
         features: &mut Vec<(u8, u64)>,
         ops: &mut Vec<(u8, LayerOpCounts)>,
+        rounded: &mut Vec<(u8, Rounded)>,
     ) -> TileGenResult<Vec<u8>> {
+        let zoom = coord.z();
         let mut mlt = Vec::new();
         let mut mvt = MvtTileBuilder::new();
         let mut records: Vec<(Seq, &[u8])> = Vec::new();
@@ -299,11 +326,20 @@ impl TileEncoder {
             let names = &settings.keys[usize::from(layer)];
             let exprs = settings.exprs.map(|exprs| exprs.layer(usize::from(layer)));
             let layer_ops = TileOps::new(&info.per_tile, zoom, exprs);
+            let in_layer = |error: TileGenError| TileGenError::LayerTile {
+                coord,
+                layer: info.name.clone(),
+                error: Box::new(error),
+            };
             let assembled = self
                 .assembler
-                .assemble(&info.name, info.grid, names, &records, layer_ops)?;
+                .assemble(&info.name, info.grid, names, &records, layer_ops)
+                .map_err(in_layer)?;
             if !assembled.ops.is_empty() {
                 ops.push((layer, assembled.ops));
+            }
+            if !assembled.rounded.is_empty() {
+                rounded.push((layer, assembled.rounded.clone()));
             }
             if assembled.layer.feature_count() == 0 {
                 continue;
@@ -311,12 +347,22 @@ impl TileEncoder {
             let count = self.stats[usize::from(layer)].record(zoom, &assembled, names);
             features.push((layer, count));
             match settings.format {
-                TileFormat::Mlt => mlt.extend(assembled.layer.encode(info.encoder)?),
+                TileFormat::Mlt => mlt.extend(
+                    assembled
+                        .layer
+                        .encode(info.encoder)
+                        .map_err(TileGenError::from)
+                        .map_err(in_layer)?,
+                ),
                 TileFormat::Mvt => {
                     if settings.mvt_keep_unused_keys {
                         mvt.preset_keys(names.declared());
                     }
-                    mvt = assembled.layer.write_mvt(mvt)?;
+                    mvt = assembled
+                        .layer
+                        .write_mvt(mvt)
+                        .map_err(TileGenError::from)
+                        .map_err(in_layer)?;
                 }
             }
         }
@@ -336,7 +382,6 @@ mod tests {
     use mlt_core::{Decoder, Parser, PropValueRef, TileLayer};
 
     use super::*;
-    use crate::TileGenError;
     use crate::plan::PlannedOp;
     use crate::props::KeyInterner;
     use crate::sort::record::{EncodedProps, Geom, encode};

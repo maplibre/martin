@@ -25,6 +25,8 @@ pub struct LayerAssembler {
     keys: Vec<PropertyKey>,
     text: String,
     texts: Vec<Range<usize>>,
+    /// The integers of the last layer that float columns rounded.
+    rounded: Rounded,
     /// Scratch of the per-tile operations, and their failed evaluations.
     pub(crate) ops: OpScratch,
 }
@@ -36,6 +38,44 @@ pub struct AssembledLayer<'a> {
     pub columns: &'a [(KeyId, PropKind)],
     /// What the per-tile operations did to the layer.
     pub(crate) ops: LayerOpCounts,
+    /// The integers that float columns rounded.
+    pub(crate) rounded: &'a Rounded,
+}
+
+/// How many integers a float column rounded, by key, of the few keys that had any.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Rounded(Vec<(KeyId, u64)>);
+
+impl Rounded {
+    /// Adds `count` to `key`.
+    pub(crate) fn add(&mut self, key: KeyId, count: u64) {
+        if let Some((_, total)) = self.0.iter_mut().find(|(known, _)| *known == key) {
+            *total += count;
+        } else {
+            self.0.push((key, count));
+        }
+    }
+
+    /// Adds every key of `other`.
+    pub(crate) fn merge(&mut self, other: &Self) {
+        for &(key, count) in &other.0 {
+            self.add(key, count);
+        }
+    }
+
+    /// Whether no value was rounded.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// The keys with rounded values, in the order they first had one.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (KeyId, u64)> + '_ {
+        self.0.iter().copied()
+    }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
 }
 
 impl LayerAssembler {
@@ -59,6 +99,7 @@ impl LayerAssembler {
             keys,
             text,
             texts,
+            rounded,
             ops: op_scratch,
         } = self;
         let decoded = records
@@ -105,6 +146,7 @@ impl LayerAssembler {
         let mut texts = texts.iter();
 
         let mut layer = LayerWriter::new(name, grid.extent)?;
+        rounded.clear();
         keys.clear();
         for &(key, kind) in schema.iter() {
             keys.push(layer.add_property(names.name(key), kind)?);
@@ -128,7 +170,11 @@ impl LayerAssembler {
                         .and_then(|range| text.get(range.clone()))
                         .map(PropValueRef::Str)
                 } else {
-                    scalar(&value.coerce(kind))
+                    let coerced = scalar(&value.coerce(kind));
+                    if is_rounded(value, coerced) {
+                        rounded.add(key, 1);
+                    }
+                    coerced
                 };
                 if let Some(value) = value {
                     feature.property(keys[pos], value)?;
@@ -140,6 +186,7 @@ impl LayerAssembler {
             layer,
             columns: schema,
             ops: op_scratch.counts,
+            rounded,
         })
     }
 }
@@ -186,6 +233,25 @@ fn write_text(text: &mut String, value: PropValueRef<'_>) {
         PropValueRef::Str(v) => write!(text, "{v}"),
     }
     .expect("writing to a String never fails");
+}
+
+/// Whether a float column rounded integer `value` to `coerced`.
+fn is_rounded(value: PropValueRef<'_>, coerced: Option<PropValueRef<'_>>) -> bool {
+    let int = match value {
+        PropValueRef::I8(v) => i128::from(v),
+        PropValueRef::U8(v) => i128::from(v),
+        PropValueRef::I32(v) => i128::from(v),
+        PropValueRef::U32(v) => i128::from(v),
+        PropValueRef::I64(v) => i128::from(v),
+        PropValueRef::U64(v) => i128::from(v),
+        PropValueRef::Bool(_) | PropValueRef::F32(_) | PropValueRef::F64(_) | PropValueRef::Str(_) => return false,
+    };
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "an exact float casts back to the same integer"
+    )]
+    let rounded = matches!(coerced, Some(PropValueRef::F64(float)) if float as i128 != int);
+    rounded
 }
 
 /// A non-string value as written into a column, or [`None`] for a null.

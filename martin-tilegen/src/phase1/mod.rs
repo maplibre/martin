@@ -12,7 +12,7 @@ use martin_tile_utils::TileRect;
 pub(crate) use crate::phase1::render::TILE_PIXELS;
 pub use crate::phase1::render::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError};
 use crate::phase1::render::{Renderer, SliceErrors};
-use crate::phase2::{LayerOpCounts, OpKind, TileEncoder};
+use crate::phase2::{LayerOpCounts, OpKind, Rounded, TileEncoder};
 use crate::plan::{Evaluator, ExprTallies, Plan};
 use crate::props::LayerKinds;
 use crate::sort::{Seq, SortBuffer, Sorter};
@@ -117,6 +117,7 @@ impl<'a> RenderWorker<'a> {
             slice_errors: self.renderer.slice_errors,
             exprs: self.evaluator.finish(),
             ops: Vec::new(),
+            rounded: Vec::new(),
         })
     }
 }
@@ -133,6 +134,8 @@ pub(crate) struct RenderTotals {
     ops: Vec<LayerOpCounts>,
     /// The kinds of the values each layer's keys took.
     kinds: LayerKinds,
+    /// The integers float columns rounded, by layer index.
+    rounded: Vec<Rounded>,
 }
 
 impl RenderTotals {
@@ -150,6 +153,7 @@ impl RenderTotals {
         self.exprs.merge(other.exprs);
         add_op_counts(&mut self.ops, &other.ops);
         self.kinds.merge(other.kinds);
+        add_rounded(&mut self.rounded, &other.rounded);
     }
 
     /// The kinds of the values each layer's keys took.
@@ -162,6 +166,7 @@ impl RenderTotals {
         for encoder in encoders {
             self.exprs.add(encoder.expr_errors());
             add_op_counts(&mut self.ops, encoder.op_counts());
+            add_rounded(&mut self.rounded, encoder.rounded());
         }
     }
 
@@ -174,6 +179,7 @@ impl RenderTotals {
             slice_errors: layer_slice_errors(plan, &self.slice_errors),
             expr_errors: plan.expr_errors(&self.exprs),
             mixed_kinds: plan.mixed_kinds(&self.kinds),
+            rounded: plan.rounded_values(&self.rounded),
             per_tile: op_summaries(plan, &self.ops),
         }
     }
@@ -207,6 +213,16 @@ fn add_op_counts(totals: &mut Vec<LayerOpCounts>, counts: &[LayerOpCounts]) {
     }
     for (total, counts) in totals.iter_mut().zip(counts) {
         total.add(counts);
+    }
+}
+
+/// Adds `rounded` to `totals`, both by layer index.
+fn add_rounded(totals: &mut Vec<Rounded>, rounded: &[Rounded]) {
+    if totals.len() < rounded.len() {
+        totals.resize_with(rounded.len(), Rounded::default);
+    }
+    for (total, layer) in totals.iter_mut().zip(rounded) {
+        total.merge(layer);
     }
 }
 

@@ -9,6 +9,7 @@ use martin_tile_utils::{Encoding, Format};
 use mlt_core::PropKind;
 use tilejson::{TileJSON, VectorLayer};
 
+pub(crate) use crate::phase2::assemble::Rounded;
 pub use crate::phase2::encode::TileFormat;
 use crate::phase2::encode::{DedupIndex, EncodeSettings, LayerStats};
 pub(crate) use crate::phase2::encode::{LayerInfo, TileEncoder};

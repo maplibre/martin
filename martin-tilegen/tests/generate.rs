@@ -911,6 +911,52 @@ fn a_key_has_one_column_kind_in_every_mlt_tile() {
     "#);
 }
 
+#[test]
+fn integers_a_float_column_rounds_are_counted() {
+    let point = |id: u32, lon: f64, big: Prop<ByteString>, size: Prop<ByteString>| SourceFeature {
+        id: Some(i64::from(id)),
+        geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+        props: vec![(KeyId::new(0), big), (KeyId::new(1), size)],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(1, -100.0, Prop::I64(1 << 60), Prop::F64(0.5)),
+                point(2, -80.0, Prop::F64(1.5), Prop::I64((1 << 53) + 1)),
+                point(3, 80.0, Prop::I64((1 << 53) + 1), Prop::I64(3)),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("big".to_owned(), None),
+            ColumnDef::Value("size".to_owned(), None),
+        ],
+        layers: vec![LayerDef::new("pois", 1..=1, GRID)],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, _, _) = run(&source, &plan, dir.path(), 1);
+    insta::assert_debug_snapshot!(summary.rounded, @r#"
+    [
+        RoundedValues {
+            layer: "pois",
+            key: "big",
+            values: 1,
+        },
+        RoundedValues {
+            layer: "pois",
+            key: "size",
+            values: 1,
+        },
+    ]
+    "#);
+}
+
 struct Discard;
 
 impl TileSink for Discard {
