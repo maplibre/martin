@@ -232,6 +232,11 @@ pub enum GenerateError {
         "Source `{source_id}` sets `convert_to_mlt: disabled`, but `--mode bulk` writes MLT unless given `--format mvt`"
     )]
     MltDisabled { source_id: String },
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[error(
+        "Source `{source_id}` sets `allow_delta2` in `convert_to_mlt`, which changes only `--format mlt2` tiles; `--mode bulk` cannot write them yet"
+    )]
+    Delta2WithoutMlt2 { source_id: String },
     #[error("Source `{0}` uses tile grid `{1}`; `--mode bulk` supports Web Mercator only")]
     UnsupportedGrid(String, String),
     #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
@@ -795,13 +800,19 @@ fn source_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) -> Option<Bou
 ///
 /// # Errors
 ///
-/// If MLT conversion is disabled for a source that is written as MLT.
+/// If MLT conversion is disabled for a source that is written as MLT, or sets a key MLT v1 tiles ignore.
 fn mlt_encoder(
     convert: Option<MltProcessConfig>,
     format: TileFormat,
     source_id: &str,
 ) -> GenerateResult<Option<EncoderConfig>> {
     match convert {
+        #[cfg(feature = "unstable-mlt-v2")]
+        Some(MltProcessConfig::Explicit(cfg)) if cfg.allow_delta2.is_some() && matches!(format, TileFormat::Mlt) => {
+            Err(GenerateError::Delta2WithoutMlt2 {
+                source_id: source_id.to_owned(),
+            })
+        }
         Some(MltProcessConfig::Explicit(cfg)) => Ok(Some(EncoderConfig::from(cfg))),
         Some(MltProcessConfig::Disabled) if matches!(format, TileFormat::Mlt) => Err(GenerateError::MltDisabled {
             source_id: source_id.to_owned(),

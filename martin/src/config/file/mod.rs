@@ -50,7 +50,8 @@ pub mod tiling;
 mod tile_grids;
 #[cfg(feature = "_tiles")]
 pub use crate::config::file::process::{
-    MltConversion, MltEncoderConfig, MltProcessConfig, MvtConversion, MvtEncoderConfig, MvtProcessConfig,
+    MltConversion, MltEncoderConfig, MltNetwork, MltProcessConfig, MltProfile, MltTessellate, MvtConversion,
+    MvtEncoderConfig, MvtProcessConfig,
 };
 pub use crate::config::file::process::{ProcessConfig, ProcessResolveError, ResolvedProcess};
 #[cfg(feature = "_tiles")]
