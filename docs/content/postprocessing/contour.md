@@ -123,9 +123,11 @@ Set it to another elevation to suppress a different one, or to `disabled` to dra
 Some elevation sources reach different depths in different places.
 [Mapterhorn](https://mapterhorn.com), for example, stops at z12 in much of the world and reaches z17 in parts of the Alps.
 
+--8<-- "images/postprocess/variable-depth.svg"
+
 Where the source answers a tile as missing (`404` or `204` from a [passthrough](../sources-passthrough.md) source, or a gap in an archive), Martin traces the contour tile from its nearest ancestor that the source does hold.
 It reads that ancestor's 3x3 neighborhood, upsamples the part under the requested tile with bilinear interpolation, and traces it with the contour interval of the requested zoom.
-So a z15 tile over a region that stops at z12 still gets z15's contour interval, traced across z12 elevation data.
+So a z14 tile over a region that stops at z12 still gets z14's contour interval, traced across z12 elevation data.
 
 ```yaml
 passthrough:
