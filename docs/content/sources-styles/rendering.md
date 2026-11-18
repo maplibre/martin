@@ -46,8 +46,10 @@ styles:
     rendering:
         enabled: true
         workers: 4
-        # Renderers each worker keeps loaded, one per style and pixel ratio [default: 8]
+        # Renderers each tile worker keeps loaded, one per style and pixel ratio [default: 8]
         renderers_per_worker: 8
+        # Renderers each static worker keeps loaded, one per style and pixel ratio [default: 2]
+        static_renderers_per_worker: 2
         # Width and height of XYZ tiles in pixels: 256 or 512 [default: 512]
         tile_size: 512
         # Whole-number @{n}x pixel ratios served, each 1 to 4 [default: [1, 2]]
@@ -144,14 +146,35 @@ In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png
 
 ### Renderers per worker
 
-Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured).
+XYZ tiles and [static images](#static-images) render in two separate pools, each with `workers` threads.
+Each tile worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured).
 Beyond that, the least recently used one is dropped, and loaded again the next time it is needed.
+Each static worker keeps up to `static_renderers_per_worker` (2 unless configured), one per style and pixel ratio.
+Beyond that, the least recently used one loads the new style, or is rebuilt if its pixel ratio differs.
 A renderer that does not answer within a minute is dropped too, so the next request for its style starts from a fresh map.
 With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 
 Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.
-Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage.
+Each renderer holds its own memory: lower `renderers_per_worker` or `static_renderers_per_worker`, or list fewer `pixel_ratios`, to reduce memory usage.
 A worker renders one image at a time, so its renderers take turns in one graphics context instead of holding one each.
+
+### Request scheduling
+
+Each pool has one queue of requests.
+A free worker takes, in this order:
+
+1. the oldest request, if it has waited 1 s or more;
+2. else the oldest of the first 64 requests for a renderer this worker holds;
+3. else the oldest request, if it has waited the switch cost or more, or if this worker holds no renderer yet;
+4. else nothing: it waits until the oldest request has waited the switch cost, or until another request arrives or finishes.
+
+The switch cost is how much longer a render takes when the worker first has to load the style or build the renderer.
+Martin measures it from the renders it serves, and keeps it between 5 ms and 500 ms.
+Waiting up to the switch cost keeps each worker on the renderers it already holds, so mixed styles and pixel ratios switch renderers far less often.
+A style with many requests still spreads to more workers, because its oldest request goes to any free worker once it has waited the switch cost.
+Requests for a single style and pixel ratio are taken oldest first.
+
+--8<-- "images/styles/render-scheduling.svg"
 
 ### Ambient cache
 

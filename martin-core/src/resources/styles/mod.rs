@@ -43,7 +43,7 @@ pub type StaticImage = image::RgbaImage;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use render_pool::RenderPools;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, RenderParams, RenderStyle};
+pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, DEFAULT_STATIC_RENDERERS_PER_WORKER, RenderParams, RenderStyle};
 
 #[cfg(feature = "rendering")]
 pub use crate::image_quality::{ImageQuality, LossyQuality};
@@ -276,12 +276,14 @@ impl StyleSources {
         workers: Option<NonZeroUsize>,
         tile_size: TileSize,
         renderers_per_worker: NonZeroUsize,
+        static_renderers_per_worker: NonZeroUsize,
         ambient_cache_bytes: Option<u64>,
     ) -> Result<(), StyleError> {
         self.pools = Some(RenderPools::new(
             workers,
             tile_size,
             renderers_per_worker,
+            static_renderers_per_worker,
             ambient_cache_bytes,
         )?);
         Ok(())
