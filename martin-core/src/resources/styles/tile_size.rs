@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Size of a rendered XYZ tile in logical pixels, before the pixel ratio.
 ///
 /// Most raster tile clients expect 256 px tiles; `MapLibre` zoom levels are based on 512 px ones.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(try_from = "u32", into = "u32")]
 pub enum TileSize {
     /// 256 px tiles.

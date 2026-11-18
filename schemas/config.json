@@ -2224,6 +2224,13 @@
           "minimum": 1,
           "type": ["integer", "null"]
         },
+        "static_renderers_per_worker": {
+          "description": "Renderers each static worker keeps loaded, one per style and pixel ratio.\nBeyond this, the least recently used one is replaced. \\[default: 2\\]",
+          "examples": [4],
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
         "tile_size": {
           "anyOf": [
             {

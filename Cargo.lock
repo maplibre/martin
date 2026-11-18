@@ -5855,7 +5855,6 @@ dependencies = [
  "deadpool-postgres",
  "duckdb",
  "env_logger",
- "flume",
  "futures",
  "geo",
  "geo-index",
