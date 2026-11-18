@@ -1524,53 +1524,56 @@ Unstable sources such as duckdb are not included.</p>
 </span><span id="__span-0-630"><a id="__codelineno-0-630" name="__codelineno-0-630" href="#__codelineno-0-630"></a><span class="w">    </span><span class="c1"># Renderers each tile worker keeps loaded, one per style and pixel ratio.</span>
 </span><span id="__span-0-631"><a id="__codelineno-0-631" name="__codelineno-0-631" href="#__codelineno-0-631"></a><span class="w">    </span><span class="c1"># Beyond this, the least recently used is dropped. [default: 8]</span>
 </span><span id="__span-0-632"><a id="__codelineno-0-632" name="__codelineno-0-632" href="#__codelineno-0-632"></a><span class="w">    </span><span class="nt">renderers_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
-</span><span id="__span-0-633"><a id="__codelineno-0-633" name="__codelineno-0-633" href="#__codelineno-0-633"></a><span class="w">    </span><span class="c1"># Width and height of rendered XYZ tiles, in pixels before the pixel ratio: 256 or 512.</span>
-</span><span id="__span-0-634"><a id="__codelineno-0-634" name="__codelineno-0-634" href="#__codelineno-0-634"></a><span class="w">    </span><span class="c1"># [default: 512]</span>
-</span><span id="__span-0-635"><a id="__codelineno-0-635" name="__codelineno-0-635" href="#__codelineno-0-635"></a><span class="w">    </span><span class="nt">tile_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
-</span><span id="__span-0-636"><a id="__codelineno-0-636" name="__codelineno-0-636" href="#__codelineno-0-636"></a><span class="w">    </span><span class="c1"># Number of render worker threads. Unset picks a platform default.</span>
-</span><span id="__span-0-637"><a id="__codelineno-0-637" name="__codelineno-0-637" href="#__codelineno-0-637"></a><span class="w">    </span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
-</span><span id="__span-0-638"><a id="__codelineno-0-638" name="__codelineno-0-638" href="#__codelineno-0-638"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
-</span><span id="__span-0-639"><a id="__codelineno-0-639" name="__codelineno-0-639" href="#__codelineno-0-639"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
-</span><span id="__span-0-640"><a id="__codelineno-0-640" name="__codelineno-0-640" href="#__codelineno-0-640"></a><span class="c1"># Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`</span>
-</span><span id="__span-0-641"><a id="__codelineno-0-641" name="__codelineno-0-641" href="#__codelineno-0-641"></a><span class="c1">#</span>
-</span><span id="__span-0-642"><a id="__codelineno-0-642" name="__codelineno-0-642" href="#__codelineno-0-642"></a><span class="c1"># A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.</span>
-</span><span id="__span-0-643"><a id="__codelineno-0-643" name="__codelineno-0-643" href="#__codelineno-0-643"></a><span class="c1"># Sources refer to a grid by its name here.</span>
-</span><span id="__span-0-644"><a id="__codelineno-0-644" name="__codelineno-0-644" href="#__codelineno-0-644"></a><span class="c1"># ```yaml</span>
-</span><span id="__span-0-645"><a id="__codelineno-0-645" name="__codelineno-0-645" href="#__codelineno-0-645"></a><span class="c1"># tile_grids:</span>
-</span><span id="__span-0-646"><a id="__codelineno-0-646" name="__codelineno-0-646" href="#__codelineno-0-646"></a><span class="c1">#   DutchRD:</span>
-</span><span id="__span-0-647"><a id="__codelineno-0-647" name="__codelineno-0-647" href="#__codelineno-0-647"></a><span class="c1">#     crs: EPSG:28992</span>
-</span><span id="__span-0-648"><a id="__codelineno-0-648" name="__codelineno-0-648" href="#__codelineno-0-648"></a><span class="c1">#     origin: [-285401.92, 903401.92]</span>
-</span><span id="__span-0-649"><a id="__codelineno-0-649" name="__codelineno-0-649" href="#__codelineno-0-649"></a><span class="c1">#     extent_at_zoom0: 880803.84</span>
-</span><span id="__span-0-650"><a id="__codelineno-0-650" name="__codelineno-0-650" href="#__codelineno-0-650"></a><span class="c1"># ```</span>
-</span><span id="__span-0-651"><a id="__codelineno-0-651" name="__codelineno-0-651" href="#__codelineno-0-651"></a><span class="nt">tile_grids</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
-</span><span id="__span-0-652"><a id="__codelineno-0-652" name="__codelineno-0-652" href="#__codelineno-0-652"></a><span class="c1"># If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)</span>
-</span><span id="__span-0-653"><a id="__codelineno-0-653" name="__codelineno-0-653" href="#__codelineno-0-653"></a><span class="c1"># will be embedded in the `TileJSON` `tiles` URL, with the set identifier.</span>
-</span><span id="__span-0-654"><a id="__codelineno-0-654" name="__codelineno-0-654" href="#__codelineno-0-654"></a><span class="c1"># This is useful to give clients a better way to cache-bust a CDN:</span>
-</span><span id="__span-0-655"><a id="__codelineno-0-655" name="__codelineno-0-655" href="#__codelineno-0-655"></a><span class="c1"># 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.</span>
-</span><span id="__span-0-656"><a id="__codelineno-0-656" name="__codelineno-0-656" href="#__codelineno-0-656"></a><span class="c1"># 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.</span>
-</span><span id="__span-0-657"><a id="__codelineno-0-657" name="__codelineno-0-657" href="#__codelineno-0-657"></a><span class="c1"># 3. Add `Control: public, max-age=..., immutable` on the tile responses</span>
-</span><span id="__span-0-658"><a id="__codelineno-0-658" name="__codelineno-0-658" href="#__codelineno-0-658"></a><span class="c1">#    optimize browser/CDN cache hit rates, while also making sure that</span>
-</span><span id="__span-0-659"><a id="__codelineno-0-659" name="__codelineno-0-659" href="#__codelineno-0-659"></a><span class="c1">#    old tiles aren't served when a new tileset is deployed.</span>
-</span><span id="__span-0-660"><a id="__codelineno-0-660" name="__codelineno-0-660" href="#__codelineno-0-660"></a><span class="c1">#</span>
-</span><span id="__span-0-661"><a id="__codelineno-0-661" name="__codelineno-0-661" href="#__codelineno-0-661"></a><span class="c1"># The CDN must handle query parameters for caching to work correctly.</span>
-</span><span id="__span-0-662"><a id="__codelineno-0-662" name="__codelineno-0-662" href="#__codelineno-0-662"></a><span class="c1"># Many CDNs ignore them by default.</span>
+</span><span id="__span-0-633"><a id="__codelineno-0-633" name="__codelineno-0-633" href="#__codelineno-0-633"></a><span class="w">    </span><span class="c1"># Renderers each static worker keeps loaded, one per style and pixel ratio.</span>
+</span><span id="__span-0-634"><a id="__codelineno-0-634" name="__codelineno-0-634" href="#__codelineno-0-634"></a><span class="w">    </span><span class="c1"># Beyond this, the least recently used one is replaced. [default: 2]</span>
+</span><span id="__span-0-635"><a id="__codelineno-0-635" name="__codelineno-0-635" href="#__codelineno-0-635"></a><span class="w">    </span><span class="nt">static_renderers_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span id="__span-0-636"><a id="__codelineno-0-636" name="__codelineno-0-636" href="#__codelineno-0-636"></a><span class="w">    </span><span class="c1"># Width and height of rendered XYZ tiles, in pixels before the pixel ratio: 256 or 512.</span>
+</span><span id="__span-0-637"><a id="__codelineno-0-637" name="__codelineno-0-637" href="#__codelineno-0-637"></a><span class="w">    </span><span class="c1"># [default: 512]</span>
+</span><span id="__span-0-638"><a id="__codelineno-0-638" name="__codelineno-0-638" href="#__codelineno-0-638"></a><span class="w">    </span><span class="nt">tile_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="__span-0-639"><a id="__codelineno-0-639" name="__codelineno-0-639" href="#__codelineno-0-639"></a><span class="w">    </span><span class="c1"># Number of render worker threads. Unset picks a platform default.</span>
+</span><span id="__span-0-640"><a id="__codelineno-0-640" name="__codelineno-0-640" href="#__codelineno-0-640"></a><span class="w">    </span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+</span><span id="__span-0-641"><a id="__codelineno-0-641" name="__codelineno-0-641" href="#__codelineno-0-641"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
+</span><span id="__span-0-642"><a id="__codelineno-0-642" name="__codelineno-0-642" href="#__codelineno-0-642"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</span><span id="__span-0-643"><a id="__codelineno-0-643" name="__codelineno-0-643" href="#__codelineno-0-643"></a><span class="c1"># Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`</span>
+</span><span id="__span-0-644"><a id="__codelineno-0-644" name="__codelineno-0-644" href="#__codelineno-0-644"></a><span class="c1">#</span>
+</span><span id="__span-0-645"><a id="__codelineno-0-645" name="__codelineno-0-645" href="#__codelineno-0-645"></a><span class="c1"># A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.</span>
+</span><span id="__span-0-646"><a id="__codelineno-0-646" name="__codelineno-0-646" href="#__codelineno-0-646"></a><span class="c1"># Sources refer to a grid by its name here.</span>
+</span><span id="__span-0-647"><a id="__codelineno-0-647" name="__codelineno-0-647" href="#__codelineno-0-647"></a><span class="c1"># ```yaml</span>
+</span><span id="__span-0-648"><a id="__codelineno-0-648" name="__codelineno-0-648" href="#__codelineno-0-648"></a><span class="c1"># tile_grids:</span>
+</span><span id="__span-0-649"><a id="__codelineno-0-649" name="__codelineno-0-649" href="#__codelineno-0-649"></a><span class="c1">#   DutchRD:</span>
+</span><span id="__span-0-650"><a id="__codelineno-0-650" name="__codelineno-0-650" href="#__codelineno-0-650"></a><span class="c1">#     crs: EPSG:28992</span>
+</span><span id="__span-0-651"><a id="__codelineno-0-651" name="__codelineno-0-651" href="#__codelineno-0-651"></a><span class="c1">#     origin: [-285401.92, 903401.92]</span>
+</span><span id="__span-0-652"><a id="__codelineno-0-652" name="__codelineno-0-652" href="#__codelineno-0-652"></a><span class="c1">#     extent_at_zoom0: 880803.84</span>
+</span><span id="__span-0-653"><a id="__codelineno-0-653" name="__codelineno-0-653" href="#__codelineno-0-653"></a><span class="c1"># ```</span>
+</span><span id="__span-0-654"><a id="__codelineno-0-654" name="__codelineno-0-654" href="#__codelineno-0-654"></a><span class="nt">tile_grids</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</span><span id="__span-0-655"><a id="__codelineno-0-655" name="__codelineno-0-655" href="#__codelineno-0-655"></a><span class="c1"># If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)</span>
+</span><span id="__span-0-656"><a id="__codelineno-0-656" name="__codelineno-0-656" href="#__codelineno-0-656"></a><span class="c1"># will be embedded in the `TileJSON` `tiles` URL, with the set identifier.</span>
+</span><span id="__span-0-657"><a id="__codelineno-0-657" name="__codelineno-0-657" href="#__codelineno-0-657"></a><span class="c1"># This is useful to give clients a better way to cache-bust a CDN:</span>
+</span><span id="__span-0-658"><a id="__codelineno-0-658" name="__codelineno-0-658" href="#__codelineno-0-658"></a><span class="c1"># 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.</span>
+</span><span id="__span-0-659"><a id="__codelineno-0-659" name="__codelineno-0-659" href="#__codelineno-0-659"></a><span class="c1"># 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.</span>
+</span><span id="__span-0-660"><a id="__codelineno-0-660" name="__codelineno-0-660" href="#__codelineno-0-660"></a><span class="c1"># 3. Add `Control: public, max-age=..., immutable` on the tile responses</span>
+</span><span id="__span-0-661"><a id="__codelineno-0-661" name="__codelineno-0-661" href="#__codelineno-0-661"></a><span class="c1">#    optimize browser/CDN cache hit rates, while also making sure that</span>
+</span><span id="__span-0-662"><a id="__codelineno-0-662" name="__codelineno-0-662" href="#__codelineno-0-662"></a><span class="c1">#    old tiles aren't served when a new tileset is deployed.</span>
 </span><span id="__span-0-663"><a id="__codelineno-0-663" name="__codelineno-0-663" href="#__codelineno-0-663"></a><span class="c1">#</span>
-</span><span id="__span-0-664"><a id="__codelineno-0-664" name="__codelineno-0-664" href="#__codelineno-0-664"></a><span class="c1"># For example, if</span>
-</span><span id="__span-0-665"><a id="__codelineno-0-665" name="__codelineno-0-665" href="#__codelineno-0-665"></a><span class="c1"># - the setting here is `version`, and</span>
-</span><span id="__span-0-666"><a id="__codelineno-0-666" name="__codelineno-0-666" href="#__codelineno-0-666"></a><span class="c1"># - the `PMTiles` tileset version is `1.0.0`, the</span>
-</span><span id="__span-0-667"><a id="__codelineno-0-667" name="__codelineno-0-667" href="#__codelineno-0-667"></a><span class="c1"># `TileJSON` will be:</span>
-</span><span id="__span-0-668"><a id="__codelineno-0-668" name="__codelineno-0-668" href="#__codelineno-0-668"></a><span class="c1"># `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`</span>
-</span><span id="__span-0-669"><a id="__codelineno-0-669" name="__codelineno-0-669" href="#__codelineno-0-669"></a><span class="nt">tilejson_url_version_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">version</span>
-</span><span id="__span-0-670"><a id="__codelineno-0-670" name="__codelineno-0-670" href="#__codelineno-0-670"></a><span class="c1"># Control access to Martin's web UI. [default: enable]</span>
-</span><span id="__span-0-671"><a id="__codelineno-0-671" name="__codelineno-0-671" href="#__codelineno-0-671"></a><span class="c1">#</span>
-</span><span id="__span-0-672"><a id="__codelineno-0-672" name="__codelineno-0-672" href="#__codelineno-0-672"></a><span class="c1"># - `enable` allows only connections from localhost.</span>
-</span><span id="__span-0-673"><a id="__codelineno-0-673" name="__codelineno-0-673" href="#__codelineno-0-673"></a><span class="c1"># - `enableforall` allows all connections.</span>
-</span><span id="__span-0-674"><a id="__codelineno-0-674" name="__codelineno-0-674" href="#__codelineno-0-674"></a><span class="c1"># - `disable` turns the web UI off.</span>
-</span><span id="__span-0-675"><a id="__codelineno-0-675" name="__codelineno-0-675" href="#__codelineno-0-675"></a><span class="c1">#</span>
-</span><span id="__span-0-676"><a id="__codelineno-0-676" name="__codelineno-0-676" href="#__codelineno-0-676"></a><span class="c1"># Use `enableforall` with care in production. The config also accepts `enable-for-all`, but that alias fails JSON Schema validation.</span>
-</span><span id="__span-0-677"><a id="__codelineno-0-677" name="__codelineno-0-677" href="#__codelineno-0-677"></a><span class="nt">web_ui</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disable</span>
-</span><span id="__span-0-678"><a id="__codelineno-0-678" name="__codelineno-0-678" href="#__codelineno-0-678"></a><span class="c1"># Number of web server workers</span>
-</span><span id="__span-0-679"><a id="__codelineno-0-679" name="__codelineno-0-679" href="#__codelineno-0-679"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span><span id="__span-0-664"><a id="__codelineno-0-664" name="__codelineno-0-664" href="#__codelineno-0-664"></a><span class="c1"># The CDN must handle query parameters for caching to work correctly.</span>
+</span><span id="__span-0-665"><a id="__codelineno-0-665" name="__codelineno-0-665" href="#__codelineno-0-665"></a><span class="c1"># Many CDNs ignore them by default.</span>
+</span><span id="__span-0-666"><a id="__codelineno-0-666" name="__codelineno-0-666" href="#__codelineno-0-666"></a><span class="c1">#</span>
+</span><span id="__span-0-667"><a id="__codelineno-0-667" name="__codelineno-0-667" href="#__codelineno-0-667"></a><span class="c1"># For example, if</span>
+</span><span id="__span-0-668"><a id="__codelineno-0-668" name="__codelineno-0-668" href="#__codelineno-0-668"></a><span class="c1"># - the setting here is `version`, and</span>
+</span><span id="__span-0-669"><a id="__codelineno-0-669" name="__codelineno-0-669" href="#__codelineno-0-669"></a><span class="c1"># - the `PMTiles` tileset version is `1.0.0`, the</span>
+</span><span id="__span-0-670"><a id="__codelineno-0-670" name="__codelineno-0-670" href="#__codelineno-0-670"></a><span class="c1"># `TileJSON` will be:</span>
+</span><span id="__span-0-671"><a id="__codelineno-0-671" name="__codelineno-0-671" href="#__codelineno-0-671"></a><span class="c1"># `{ ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }`</span>
+</span><span id="__span-0-672"><a id="__codelineno-0-672" name="__codelineno-0-672" href="#__codelineno-0-672"></a><span class="nt">tilejson_url_version_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">version</span>
+</span><span id="__span-0-673"><a id="__codelineno-0-673" name="__codelineno-0-673" href="#__codelineno-0-673"></a><span class="c1"># Control access to Martin's web UI. [default: enable]</span>
+</span><span id="__span-0-674"><a id="__codelineno-0-674" name="__codelineno-0-674" href="#__codelineno-0-674"></a><span class="c1">#</span>
+</span><span id="__span-0-675"><a id="__codelineno-0-675" name="__codelineno-0-675" href="#__codelineno-0-675"></a><span class="c1"># - `enable` allows only connections from localhost.</span>
+</span><span id="__span-0-676"><a id="__codelineno-0-676" name="__codelineno-0-676" href="#__codelineno-0-676"></a><span class="c1"># - `enableforall` allows all connections.</span>
+</span><span id="__span-0-677"><a id="__codelineno-0-677" name="__codelineno-0-677" href="#__codelineno-0-677"></a><span class="c1"># - `disable` turns the web UI off.</span>
+</span><span id="__span-0-678"><a id="__codelineno-0-678" name="__codelineno-0-678" href="#__codelineno-0-678"></a><span class="c1">#</span>
+</span><span id="__span-0-679"><a id="__codelineno-0-679" name="__codelineno-0-679" href="#__codelineno-0-679"></a><span class="c1"># Use `enableforall` with care in production. The config also accepts `enable-for-all`, but that alias fails JSON Schema validation.</span>
+</span><span id="__span-0-680"><a id="__codelineno-0-680" name="__codelineno-0-680" href="#__codelineno-0-680"></a><span class="nt">web_ui</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disable</span>
+</span><span id="__span-0-681"><a id="__codelineno-0-681" name="__codelineno-0-681" href="#__codelineno-0-681"></a><span class="c1"># Number of web server workers</span>
+</span><span id="__span-0-682"><a id="__codelineno-0-682" name="__codelineno-0-682" href="#__codelineno-0-682"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </span></code></pre></div>
 
 

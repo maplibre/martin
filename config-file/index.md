@@ -659,6 +659,9 @@ styles:
     # Renderers each tile worker keeps loaded, one per style and pixel ratio.
     # Beyond this, the least recently used is dropped. [default: 8]
     renderers_per_worker: 16
+    # Renderers each static worker keeps loaded, one per style and pixel ratio.
+    # Beyond this, the least recently used one is replaced. [default: 2]
+    static_renderers_per_worker: 4
     # Width and height of rendered XYZ tiles, in pixels before the pixel ratio: 256 or 512.
     # [default: 512]
     tile_size: 256
