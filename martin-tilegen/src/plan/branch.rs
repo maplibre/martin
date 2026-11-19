@@ -672,7 +672,7 @@ impl<'a> LayerPaths<'a, '_> {
     /// `column` decides it.
     fn decided_by(&self, expr: &IdedExpr, column: &str) -> bool {
         let read = read_columns(expr);
-        !measures_area(expr)
+        !reads_beyond_columns(expr)
             && read.iter().any(|c| c == column)
             && read
                 .iter()
@@ -1162,11 +1162,16 @@ fn read_columns(expr: &IdedExpr) -> Vec<String> {
     out
 }
 
-/// Whether `expr` calls `area`, so its value depends on the geometry too.
-fn measures_area(expr: &IdedExpr) -> bool {
+/// Whether `expr` may read more than [`read_columns`] finds: it calls `area`, which reads the geometry, or has a
+/// macro, map or message, whose insides [`walk`] skips.
+fn reads_beyond_columns(expr: &IdedExpr) -> bool {
     let mut found = false;
     walk(expr, &mut |e| {
-        found |= matches!(&e.expr, Expr::Call(call) if call.func_name == AREA);
+        found |= match &e.expr {
+            Expr::Call(call) => call.func_name == AREA,
+            Expr::Comprehension(_) | Expr::Map(_) | Expr::Struct(_) => true,
+            Expr::Unspecified | Expr::Ident(_) | Expr::Literal(_) | Expr::Select(_) | Expr::List(_) => false,
+        };
         !found
     });
     found
