@@ -515,149 +515,230 @@ osm:
           buffer: 1600
           where: "natural in ['peak', 'volcano', 'saddle'] && (name != null || ele != null)"
           minzoom: >-
-            name == null && !((ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-            ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele, '^.*?([0-9.]+) *(in|")
-            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 :
-            null) != null && (ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-            ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele, '^.*?([0-9.]+) *(in|")
-            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 :
-            null) > -10000.0 && (ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-            ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele, '^.*?([0-9.]+) *(in|")
-            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 :
+            name == null && !((ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+            ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|")
+            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 :
+            null) != null && (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+            ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|")
+            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 :
+            null) > -10000.0 && (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$')
+            ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+            ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|")
+            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 :
             null) < 10000.0) ? 14 : 7
           maxzoom: >-
-            name == null && !((ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-            ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele, '^.*?([0-9.]+) *(in|")
-            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 :
-            null) != null && (ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-            ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele, '^.*?([0-9.]+) *(in|")
-            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 :
-            null) > -10000.0 && (ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-            ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele, '^.*?([0-9.]+) *(in|")
-            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 :
+            name == null && !((ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+            ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|")
+            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 :
+            null) != null && (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+            ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|")
+            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 :
+            null) > -10000.0 && (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$')
+            ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+            ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|")
+            *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 :
             null) < 10000.0) ? 0 : 14
           attributes:
             <<: *names
             class: natural
             ele: &ele >-
-              (ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-              ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele,
-              '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$')
-              ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-              *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) *
-              1852.0 : null) == null ? null : (ele == null ? null : ele.matches('^ *-?[0-9.]+
-              *(m|meters?)? *$') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) :
-              ele.matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 1000.0 : ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^
-              *(-?[0-9.]+).*$', '\\1')) * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ?
-              double(regex.replace(ele, '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) :
-              ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 1609.344 : ele.matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) >= 0.0 ? int((ele ==
-              null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ? double(regex.replace(ele, '^
-              *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 : ele.matches("(?i)^
-              *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 0.3048 +
-              (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele, '^.*?([0-9.]+) *(in|") *$',
-              '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ? double(regex.replace(ele,
-              '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) + 0.5) : -int(0.5 -
-              (ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-              ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele,
-              '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$')
-              ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-              *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) *
+              (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+              ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+              '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$')
+              ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 :
+              ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) *
+              1852.0 : null) == null ? null : (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(m|meters?)? *$') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) :
+              ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(km|kilom)') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 1000.0 : ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+              double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(in|") *$') ?
+              double(regex.replace(ele, '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) :
+              ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 1609.344 : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) >= 0.0 ?
+              int((ele ==
+              null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+              double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(km|kilom)') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : ele.matches("(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 0.3048 +
+              (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+              '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$',
+              '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+              double(regex.replace(ele,
+              '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) + 0.5) :
+              -int(0.5 -
+              (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+              ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+              '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$')
+              ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 :
+              ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) *
               1852.0 : null))
             ele_ft: &ele_ft >-
-              (ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-              ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele,
-              '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$')
-              ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-              *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) *
-              1852.0 : null) == null ? null : (ele == null ? null : ele.matches('^ *-?[0-9.]+
-              *(m|meters?)? *$') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) :
-              ele.matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 1000.0 : ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^
-              *(-?[0-9.]+).*$', '\\1')) * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ?
-              double(regex.replace(ele, '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) :
-              ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 1609.344 : ele.matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) >= 0.0 ? int((ele ==
-              null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ? double(regex.replace(ele, '^
-              *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 : ele.matches("(?i)^
-              *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 0.3048 +
-              (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele, '^.*?([0-9.]+) *(in|") *$',
-              '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$') ? double(regex.replace(ele,
-              '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) * 3.2808399 + 0.5) :
-              -int(0.5 - (ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-              ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele,
-              '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$')
-              ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-              *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) *
+              (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+              ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+              '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$')
+              ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 :
+              ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) *
+              1852.0 : null) == null ? null : (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(m|meters?)? *$') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) :
+              ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(km|kilom)') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 1000.0 : ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+              double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(in|") *$') ?
+              double(regex.replace(ele, '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) :
+              ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 1609.344 : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) >= 0.0 ?
+              int((ele ==
+              null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+              double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(km|kilom)') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : ele.matches("(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 0.3048 +
+              (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+              '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$',
+              '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+              double(regex.replace(ele,
+              '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) * 3.2808399
+              + 0.5) :
+              -int(0.5 - (ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+              ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+              '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$')
+              ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 :
+              ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) *
               1852.0 : null) * 3.2808399)
           sort_by:
             - >-
               natural in ['ridge', 'cliff', 'arete'] ? 3 - (wikipedia != null ? 1 : 0) - (name != null ? 1
-              : 0) : -(((ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-              double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^ *-?[0-9.]+
-              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-              ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele,
-              '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$')
-              ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-              *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) *
-              1852.0 : null) != null ? int((ele == null ? null : ele.matches('^ *-?[0-9.]+ *(m|meters?)?
-              *$') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) : ele.matches('(?i)^
-              *-?[0-9.]+ *(km|kilom)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1000.0 :
-              ele.matches("(?i)^ *-?[0-9.]+ *(ft|')") ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$',
-              '\\1')) * 0.3048 + (ele.matches('[0-9.]+ *(in|") *$') ? double(regex.replace(ele,
-              '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?[0-9.]+ *mi *$')
-              ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
-              *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(ele, '^ *(-?[0-9.]+).*$', '\\1')) *
+              : 0) : -(((ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+              double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+              ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+              '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$')
+              ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 :
+              ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) *
+              1852.0 : null) != null ? int((ele == null ? null : ele.matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+              *(m|meters?)?
+              *$') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(km|kilom)') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 :
+              ele.matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+              '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ? double(regex.replace(ele,
+              '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$')
+              ? double(regex.replace(ele, '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 :
+              ele.matches('(?i)^
+              *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+              *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) *
               1852.0 : null)) : 0) + (wikipedia != null ? 10000 : 0) + (name != null ? 10000 : 0))
           thinning: { maxzoom: 13, method: grid, size: 100, limit: 5, rank: rank }
         mountain_peak_lines:
@@ -1107,33 +1188,51 @@ osm:
           buffer: 64
           minzoom: >-
             ((coalesce(height, feature['building:height']) == null ? null : coalesce(height,
-            feature['building:height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (coalesce(height, feature['building:height']).matches('[0-9.]+ *(in|") *$') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^.*?([0-9.]+) *(in|") *$',
-            '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+
+            feature['building:height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(km|kilom)')
+            ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(ft|')") ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$')
+            ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+))
+            *(in|") *$',
+            '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *mi *$') ? double(regex.replace(coalesce(height, feature['building:height']), '^
-            *(-?[0-9.]+).*$', '\\1')) * 1609.344 : coalesce(height,
-            feature['building:height']).matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : coalesce(height,
+            feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
             * 1852.0 : null) != null ? (coalesce(height, feature['building:height']) == null ? null :
-            coalesce(height, feature['building:height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (coalesce(height, feature['building:height']).matches('[0-9.]+ *(in|") *$') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^.*?([0-9.]+) *(in|") *$',
-            '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+
+            coalesce(height, feature['building:height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(km|kilom)')
+            ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(ft|')") ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$')
+            ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+))
+            *(in|") *$',
+            '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *mi *$') ? double(regex.replace(coalesce(height, feature['building:height']), '^
-            *(-?[0-9.]+).*$', '\\1')) * 1609.344 : coalesce(height,
-            feature['building:height']).matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : coalesce(height,
+            feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
             * 1852.0 : null) : (levels != null && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ?
             double(levels) : feature['building:levels'] != null && feature['building:levels'].matches('^
             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:levels']) : null) != null ? (levels != null
@@ -1141,37 +1240,49 @@ osm:
             null && feature['building:levels'].matches('^ *[0-9]+([.][0-9]+)? *$') ?
             double(feature['building:levels']) : null) * 3.66 : 5.0) > 3659.0 || ((coalesce(min_height,
             feature['building:min_height']) == null ? null : coalesce(min_height,
-            feature['building:min_height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
-            '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^ *-?[0-9.]+
+            feature['building:min_height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+            '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *(km|kilom)') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-            *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(min_height,
-            feature['building:min_height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
-            '\\1')) * 0.3048 + (coalesce(min_height, feature['building:min_height']).matches('[0-9.]+
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+            feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+            '\\1')) * 0.3048 + (coalesce(min_height,
+            feature['building:min_height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *(in|") *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']),
-            '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
-            feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+            feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
             '\\1')) * 1609.344 : coalesce(min_height, feature['building:min_height']).matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
-            feature['building:min_height']), '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) != null ?
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
+            feature['building:min_height']), '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) != null
+            ?
             (coalesce(min_height, feature['building:min_height']) == null ? null : coalesce(min_height,
-            feature['building:min_height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
-            '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^ *-?[0-9.]+
+            feature['building:min_height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+            '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *(km|kilom)') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-            *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(min_height,
-            feature['building:min_height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
-            '\\1')) * 0.3048 + (coalesce(min_height, feature['building:min_height']).matches('[0-9.]+
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+            feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+            '\\1')) * 0.3048 + (coalesce(min_height,
+            feature['building:min_height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *(in|") *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']),
-            '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
-            feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+            feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
             '\\1')) * 1609.344 : coalesce(min_height, feature['building:min_height']).matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
-            feature['building:min_height']), '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) : (min_level !=
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
+            feature['building:min_height']), '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) :
+            (min_level !=
             null && min_level.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(min_level) :
             feature['building:min_level'] != null && feature['building:min_level'].matches('^
             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:min_level']) : null) != null ? (min_level !=
@@ -1181,33 +1292,51 @@ osm:
             ? 14 : 13
           maxzoom: >-
             ((coalesce(height, feature['building:height']) == null ? null : coalesce(height,
-            feature['building:height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (coalesce(height, feature['building:height']).matches('[0-9.]+ *(in|") *$') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^.*?([0-9.]+) *(in|") *$',
-            '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+
+            feature['building:height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(km|kilom)')
+            ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(ft|')") ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$')
+            ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+))
+            *(in|") *$',
+            '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *mi *$') ? double(regex.replace(coalesce(height, feature['building:height']), '^
-            *(-?[0-9.]+).*$', '\\1')) * 1609.344 : coalesce(height,
-            feature['building:height']).matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : coalesce(height,
+            feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
             * 1852.0 : null) != null ? (coalesce(height, feature['building:height']) == null ? null :
-            coalesce(height, feature['building:height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
-            * 0.3048 + (coalesce(height, feature['building:height']).matches('[0-9.]+ *(in|") *$') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^.*?([0-9.]+) *(in|") *$',
-            '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+
+            coalesce(height, feature['building:height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(km|kilom)')
+            ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+            *(ft|')") ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
+            * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$')
+            ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+))
+            *(in|") *$',
+            '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *mi *$') ? double(regex.replace(coalesce(height, feature['building:height']), '^
-            *(-?[0-9.]+).*$', '\\1')) * 1609.344 : coalesce(height,
-            feature['building:height']).matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
-            double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1'))
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : coalesce(height,
+            feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
+            double(regex.replace(coalesce(height, feature['building:height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1'))
             * 1852.0 : null) : (levels != null && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ?
             double(levels) : feature['building:levels'] != null && feature['building:levels'].matches('^
             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:levels']) : null) != null ? (levels != null
@@ -1215,37 +1344,49 @@ osm:
             null && feature['building:levels'].matches('^ *[0-9]+([.][0-9]+)? *$') ?
             double(feature['building:levels']) : null) * 3.66 : 5.0) > 3659.0 || ((coalesce(min_height,
             feature['building:min_height']) == null ? null : coalesce(min_height,
-            feature['building:min_height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
-            '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^ *-?[0-9.]+
+            feature['building:min_height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+            '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *(km|kilom)') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-            *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(min_height,
-            feature['building:min_height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
-            '\\1')) * 0.3048 + (coalesce(min_height, feature['building:min_height']).matches('[0-9.]+
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+            feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+            '\\1')) * 0.3048 + (coalesce(min_height,
+            feature['building:min_height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *(in|") *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']),
-            '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
-            feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+            feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
             '\\1')) * 1609.344 : coalesce(min_height, feature['building:min_height']).matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
-            feature['building:min_height']), '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) != null ?
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
+            feature['building:min_height']), '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) != null
+            ?
             (coalesce(min_height, feature['building:min_height']) == null ? null : coalesce(min_height,
-            feature['building:min_height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
-            '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^ *-?[0-9.]+
+            feature['building:min_height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+            '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *(km|kilom)') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-            *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(min_height,
-            feature['building:min_height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
-            '\\1')) * 0.3048 + (coalesce(min_height, feature['building:min_height']).matches('[0-9.]+
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+            feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+            '\\1')) * 0.3048 + (coalesce(min_height,
+            feature['building:min_height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
             *(in|") *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']),
-            '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
-            feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^ *(-?[0-9.]+).*$',
+            '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+            feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+            double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+            *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
             '\\1')) * 1609.344 : coalesce(min_height, feature['building:min_height']).matches('(?i)^
-            *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
-            feature['building:min_height']), '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) : (min_level !=
+            *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
+            feature['building:min_height']), '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) :
+            (min_level !=
             null && min_level.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(min_level) :
             feature['building:min_level'] != null && feature['building:min_level'].matches('^
             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:min_level']) : null) != null ? (min_level !=
@@ -1265,69 +1406,84 @@ osm:
             render_height:
               expr: &render_height >-
                 (coalesce(height, feature['building:height']) == null ? null : coalesce(height,
-                feature['building:height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
-                '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+
+                feature['building:height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+                '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
                 *(km|kilom)') ? double(regex.replace(coalesce(height, feature['building:height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(height,
-                feature['building:height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
-                '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('[0-9.]+
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(height,
+                feature['building:height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+                '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
                 *(in|") *$') ? double(regex.replace(coalesce(height, feature['building:height']),
-                '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
-                feature['building:height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
+                '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
+                feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
                 '\\1')) * 1609.344 : coalesce(height, feature['building:height']).matches('(?i)^
-                *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(coalesce(height,
-                feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) != null ?
+                *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(height,
+                feature['building:height']), '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) != null
+                ?
                 int((coalesce(height, feature['building:height']) == null ? null : coalesce(height,
-                feature['building:height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
-                '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+
+                feature['building:height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+                '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
                 *(km|kilom)') ? double(regex.replace(coalesce(height, feature['building:height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(height,
-                feature['building:height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
-                '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('[0-9.]+
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(height,
+                feature['building:height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+                '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
                 *(in|") *$') ? double(regex.replace(coalesce(height, feature['building:height']),
-                '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
-                feature['building:height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
+                '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
+                feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
                 '\\1')) * 1609.344 : coalesce(height, feature['building:height']).matches('(?i)^
-                *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(coalesce(height,
-                feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null)) +
+                *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(height,
+                feature['building:height']), '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null)) +
                 ((coalesce(height, feature['building:height']) == null ? null : coalesce(height,
-                feature['building:height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
-                '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+
+                feature['building:height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+                '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
                 *(km|kilom)') ? double(regex.replace(coalesce(height, feature['building:height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(height,
-                feature['building:height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
-                '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('[0-9.]+
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(height,
+                feature['building:height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+                '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
                 *(in|") *$') ? double(regex.replace(coalesce(height, feature['building:height']),
-                '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
-                feature['building:height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
+                '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
+                feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
                 '\\1')) * 1609.344 : coalesce(height, feature['building:height']).matches('(?i)^
-                *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(coalesce(height,
-                feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) >
+                *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(height,
+                feature['building:height']), '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) >
                 double(int((coalesce(height, feature['building:height']) == null ? null :
-                coalesce(height, feature['building:height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
-                '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?[0-9.]+
+                coalesce(height, feature['building:height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)?
+                *$') ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+                '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
                 *(km|kilom)') ? double(regex.replace(coalesce(height, feature['building:height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(height,
-                feature['building:height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
-                '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('[0-9.]+
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(height,
+                feature['building:height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
+                '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+)
                 *(in|") *$') ? double(regex.replace(coalesce(height, feature['building:height']),
-                '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
-                feature['building:height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
-                double(regex.replace(coalesce(height, feature['building:height']), '^ *(-?[0-9.]+).*$',
+                '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
+                feature['building:height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
+                double(regex.replace(coalesce(height, feature['building:height']), '^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$',
                 '\\1')) * 1609.344 : coalesce(height, feature['building:height']).matches('(?i)^
-                *-?[0-9.]+ *(nmi|nautical)') ? double(regex.replace(coalesce(height,
-                feature['building:height']), '^ *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null))) ? 1 : 0) :
+                *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(height,
+                feature['building:height']), '^ *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null))) ? 1 :
+                0) :
                 (levels != null && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(levels) :
                 feature['building:levels'] != null && feature['building:levels'].matches('^
                 *[0-9]+([.][0-9]+)? *$') ? double(feature['building:levels']) : null) != null ?
@@ -1345,43 +1501,45 @@ osm:
             render_min_height:
               expr: >-
                 (coalesce(min_height, feature['building:min_height']) == null ? null :
-                coalesce(min_height, feature['building:min_height']).matches('^ *-?[0-9.]+ *(m|meters?)?
+                coalesce(min_height, feature['building:min_height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)
+                *(m|meters?)?
                 *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) : coalesce(min_height,
-                feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ?
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : coalesce(min_height,
+                feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(km|kilom)') ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(min_height,
-                feature['building:min_height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+                feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 0.3048 + (coalesce(min_height,
-                feature['building:min_height']).matches('[0-9.]+ *(in|") *$') ?
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 0.3048 + (coalesce(min_height,
+                feature['building:min_height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']),
-                '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
-                feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
+                '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+                feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1609.344 : coalesce(min_height,
-                feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : coalesce(min_height,
+                feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null) != null ? int((coalesce(min_height,
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null) != null ? int((coalesce(min_height,
                 feature['building:min_height']) == null ? null : coalesce(min_height,
-                feature['building:min_height']).matches('^ *-?[0-9.]+ *(m|meters?)? *$') ?
+                feature['building:min_height']).matches('^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(m|meters?)? *$') ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) : coalesce(min_height,
-                feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *(km|kilom)') ?
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) : coalesce(min_height,
+                feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(km|kilom)') ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1000.0 : coalesce(min_height,
-                feature['building:min_height']).matches("(?i)^ *-?[0-9.]+ *(ft|')") ?
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+                feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(ft|')") ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 0.3048 + (coalesce(min_height,
-                feature['building:min_height']).matches('[0-9.]+ *(in|") *$') ?
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 0.3048 + (coalesce(min_height,
+                feature['building:min_height']).matches('(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(in|") *$') ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']),
-                '^.*?([0-9.]+) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
-                feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *mi *$') ?
+                '^.*?((?:[0-9]+\.?[0-9]*|\.[0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+                feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *mi *$') ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1609.344 : coalesce(min_height,
-                feature['building:min_height']).matches('(?i)^ *-?[0-9.]+ *(nmi|nautical)') ?
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1609.344 : coalesce(min_height,
+                feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+\.?[0-9]*|\.[0-9]+) *(nmi|nautical)') ?
                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
-                *(-?[0-9.]+).*$', '\\1')) * 1852.0 : null)) : (min_level != null && min_level.matches('^
+                *(-?(?:[0-9]+\.?[0-9]*|\.[0-9]+)).*$', '\\1')) * 1852.0 : null)) : (min_level != null &&
+                min_level.matches('^
                 *[0-9]+([.][0-9]+)? *$') ? double(min_level) : feature['building:min_level'] != null &&
                 feature['building:min_level'].matches('^ *[0-9]+([.][0-9]+)? *$') ?
                 double(feature['building:min_level']) : null) != null ? int((min_level != null &&
