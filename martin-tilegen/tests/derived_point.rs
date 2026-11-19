@@ -359,7 +359,7 @@ fn a_centroid_if_convex_of_a_concave_holed_or_multi_polygon_is_a_point_on_its_su
         features: vec![
             SourceFeature {
                 id: Some(1),
-                geometry: Geometry::Polygons(vec![Polygon::new(
+                geometry: Geometry::Polygon(Polygon::new(
                     LineString::from(vec![
                         (-1000.0 * UNIT, -1000.0 * UNIT),
                         (-500.0 * UNIT, -1000.0 * UNIT),
@@ -372,15 +372,15 @@ fn a_centroid_if_convex_of_a_concave_holed_or_multi_polygon_is_a_point_on_its_su
                         (-1000.0 * UNIT, -1000.0 * UNIT),
                     ]),
                     vec![],
-                )]),
+                )),
                 props: vec![],
             },
             SourceFeature {
                 id: Some(2),
-                geometry: Geometry::Polygons(vec![Polygon::new(
+                geometry: Geometry::Polygon(Polygon::new(
                     square(-1000.0, -1000.0, 1000.0, 1000.0),
                     vec![square(-500.0, -500.0, 500.0, 500.0)],
-                )]),
+                )),
                 props: vec![],
             },
             SourceFeature {
