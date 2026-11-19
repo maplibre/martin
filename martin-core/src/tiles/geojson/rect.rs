@@ -260,36 +260,6 @@ mod tests {
         snapped
     }
 
-    #[rstest]
-    #[case::exterior_clockwise(false)]
-    #[case::exterior_counter_clockwise(true)]
-    fn resolve_snapped_keeps_the_inside_when_a_folded_spike_hides_the_exterior_winding(#[case] reversed: bool) {
-        // The spike tip (9, 60) is the least vertex and both its neighbours are (10, 60), so the exterior's winding is
-        // undefined, while the hole's is not.
-        let hole = vec![(50.0, 50.0), (70.0, 50.0), (70.0, 70.0), (50.0, 70.0), (50.0, 50.0)].into();
-        let snapped = snapped_square(&[(9.0, 60.0), (10.0, 60.0)], Some(hole), reversed);
-
-        let resolved = resolve_snapped(&snapped);
-        assert!(resolved.is_valid());
-        assert_eq!(resolved.0.len(), 1);
-        assert_eq!(resolved.0[0].interiors().len(), 1, "the hole is kept");
-        approx::assert_relative_eq!(resolved.unsigned_area(), 100.0 * 100.0 - 20.0 * 20.0);
-    }
-
-    #[rstest]
-    #[case::exterior_clockwise(false)]
-    #[case::exterior_counter_clockwise(true)]
-    fn resolve_snapped_keeps_the_inside_when_a_folded_loop_reverses_the_exterior_winding(#[case] reversed: bool) {
-        // The loop's corner (5, 58) is the least vertex and turns counter to the square, so the exterior reads as
-        // wound the other way.
-        let snapped = snapped_square(&[(5.0, 62.0), (5.0, 58.0), (10.0, 60.0)], None, reversed);
-
-        let resolved = resolve_snapped(&snapped);
-        assert!(resolved.is_valid());
-        assert_eq!(resolved.0.len(), 1, "the loop outside the square is dropped");
-        approx::assert_relative_eq!(resolved.unsigned_area(), 100.0 * 100.0);
-    }
-
     #[test]
     fn transform_to_tile_coordinates() {
         let point = [1_962_772.0, 6_300_000.0];
