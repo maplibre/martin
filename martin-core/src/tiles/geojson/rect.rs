@@ -3,8 +3,8 @@ use std::num::NonZeroU32;
 
 use geo::bool_ops::FillRule;
 use geo::orient::Direction;
-use geo::{BooleanOps as _, MapCoords as _, Orient as _, Validation as _, unary_union};
-use geo_types::{Coord, Geometry, GeometryCollection, MultiLineString, MultiPoint, Point, Polygon};
+use geo::{Area as _, BooleanOps as _, MapCoords as _, Orient as _, Validation as _};
+use geo_types::{Coord, Geometry, GeometryCollection, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use martin_tile_utils::tile_bbox;
 
 use crate::tiles::geojson::convert::validate_and_simplify;
@@ -98,7 +98,7 @@ impl Rect {
         let resolved = if snapped.is_valid() {
             snapped
         } else {
-            unary_union([&snapped])
+            resolve_snapped(&snapped)
         };
         if resolved.0.is_empty() {
             // The snap collapsed the polygon below tile resolution; drop it rather than emit an
@@ -173,9 +173,122 @@ impl Rect {
     }
 }
 
+/// Repair a polygon the integer snap made invalid, filling by the sign of its area.
+///
+/// `unary_union` infers the fill rule from the turn at one vertex, which a folded spike or loop can hide or reverse,
+/// and then keeps only what lies outside the polygon.
+fn resolve_snapped(snapped: &MultiPolygon<f64>) -> MultiPolygon<f64> {
+    let fill_rule = if snapped.signed_area() > 0.0 {
+        FillRule::Positive
+    } else {
+        FillRule::Negative
+    };
+    snapped.union_with_fill_rule(&MultiPolygon::empty(), fill_rule)
+}
+
 #[cfg(test)]
 mod tests {
+    use geo_types::LineString;
+    use martin_tile_utils::wgs84_to_webmercator;
+    use rstest::rstest;
+
     use super::*;
+
+    fn mercator_ring(lng_lat: &[(f64, f64)]) -> LineString<f64> {
+        lng_lat
+            .iter()
+            .map(|&(lng, lat)| {
+                let (x, y) = wgs84_to_webmercator(lng, lat);
+                Coord { x, y }
+            })
+            .collect()
+    }
+
+    /// A 10° square with a 2° hole. With `spike`, its west edge carries a spike thin enough for the integer snap to
+    /// fold it onto one column at low zoom, leaving the exterior without a definite winding while the hole keeps one.
+    fn square_with_hole(spike: bool) -> Polygon<f64> {
+        let mut exterior = vec![(0.01, 0.0), (10.0, 0.0), (10.0, 10.0), (0.01, 10.0)];
+        if spike {
+            exterior.extend([(0.01, 5.032), (-0.01, 5.031), (0.01, 5.03)]);
+        }
+        exterior.push((0.01, 0.0));
+        let hole = [(2.0, 2.0), (2.0, 4.0), (4.0, 4.0), (4.0, 2.0), (2.0, 2.0)];
+        Polygon::new(mercator_ring(&exterior), vec![mercator_ring(&hole)])
+    }
+
+    fn clip_to_tile(polygon: Polygon<f64>, zoom: u8, x: u32, y: u32) -> Option<Geometry<f64>> {
+        let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
+        let mut rect = Rect::from_xyz(x, y, zoom, extent, 64);
+        rect.add_buffer();
+        rect.clip_transform_validate_geometry(polygon.into())
+    }
+
+    #[rstest]
+    #[case::z0(0, 0, 0)]
+    #[case::z1(1, 1, 0)]
+    #[case::z2(2, 2, 1)]
+    #[case::z3(3, 4, 3)]
+    fn clip_keeps_a_polygon_with_a_hole_when_the_snap_folds_a_spike(#[case] zoom: u8, #[case] x: u32, #[case] y: u32) {
+        let Some(Geometry::MultiPolygon(clipped)) = clip_to_tile(square_with_hole(true), zoom, x, y) else {
+            panic!("the polygon must survive the clip at {zoom}/{x}/{y}");
+        };
+        assert_eq!(clipped.0.len(), 1);
+        assert_eq!(clipped.0[0].interiors().len(), 1, "the hole is kept");
+
+        // The spike is thinner than a pixel, so the repaired polygon covers what the spike-free one does.
+        let Some(Geometry::MultiPolygon(reference)) = clip_to_tile(square_with_hole(false), zoom, x, y) else {
+            panic!("the spike-free polygon must survive the clip at {zoom}/{x}/{y}");
+        };
+        approx::assert_relative_eq!(clipped.unsigned_area(), reference.unsigned_area(), max_relative = 0.01);
+    }
+
+    /// A clockwise 100×100 square in tile space whose west edge carries `fold` at (10, 60).
+    fn snapped_square(fold: &[(f64, f64)], hole: Option<LineString<f64>>, reversed: bool) -> MultiPolygon<f64> {
+        let mut exterior: Vec<(f64, f64)> = vec![(10.0, 10.0), (10.0, 60.0)];
+        exterior.extend(fold);
+        exterior.extend([(10.0, 110.0), (110.0, 110.0), (110.0, 10.0), (10.0, 10.0)]);
+        let mut exterior: LineString<f64> = exterior.into();
+        let mut holes: Vec<LineString<f64>> = hole.into_iter().collect();
+        if reversed {
+            exterior.0.reverse();
+            for hole in &mut holes {
+                hole.0.reverse();
+            }
+        }
+        let snapped = MultiPolygon::new(vec![Polygon::new(exterior, holes)]);
+        assert!(!snapped.is_valid(), "the fold makes the snapped polygon invalid");
+        snapped
+    }
+
+    #[rstest]
+    #[case::exterior_clockwise(false)]
+    #[case::exterior_counter_clockwise(true)]
+    fn resolve_snapped_keeps_the_inside_when_a_folded_spike_hides_the_exterior_winding(#[case] reversed: bool) {
+        // The spike tip (9, 60) is the least vertex and both its neighbours are (10, 60), so the exterior's winding is
+        // undefined, while the hole's is not.
+        let hole = vec![(50.0, 50.0), (70.0, 50.0), (70.0, 70.0), (50.0, 70.0), (50.0, 50.0)].into();
+        let snapped = snapped_square(&[(9.0, 60.0), (10.0, 60.0)], Some(hole), reversed);
+
+        let resolved = resolve_snapped(&snapped);
+        assert!(resolved.is_valid());
+        assert_eq!(resolved.0.len(), 1);
+        assert_eq!(resolved.0[0].interiors().len(), 1, "the hole is kept");
+        approx::assert_relative_eq!(resolved.unsigned_area(), 100.0 * 100.0 - 20.0 * 20.0);
+    }
+
+    #[rstest]
+    #[case::exterior_clockwise(false)]
+    #[case::exterior_counter_clockwise(true)]
+    fn resolve_snapped_keeps_the_inside_when_a_folded_loop_reverses_the_exterior_winding(#[case] reversed: bool) {
+        // The loop's corner (5, 58) is the least vertex and turns counter to the square, so the exterior reads as
+        // wound the other way.
+        let snapped = snapped_square(&[(5.0, 62.0), (5.0, 58.0), (10.0, 60.0)], None, reversed);
+
+        let resolved = resolve_snapped(&snapped);
+        assert!(resolved.is_valid());
+        assert_eq!(resolved.0.len(), 1, "the loop outside the square is dropped");
+        approx::assert_relative_eq!(resolved.unsigned_area(), 100.0 * 100.0);
+    }
 
     #[test]
     fn transform_to_tile_coordinates() {
