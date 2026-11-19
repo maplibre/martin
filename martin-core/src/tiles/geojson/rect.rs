@@ -242,24 +242,6 @@ mod tests {
         approx::assert_relative_eq!(clipped.unsigned_area(), reference.unsigned_area(), max_relative = 0.01);
     }
 
-    /// A clockwise 100×100 square in tile space whose west edge carries `fold` at (10, 60).
-    fn snapped_square(fold: &[(f64, f64)], hole: Option<LineString<f64>>, reversed: bool) -> MultiPolygon<f64> {
-        let mut exterior: Vec<(f64, f64)> = vec![(10.0, 10.0), (10.0, 60.0)];
-        exterior.extend(fold);
-        exterior.extend([(10.0, 110.0), (110.0, 110.0), (110.0, 10.0), (10.0, 10.0)]);
-        let mut exterior: LineString<f64> = exterior.into();
-        let mut holes: Vec<LineString<f64>> = hole.into_iter().collect();
-        if reversed {
-            exterior.0.reverse();
-            for hole in &mut holes {
-                hole.0.reverse();
-            }
-        }
-        let snapped = MultiPolygon::new(vec![Polygon::new(exterior, holes)]);
-        assert!(!snapped.is_valid(), "the fold makes the snapped polygon invalid");
-        snapped
-    }
-
     #[test]
     fn transform_to_tile_coordinates() {
         let point = [1_962_772.0, 6_300_000.0];
