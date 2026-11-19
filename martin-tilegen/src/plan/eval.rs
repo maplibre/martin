@@ -12,10 +12,11 @@ use super::{
     PlannedZoom,
 };
 use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role};
+use crate::phase2::Rounded;
 use crate::props::{KeyId, KeyInterner, KeyNames, LayerKinds, Prop, SourceStr};
 use crate::sort::record::EncodedProps;
 use crate::source::SourceFeature;
-use crate::{Feature, FeatureGeom, MixedKinds, RenderLayer, TileGenError, TileGenResult};
+use crate::{Feature, FeatureGeom, MixedKinds, RenderLayer, RoundedValues, TileGenError, TileGenResult};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExprErrors {
@@ -141,6 +142,24 @@ impl Plan {
             }
         }
         mixed
+    }
+
+    /// The keys whose integers a float column rounded, with `rounded` by layer index.
+    pub(crate) fn rounded_values(&self, rounded: &[Rounded]) -> Vec<RoundedValues> {
+        let mut values = Vec::new();
+        for (index, layer) in self.layers.iter().enumerate() {
+            let Some(layer_rounded) = rounded.get(index) else {
+                continue;
+            };
+            let mut keys: Vec<_> = layer_rounded.iter().collect();
+            keys.sort_unstable_by_key(|&(key, _)| key.index());
+            values.extend(keys.into_iter().map(|(key, count)| RoundedValues {
+                layer: layer.info.name.clone(),
+                key: self.keys.layers[index].name(key).unwrap_or_default(),
+                values: count,
+            }));
+        }
+        values
     }
 
     /// The keys of each output layer. Call once no more keys can appear, i.e. after rendering.

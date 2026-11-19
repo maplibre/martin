@@ -513,6 +513,12 @@ fn log_summary(summary: &Summary, format: TileFormat) {
             mixed.layer, mixed.key
         );
     }
+    for rounded in &summary.rounded {
+        warn!(
+            "Layer `{}`: {} integers of `{}` shared a column with floats, which rounded them",
+            rounded.layer, rounded.values, rounded.key
+        );
+    }
     for op in &summary.per_tile {
         info!(
             layer.id = %op.layer,

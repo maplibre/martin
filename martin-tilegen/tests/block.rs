@@ -268,6 +268,7 @@ fn a_block_reports_the_features_it_could_not_render() {
                 },
             ],
             mixed_kinds: [],
+            rounded: [],
             per_tile: [],
         },
     )
