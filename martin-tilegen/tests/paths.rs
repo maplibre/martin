@@ -1550,6 +1550,9 @@ fn a_known_value_does_not_decide_an_expression_reading_a_column_in_a_macro() {
         "boundary_labels: kept only at z14 (`min_size_at_maxzoom`)",
         "boundary_labels: dropped, smaller than `min_size` at every zoom",
         "boundary_labels: crosses a z14 tile edge",
+    ]
+    "#);
+}
 
 #[test]
 fn an_outline_takes_the_paths_of_a_layer_of_lines_and_not_of_a_layer_of_any_geometry() {

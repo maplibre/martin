@@ -388,8 +388,8 @@ async fn sweep<B: TestBackend>(
 }
 
 /// Passes `visit` each row of `scan`, its geometry in the given coordinates, until it breaks: the readings of one
-/// object, a feature and the [`Geometry::Outline`] read right after it with the same id. A read to the end fails if
-/// the source cannot vouch for it.
+/// object, a feature and the [`Geometry::Outline`] read right after it with the same id, in the same partition. A
+/// read to the end fails if the source cannot vouch for it.
 fn each_row(
     scan: &impl FeatureSource,
     plan: &Plan,
@@ -426,9 +426,12 @@ fn each_row(
             Err(SourceError::Stopped) => return Ok(()),
             Err(err) => return Err(TileGenError::from(err).into()),
         }
-    }
-    if !row.is_empty() && visit(crs, &row)?.is_break() {
-        return Ok(());
+        if !row.is_empty() {
+            if visit(crs, &row)?.is_break() {
+                return Ok(());
+            }
+            row.clear();
+        }
     }
     scan.finish().map_err(TileGenError::from)?;
     Ok(())
