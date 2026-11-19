@@ -96,6 +96,15 @@ pub enum ShapefileError {
     #[error("{} has {shapes} shapes but {rows} rows in its .dbf file", path.display())]
     RecordCounts { path: PathBuf, shapes: usize, rows: usize },
 
+    /// The `.shx` places a record past the end of the `.shp`.
+    #[error("{} places record {record} up to byte {end}, past the end of the .shp file at byte {size}", path.display())]
+    RecordPastEnd {
+        path: PathBuf,
+        record: u64,
+        end: u64,
+        size: u64,
+    },
+
     /// One record cannot be read.
     #[error("Cannot read record {record} of {}: {error}", path.display())]
     Record {
@@ -336,7 +345,7 @@ fn unpack(path: &Path, temp_dir: &Path) -> Result<(PathBuf, tempfile::TempDir), 
 }
 
 /// The type of the shapes of the `.shp` at `shp`, and where each record is, from its `.shx`, or from the record
-/// headers without one.
+/// headers without one; fails if a record would end past the end of the `.shp`.
 fn record_ranges(path: &Path, shp: &Path) -> Result<(ShapeType, Vec<Range<u64>>), ShapefileError> {
     let shapes_error = |error| ShapefileError::Shapes {
         path: path.to_path_buf(),
@@ -375,6 +384,15 @@ fn record_ranges(path: &Path, shp: &Path) -> Result<(ShapeType, Vec<Range<u64>>)
             records.push(offset..offset + RECORD_HEADER_BYTES + length);
             offset += RECORD_HEADER_BYTES + length;
         }
+    }
+    let size = file.get_ref().metadata().map_err(read_error(shp))?.len();
+    if let Some((record, range)) = (1..).zip(&records).find(|(_, range)| range.end > size) {
+        return Err(ShapefileError::RecordPastEnd {
+            path: path.to_path_buf(),
+            record,
+            end: range.end,
+            size,
+        });
     }
     Ok((header.shape_type, records))
 }
