@@ -2350,12 +2350,13 @@ format's bytes. Clients that also accept <code>*/*</code> still get the source f
 The <code>auto</code> preset is guaranteed to work on a reasonably new maplibre version, so for example <code>tessellation</code> will only be enabled if this has wider spread benefits.</p>
 <p>If you need to tweak encoding behavior, provide an explicit configuration:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">convert_to_mlt</span><span class="p">:</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">tessellate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">try_spatial_hilbert_sort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">allow_fsst</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">profile</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">native</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4g</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">try_spatial_hilbert_sort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">allow_fsst</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </span></code></pre></div>
 <p>All fields are optional.
-Only the fields you specify override the defaults; unset fields keep their <code>mlt-core</code> default values.</p>
+<code>profile</code> and <code>network</code> pick the defaults; every other field you specify overrides one of them.</p>
 <table>
 <thead>
 <tr>
@@ -2365,8 +2366,16 @@ Only the fields you specify override the defaults; unset fields keep their <code
 </thead>
 <tbody>
 <tr>
+<td><code>profile</code></td>
+<td><code>web</code> (default), <code>native</code>, <code>min-size</code>, <code>diffable</code> or <code>fast-encoding</code>, after the client or goal of your tiles</td>
+</tr>
+<tr>
+<td><code>network</code></td>
+<td><code>offline</code> (default), <code>3g</code>, <code>4g</code> or <code>5g</code>: how tiles reach the client, for <code>web</code>, <code>native</code> and <code>tessellate: auto</code></td>
+</tr>
+<tr>
 <td><code>tessellate</code></td>
-<td>Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your use case</td>
+<td><code>true</code> or <code>auto</code> if your client draws pre-tessellated polygons; <code>auto</code> keeps the triangles that pay off on <code>network</code></td>
 </tr>
 <tr>
 <td><code>try_spatial_morton_sort</code></td>
@@ -2394,6 +2403,7 @@ Only the fields you specify override the defaults; unset fields keep their <code
 </tr>
 </tbody>
 </table>
+<p>In <a href="../../martin-generate/">bulk mode</a>, an unset <code>network</code> is <code>4g</code> when the tiles are compressed (<code>--encoding</code> other than <code>none</code>), since <code>FSST</code> and <code>FastPFOR</code> cost bytes once gzip runs over them.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>In most cases, <code>convert_to_mlt: auto</code> is the right choice.

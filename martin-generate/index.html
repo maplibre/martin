@@ -2352,7 +2352,8 @@ and the file has no section for <code>martin cp</code>.</p>
 </span></code></pre></div>
 <p>Of a <a href="../sources-pg-tables/">table source</a>, bulk mode uses <code>schema</code>, <code>table</code>,
 <code>geometry_column</code>, <code>srid</code>, <code>id_column</code>, <code>properties</code>, <code>filter</code>, <code>minzoom</code>, <code>maxzoom</code>, <code>extent</code>,
-<code>buffer</code>, <code>clip_geom</code>, <code>layer_id</code> and <a href="../sources-pg-layers/"><code>layers</code></a>. Settings that only affect
+<code>buffer</code>, <code>clip_geom</code>, <code>layer_id</code>, <a href="../sources-pg-layers/"><code>layers</code></a> and the MLT encoder settings
+of <a href="../postprocessing/mlt/#tuning-the-encoder"><code>convert_to_mlt</code></a>. Settings that only affect
 serving, such as caching, are ignored.</p>
 </div>
 </div>
@@ -2380,7 +2381,7 @@ serving, such as caching, are ignored.</p>
 <tr>
 <td><code>--format</code></td>
 <td><code>mlt</code></td>
-<td><code>mlt</code> or <code>mvt</code></td>
+<td><code>mlt</code> or <code>mvt</code>, and <code>mlt2</code> in a build with <code>unstable-mlt-v2</code></td>
 </tr>
 <tr>
 <td><code>--encoding</code></td>
@@ -2435,6 +2436,9 @@ serving, such as caching, are ignored.</p>
 for <code>.mbtiles</code> output only. Bulk mode refuses <code>--url-query</code>, <code>--on-duplicate</code>, <code>--concurrency</code> (its
 workers are <code>--threads</code>), <code>--save-config</code>, and <code>max_feature_count</code> in the config or as
 <code>--max-feature-count</code>. Tile mode refuses <code>--memory</code>, <code>--temp-dir</code>, <code>--threads</code> and <code>--mvt-quirk</code>.</p>
+<p><code>--format mlt2</code> writes the same layers as <code>--format mlt</code> in the v2 wire format, and reads the v2-only
+<code>convert_to_mlt</code> keys <code>allow_delta2</code> and <code>allow_rans_vertices</code>, which <code>--format mlt</code> refuses.
+Unlike tile mode, it does not keep nested <code>jsonb</code> values or M ordinates yet.</p>
 <p><code>--bbox</code> picks tiles, as in tile mode, and each of them holds every feature it covers.
 Without <code>--bbox</code>, bulk mode picks the tiles touching the union of the <code>bounds</code> of every selected source
 that renders at least one zoom of the run, clamped to latitudes ±85.0511°, as tile mode does:</p>

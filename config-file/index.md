@@ -152,8 +152,19 @@ convert_to_mlt:
   allow_fsst: null
   # Allow string grouping into shared dictionaries.
   allow_shared_dict: null
-  # Generate tessellation data for polygons and multi-polygons.
-  tessellate: null
+  # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
+  #
+  # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
+  network: offline
+  # The tile consumer whose encoder defaults the other fields override.
+  #
+  # When unset, `web`.
+  profile: web
+  # Store the triangles of polygons: `true`, `false`, or `auto` for when they spare `MapLibre Native` more
+  # drawing time than the `network` spends on their bytes.
+  #
+  # When unset, the `profile` decides.
+  tessellate: false
   # Try sorting features by their feature ID in ascending order.
   try_id_sort: null
   # Try sorting features by Hilbert curve index of their first vertex.
@@ -270,8 +281,19 @@ mbtiles:
     allow_fsst: null
     # Allow string grouping into shared dictionaries.
     allow_shared_dict: null
-    # Generate tessellation data for polygons and multi-polygons.
-    tessellate: null
+    # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
+    #
+    # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
+    network: offline
+    # The tile consumer whose encoder defaults the other fields override.
+    #
+    # When unset, `web`.
+    profile: web
+    # Store the triangles of polygons: `true`, `false`, or `auto` for when they spare `MapLibre Native` more
+    # drawing time than the `network` spends on their bytes.
+    #
+    # When unset, the `profile` decides.
+    tessellate: false
     # Try sorting features by their feature ID in ascending order.
     try_id_sort: null
     # Try sorting features by Hilbert curve index of their first vertex.
@@ -329,8 +351,19 @@ passthrough:
     allow_fsst: null
     # Allow string grouping into shared dictionaries.
     allow_shared_dict: null
-    # Generate tessellation data for polygons and multi-polygons.
-    tessellate: null
+    # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
+    #
+    # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
+    network: offline
+    # The tile consumer whose encoder defaults the other fields override.
+    #
+    # When unset, `web`.
+    profile: web
+    # Store the triangles of polygons: `true`, `false`, or `auto` for when they spare `MapLibre Native` more
+    # drawing time than the `network` spends on their bytes.
+    #
+    # When unset, the `profile` decides.
+    tessellate: false
     # Try sorting features by their feature ID in ascending order.
     try_id_sort: null
     # Try sorting features by Hilbert curve index of their first vertex.
@@ -384,8 +417,19 @@ pmtiles:
     allow_fsst: null
     # Allow string grouping into shared dictionaries.
     allow_shared_dict: null
-    # Generate tessellation data for polygons and multi-polygons.
-    tessellate: null
+    # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
+    #
+    # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
+    network: offline
+    # The tile consumer whose encoder defaults the other fields override.
+    #
+    # When unset, `web`.
+    profile: web
+    # Store the triangles of polygons: `true`, `false`, or `auto` for when they spare `MapLibre Native` more
+    # drawing time than the `network` spends on their bytes.
+    #
+    # When unset, the `profile` decides.
+    tessellate: false
     # Try sorting features by their feature ID in ascending order.
     try_id_sort: null
     # Try sorting features by Hilbert curve index of their first vertex.
@@ -517,8 +561,19 @@ postgres:
     allow_fsst: null
     # Allow string grouping into shared dictionaries.
     allow_shared_dict: null
-    # Generate tessellation data for polygons and multi-polygons.
-    tessellate: null
+    # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
+    #
+    # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
+    network: offline
+    # The tile consumer whose encoder defaults the other fields override.
+    #
+    # When unset, `web`.
+    profile: web
+    # Store the triangles of polygons: `true`, `false`, or `auto` for when they spare `MapLibre Native` more
+    # drawing time than the `network` spends on their bytes.
+    #
+    # When unset, the `profile` decides.
+    tessellate: false
     # Try sorting features by their feature ID in ascending order.
     try_id_sort: null
     # Try sorting features by Hilbert curve index of their first vertex.

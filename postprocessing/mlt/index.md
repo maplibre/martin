@@ -106,22 +106,27 @@ If you need to tweak encoding behavior, provide an explicit configuration:
 
 ```yaml
 convert_to_mlt:
-  tessellate: true
+  profile: native
+  network: 4g
   try_spatial_hilbert_sort: true
   allow_fsst: false
 ```
 
-All fields are optional. Only the fields you specify override the defaults; unset fields keep their `mlt-core` default values.
+All fields are optional. `profile` and `network` pick the defaults; every other field you specify overrides one of them.
 
 | Field | When to change |
 | --- | --- |
-| `tessellate` | Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your use case |
+| `profile` | `web` (default), `native`, `min-size`, `diffable` or `fast-encoding`, after the client or goal of your tiles |
+| `network` | `offline` (default), `3g`, `4g` or `5g`: how tiles reach the client, for `web`, `native` and `tessellate: auto` |
+| `tessellate` | `true` or `auto` if your client draws pre-tessellated polygons; `auto` keeps the triangles that pay off on `network` |
 | `try_spatial_morton_sort` | Disable if your data is already spatially ordered |
 | `try_spatial_hilbert_sort` | Disable if Morton sort doesn't compress well for your data |
 | `try_id_sort` | Enable when features have sequential IDs and spatial sorting isn't beneficial |
 | `allow_fsst` | Disable to reduce search space |
 | `allow_fastpfor` | Disable to reduce search space |
 | `allow_shared_dict` | Disable to reduce search space |
+
+In [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>), an unset `network` is `4g` when the tiles are compressed (`--encoding` other than `none`), since `FSST` and `FastPFOR` cost bytes once gzip runs over them.
 
 > [!NOTE]
 >
