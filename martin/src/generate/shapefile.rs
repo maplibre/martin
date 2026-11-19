@@ -1,10 +1,12 @@
 //! The shapefile sources of `martin cp --mode bulk`: `.shp` or `.zip` files from the config's `shapefile` section.
 
+use std::ops::RangeInclusive;
 use std::path::Path;
 
 use martin_tilegen::TileGenError;
 use martin_tilegen::plan::TableDef;
 use martin_tilegen::shapefile::{Records, Shapefile, ShapefileSource, ShapefileTable};
+use tracing::warn;
 
 use super::layers::{LowerOptions, SourceSettings, lower_source};
 use super::postgres::scan_bbox;
@@ -42,6 +44,14 @@ pub async fn source(
                 encoder: mlt_encoder(convert.clone(), format, id)?,
                 order_by: None,
             };
+            if !has_zoom_in(source, &zooms) {
+                warn!(
+                    "Skipping source `{id}`: it has no zoom between {} and {}",
+                    zooms.start(),
+                    zooms.end()
+                );
+                continue;
+            }
             let file = open(source, &temp_dir)?;
             let Some(def) = lower(id, source, &file, &lower_options)? else {
                 continue;
@@ -57,6 +67,11 @@ pub async fn source(
         Ok(Some((ShapefileSource::new(tables)?, defs)))
     })
     .await?
+}
+
+/// Whether `source` has a zoom in `zooms`, so its file needs opening and, for a zip file, unpacking.
+fn has_zoom_in(source: &ShapefileSourceConfig, zooms: &RangeInclusive<u8>) -> bool {
+    source.minzoom.unwrap_or(0).max(*zooms.start()) <= source.maxzoom.unwrap_or(u8::MAX).min(*zooms.end())
 }
 
 /// Opens the file of `source`, unpacking a zip file into `temp_dir`.

@@ -58,6 +58,50 @@ async fn a_zipped_ocean_shapefile_and_monaco_render_into_one_tileset() {
 }
 
 #[tokio::test]
+async fn a_shapefile_source_without_a_zoom_in_the_run_is_not_opened() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        formatdoc! {"
+            shapefile:
+              sources:
+                ocean:
+                  path: {missing}
+                  maxzoom: 0
+                  layers:
+                    ocean: {{}}
+            osm:
+              sources:
+                monaco:
+                  path: {monaco}
+                  tags: [amenity, name]
+                  layers:
+                    cafes:
+                      geometry: point
+                      where: \"amenity == 'cafe' && name != null\"
+                      attributes: [name]
+        ", missing = dir.path().join("missing.zip").display(), monaco = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("monaco.mbtiles");
+    MartinCp::bulk()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--min-zoom")
+        .arg("1")
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--temp-dir")
+        .arg(dir.path())
+        .run()
+        .await;
+    MbtilesCli::new("validate").arg(&output).run().await;
+}
+
+#[tokio::test]
 async fn a_source_id_in_shapefile_and_osm_is_refused() {
     let dir = temp_dir();
     let config = dir.path().join("config.yaml");
