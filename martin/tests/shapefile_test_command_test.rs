@@ -212,7 +212,44 @@ fn a_shapefile_with_a_field_named_record_is_refused() {
     )
     .unwrap();
     let error = Shapefiles::load(&config).err().unwrap();
-    insta::assert_snapshot!(error, @"Source `places` has a field `record`, which `martin test` keeps the record number in");
+    insta::assert_snapshot!(error, @"Source `places` has a field `record`, which `martin test` reserves in each case's input");
+}
+
+#[test]
+fn a_shapefile_with_a_field_named_geometry_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("places.shp");
+    let fields = shapefile::dbase::TableWriterBuilder::new().add_character_field("geometry".try_into().unwrap(), 10);
+    let mut writer = shapefile::Writer::from_path(&path, fields).unwrap();
+    let mut record = shapefile::dbase::Record::default();
+    record.insert(
+        "geometry".to_owned(),
+        shapefile::dbase::FieldValue::Character(Some("x".to_owned())),
+    );
+    writer
+        .write_shape_and_record(&shapefile::Point::new(1.0, 2.0), &record)
+        .unwrap();
+    drop(writer);
+    std::fs::write(
+        dir.path().join("places.prj"),
+        r#"GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]"#,
+    )
+    .unwrap();
+    let config = dir.path().join("config.yaml");
+    std::fs::write(
+        &config,
+        formatdoc! {"
+            shapefile:
+              sources:
+                places:
+                  path: {path}
+                  layers:
+                    places: {{}}
+        ", path = path.display()},
+    )
+    .unwrap();
+    let error = Shapefiles::load(&config).err().unwrap();
+    insta::assert_snapshot!(error, @"Source `places` has a field `geometry`, which `martin test` reserves in each case's input");
 }
 
 #[test]
