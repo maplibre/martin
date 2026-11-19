@@ -1040,7 +1040,7 @@ async fn postgres_keeps_the_choice_paths_of_a_column_whose_check_compares_it_cas
         (
             "places: minzoom 8, `kind > 1.1` is false",
             Selected {
-                rows: "(\"kind\")::float8 <= ('1.1')::float8 AND (\"kind\")::float8 <> ('NaN')::float8",
+                rows: "(\"kind\")::float8 = ('NaN')::float8 OR ((\"kind\")::float8 <= ('1.1')::float8 AND (\"kind\")::float8 <> ('NaN')::float8)",
                 key: 2,
             },
         ),

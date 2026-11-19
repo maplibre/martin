@@ -112,7 +112,9 @@ impl Translator<'_> {
                 match polarity.op(op) {
                     CompareOp::Eq => left.equals(right, Polarity::AsWritten),
                     CompareOp::Ne => left.equals(right, Polarity::Negated),
-                    op @ (CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge) => left.order(op, right),
+                    op @ (CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge) => {
+                        left.order(op, right, polarity)
+                    }
                 }
             }
             (operators::IN, None, [key, feature]) if matches!(&feature.expr, Expr::Ident(name) if name == FEATURE) => {
@@ -293,7 +295,7 @@ impl Operand {
     }
 
     /// `self op right` for an ordering `op`.
-    fn order(self, op: CompareOp, right: Self) -> Result<Condition, TranslateError> {
+    fn order(self, op: CompareOp, right: Self, polarity: Polarity) -> Result<Condition, TranslateError> {
         let (row, op, literal, literal_kind) = match (self, right) {
             (Self::Row(row), Self::Literal(literal, kind)) => (row, op, literal, kind),
             (Self::Literal(literal, kind), Self::Row(row)) => (row, op.mirror(), literal, kind),
@@ -303,19 +305,33 @@ impl Operand {
         let Some(kind) = row_kind.common(literal_kind) else {
             return Ok(Condition::Const(false));
         };
-        let not_nan = (row_kind == ValueKind::Float).then(|| Condition::Compare {
-            left: term.clone(),
-            op: CompareOp::Ne,
-            right: Term::Literal(Literal::Float(f64::NAN)),
-            kind: ValueKind::Float,
-        });
         let compare = Condition::Compare {
-            left: term,
+            left: term.clone(),
             op,
             right: Term::Literal(literal),
             kind,
         };
-        Ok(Condition::and(std::iter::once(compare).chain(not_nan)))
+        if row_kind != ValueKind::Float {
+            return Ok(compare);
+        }
+
+        let is_nan = Condition::Compare {
+            left: term.clone(),
+            op: CompareOp::Eq,
+            right: Term::Literal(Literal::Float(f64::NAN)),
+            kind: ValueKind::Float,
+        };
+        let not_nan = Condition::Compare {
+            left: term,
+            op: CompareOp::Ne,
+            right: Term::Literal(Literal::Float(f64::NAN)),
+            kind: ValueKind::Float,
+        };
+        if polarity.negated() {
+            Ok(Condition::or([is_nan, Condition::and([compare, not_nan])]))
+        } else {
+            Ok(Condition::and([compare, not_nan]))
+        }
     }
 
     /// A literal as an operand.
