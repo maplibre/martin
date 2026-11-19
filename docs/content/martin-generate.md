@@ -127,7 +127,8 @@ martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-z
 
     Of a [table source](sources-pg-tables.md), bulk mode uses `schema`, `table`,
     `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`,
-    `buffer`, `clip_geom`, `layer_id` and [`layers`](sources-pg-layers.md). Settings that only affect
+    `buffer`, `clip_geom`, `layer_id`, [`layers`](sources-pg-layers.md) and the MLT encoder settings
+    of [`convert_to_mlt`](postprocessing/mlt.md#tuning-the-encoder). Settings that only affect
     serving, such as caching, are ignored.
 
 ## Options
@@ -136,7 +137,7 @@ martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-z
 |-----------------|-------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
 | `--output-file` |                                                                   | A new `.pmtiles` archive, or an `.mbtiles` file that is new or empty                                  |
 | `--source`      | all sources                                                       | Comma-separated source ids                                                                            |
-| `--format`      | `mlt`                                                             | `mlt` or `mvt`                                                                                        |
+| `--format`      | `mlt`                                                             | `mlt` or `mvt`, and `mlt2` in a build with `unstable-mlt-v2`                                          |
 | `--encoding`    | `gzip` for MBtiles or MVT in PMTIles<br>`none` for MLT in PMTiles | MBTiles: `gzip`, `zlib` or `none`.<br>PMTiles: `gzip`, `br`, `zstd` or `none` for MVT, `none` for MLT |
 | `--min-zoom`    | `0`                                                               | Lowest zoom, raised by a source's `minzoom`                                                           |
 | `--max-zoom`    | `14`                                                              | Highest zoom, lowered by a source's `maxzoom`                                                         |
@@ -154,6 +155,10 @@ The tile server's [configuration and PostgreSQL arguments](run-with-cli.md) also
 for `.mbtiles` output only. Bulk mode refuses `--url-query`, `--on-duplicate`, `--concurrency` (its
 workers are `--threads`), `--save-config`, and `max_feature_count` in the config or as
 `--max-feature-count`. Tile mode refuses `--memory`, `--temp-dir`, `--threads` and `--mvt-quirk`.
+
+`--format mlt2` writes the same layers as `--format mlt` in the v2 wire format, and reads the v2-only
+`convert_to_mlt` keys `allow_delta2` and `allow_rans_vertices`, which `--format mlt` refuses.
+Unlike tile mode, it does not keep nested `jsonb` values or M ordinates yet.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
 Without `--bbox`, bulk mode picks the tiles touching the union of the `bounds` of every selected source

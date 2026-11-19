@@ -31,6 +31,7 @@ debuginfo
 deckgl
 dedup
 demotiles
+diffable
 dflt
 dpkg
 duckdb
@@ -135,6 +136,7 @@ postgis
 qgis
 quadtree
 queryless
+rans
 reproject
 reprojected
 reprojection

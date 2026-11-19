@@ -67,6 +67,14 @@ pub enum TileGenError {
     #[error(transparent)]
     Mlt(#[from] mlt_core::MltError),
 
+    #[error("layer {layer} of tile {coord:#}: {error}")]
+    LayerTile {
+        coord: TileCoord,
+        layer: String,
+        #[source]
+        error: Box<Self>,
+    },
+
     #[error(transparent)]
     Expr(#[from] crate::expr::ExprError),
 

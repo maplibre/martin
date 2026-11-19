@@ -12,8 +12,9 @@ use martin_tile_utils::TileRect;
 pub(crate) use crate::phase1::render::TILE_PIXELS;
 pub use crate::phase1::render::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError};
 use crate::phase1::render::{Renderer, SliceErrors};
-use crate::phase2::{LayerOpCounts, OpKind, TileEncoder};
+use crate::phase2::{LayerOpCounts, OpKind, Rounded, TileEncoder};
 use crate::plan::{Evaluator, ExprTallies, Plan};
+use crate::props::LayerKinds;
 use crate::sort::{Seq, SortBuffer, Sorter};
 use crate::source::{Crs, FeatureBatch, Geometry, WkbError};
 use crate::{LayerSliceErrors, OpSummary, Summary, TileGenError, TileGenResult, TileOrder};
@@ -107,14 +108,16 @@ impl<'a> RenderWorker<'a> {
     }
 
     /// Spills the rest of the buffer, and tells what this worker saw and could not render.
-    pub(crate) fn finish(self) -> TileGenResult<RenderTotals> {
+    pub(crate) fn finish(mut self) -> TileGenResult<RenderTotals> {
         self.buffer.finish()?;
         Ok(RenderTotals {
+            kinds: self.evaluator.take_kinds(),
             features: self.features,
             skipped: self.skipped,
             slice_errors: self.renderer.slice_errors,
             exprs: self.evaluator.finish(),
             ops: Vec::new(),
+            rounded: Vec::new(),
         })
     }
 }
@@ -129,6 +132,10 @@ pub(crate) struct RenderTotals {
     exprs: ExprTallies,
     /// What the per-tile operations did, by layer index.
     ops: Vec<LayerOpCounts>,
+    /// The kinds of the values each layer's keys took.
+    kinds: LayerKinds,
+    /// The integers float columns rounded, by layer index.
+    rounded: Vec<Rounded>,
 }
 
 impl RenderTotals {
@@ -145,6 +152,13 @@ impl RenderTotals {
         }
         self.exprs.merge(other.exprs);
         add_op_counts(&mut self.ops, &other.ops);
+        self.kinds.merge(other.kinds);
+        add_rounded(&mut self.rounded, &other.rounded);
+    }
+
+    /// The kinds of the values each layer's keys took.
+    pub(crate) fn kinds(&self) -> &LayerKinds {
+        &self.kinds
     }
 
     /// Adds what the encoders' per-tile operations did, and their failed evaluations.
@@ -152,6 +166,7 @@ impl RenderTotals {
         for encoder in encoders {
             self.exprs.add(encoder.expr_errors());
             add_op_counts(&mut self.ops, encoder.op_counts());
+            add_rounded(&mut self.rounded, encoder.rounded());
         }
     }
 
@@ -163,6 +178,8 @@ impl RenderTotals {
             tiles,
             slice_errors: layer_slice_errors(plan, &self.slice_errors),
             expr_errors: plan.expr_errors(&self.exprs),
+            mixed_kinds: plan.mixed_kinds(&self.kinds),
+            rounded: plan.rounded_values(&self.rounded),
             per_tile: op_summaries(plan, &self.ops),
         }
     }
@@ -196,6 +213,16 @@ fn add_op_counts(totals: &mut Vec<LayerOpCounts>, counts: &[LayerOpCounts]) {
     }
     for (total, counts) in totals.iter_mut().zip(counts) {
         total.add(counts);
+    }
+}
+
+/// Adds `rounded` to `totals`, both by layer index.
+fn add_rounded(totals: &mut Vec<Rounded>, rounded: &[Rounded]) {
+    if totals.len() < rounded.len() {
+        totals.resize_with(rounded.len(), Rounded::default);
+    }
+    for (total, layer) in totals.iter_mut().zip(rounded) {
+        total.merge(layer);
     }
 }
 
