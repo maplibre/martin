@@ -27,6 +27,11 @@ use rstest::rstest;
     include_bytes!("../fixtures/point.mlt"),
     TileInfo::new(Format::Mlt, Encoding::Internal)
 )]
+#[case::mlt_v2(&[0x01, 0x02], TileInfo::new(Format::Mlt, Encoding::Internal))]
+#[case::mlt_v2_whose_first_layer_is_1407_bytes(
+    &[[0xFF_u8, 0x0A, 0x02].as_slice(), &[0; 1406]].concat(),
+    TileInfo::new(Format::Mlt, Encoding::Internal)
+)]
 #[case::mlt_whose_first_layer_is_1407_bytes(
     &[[0xFF_u8, 0x0A, 0x01].as_slice(), &[0; 1406]].concat(),
     TileInfo::new(Format::Mlt, Encoding::Internal)
@@ -89,6 +94,15 @@ fn compressed_mlt_gzip() {
     let compressed = encode_gzip(mlt_data).unwrap();
     let result = TileInfo::detect(&compressed);
     assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Gzip));
+}
+
+#[test]
+fn compressed_mlt_v2_gzip() {
+    let compressed = encode_gzip(&[0x01, 0x02]).unwrap();
+    assert_eq!(
+        TileInfo::detect(&compressed),
+        TileInfo::new(Format::Mlt, Encoding::Gzip)
+    );
 }
 
 #[test]
