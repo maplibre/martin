@@ -75,7 +75,7 @@ impl TileColumns {
     }
 
     /// Fills `schema` with the final `(key, kind)` per column in column order; the index maps keys to
-    /// positions in it.
+    /// positions in it. A key whose kinds `names` tallied gets that kind in every tile.
     pub(crate) fn finish(&mut self, names: &KeyNames, schema: &mut Vec<(KeyId, PropKind)>) {
         self.columns.sort_by(|a, b| column_order(names, a.key, b.key));
         for (pos, column) in self.columns.iter().enumerate() {
@@ -83,8 +83,12 @@ impl TileColumns {
         }
         schema.clear();
         schema.extend(self.columns.iter().map(|c| {
-            let unsigned = c.kind == PropKind::I64 && !c.has_negative;
-            (c.key, if unsigned { PropKind::U64 } else { c.kind })
+            let (kind, has_negative) = match names.kind(c.key) {
+                Some(tallied) => (c.kind.merge(tallied.merged()), c.has_negative || tallied.has_negative),
+                None => (c.kind, c.has_negative),
+            };
+            let unsigned = kind == PropKind::I64 && !has_negative;
+            (c.key, if unsigned { PropKind::U64 } else { kind })
         }));
     }
 

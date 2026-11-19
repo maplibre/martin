@@ -441,6 +441,7 @@ async fn run<S: PlannedSource>(
     geometry_finders: Vec<(String, String)>,
 ) -> GenerateResult<()> {
     let generate_config = generate_config(&options);
+    let format = generate_config.format;
     let encoding = options.encoding;
     let output = options.output_file;
     let mut interrupt = Interrupt::register()?;
@@ -472,12 +473,12 @@ async fn run<S: PlannedSource>(
         mbtiles.file = %output.display(),
         "Generated tiles"
     );
-    log_summary(&summary);
+    log_summary(&summary, format);
     Ok(())
 }
 
 /// Logs what the run skipped, what failed, and what each per-tile operation did.
-fn log_summary(summary: &Summary) {
+fn log_summary(summary: &Summary, format: TileFormat) {
     if summary.skipped > 0 {
         debug!(
             features.skipped = summary.skipped,
@@ -500,6 +501,16 @@ fn log_summary(summary: &Summary) {
         warn!(
             "Layer `{}`: `{}` failed {} times and was taken as null",
             failed.layer, failed.expr, failed.errors
+        );
+    }
+    let stored_as = match format {
+        TileFormat::Mlt => "every tile stores them as text",
+        TileFormat::Mvt => "tiles that hold more than one of them store them as text",
+    };
+    for mixed in &summary.mixed_kinds {
+        warn!(
+            "Layer `{}`: `{}` has values of different types; {stored_as}",
+            mixed.layer, mixed.key
         );
     }
     for op in &summary.per_tile {
