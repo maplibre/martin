@@ -8,9 +8,9 @@ use std::path::PathBuf;
 use martin_core::tiles::contour::{
     ContourOptions, ElevationUnits, HeightGrid, IsolineOptions, ZoomIntervalMap, generate_contours, trace_contours,
 };
-use martin_core::tiles::neighbourhood::{DEFAULT_TILE_SIZE, NEIGHBOURHOOD_LEN, Neighbourhood};
-use martin_tile_utils::TileData;
-use mlt_core::fast_mvt::{MvtReaderRef, MvtValueRef};
+use martin_core::tiles::neighbourhood::{AncestorWindow, DEFAULT_TILE_SIZE, NEIGHBOURHOOD_LEN, Neighbourhood};
+use martin_tile_utils::{TileCoord, TileData};
+use mlt_core::fast_mvt::{MvtReaderRef, MvtValue, MvtValueRef};
 
 /// The fixture tile the golden was traced from.
 const ZOOM: u8 = 10;
@@ -46,8 +46,13 @@ fn fixture_neighbourhood() -> Neighbourhood {
 
 #[test]
 fn the_traced_tile_decodes_to_a_stable_structure() {
-    let traced = trace_contours(&fixture_neighbourhood(), ZOOM, &ContourOptions::default())
-        .expect("the fixture neighbourhood traces");
+    let traced = trace_contours(
+        &fixture_neighbourhood(),
+        ZOOM,
+        AncestorWindow::NATIVE,
+        &ContourOptions::default(),
+    )
+    .expect("the fixture neighbourhood traces");
 
     let tile = MvtReaderRef::new(&traced)
         .expect("the traced tile is valid MVT")
@@ -58,8 +63,13 @@ fn the_traced_tile_decodes_to_a_stable_structure() {
 
 #[test]
 fn the_traced_tile_carries_classified_contour_lines() {
-    let traced = trace_contours(&fixture_neighbourhood(), ZOOM, &ContourOptions::default())
-        .expect("the fixture neighbourhood traces");
+    let traced = trace_contours(
+        &fixture_neighbourhood(),
+        ZOOM,
+        AncestorWindow::NATIVE,
+        &ContourOptions::default(),
+    )
+    .expect("the fixture neighbourhood traces");
 
     let reader = MvtReaderRef::new(&traced).expect("the traced tile is valid MVT");
     let layer = reader
@@ -103,8 +113,13 @@ fn the_traced_tile_carries_classified_contour_lines() {
 
 #[test]
 fn the_filtered_threshold_is_absent_from_the_traced_tile() {
-    let traced = trace_contours(&fixture_neighbourhood(), ZOOM, &ContourOptions::default())
-        .expect("the fixture neighbourhood traces");
+    let traced = trace_contours(
+        &fixture_neighbourhood(),
+        ZOOM,
+        AncestorWindow::NATIVE,
+        &ContourOptions::default(),
+    )
+    .expect("the fixture neighbourhood traces");
 
     let reader = MvtReaderRef::new(&traced).expect("the traced tile is valid MVT");
     for layer in reader.layers() {
@@ -257,8 +272,13 @@ fn edge_hugging_segments(traced: &[u8]) -> Vec<(geo_types::Coord<i32>, geo_types
 
 #[test]
 fn an_oversized_source_traces_no_contours_along_the_tile_edges() {
-    let traced = trace_contours(&oversized_ramp_neighbourhood(), ZOOM, &ContourOptions::default())
-        .expect("the ramp neighbourhood traces");
+    let traced = trace_contours(
+        &oversized_ramp_neighbourhood(),
+        ZOOM,
+        AncestorWindow::NATIVE,
+        &ContourOptions::default(),
+    )
+    .expect("the ramp neighbourhood traces");
 
     let segments = edge_hugging_segments(&traced);
     assert!(
@@ -271,8 +291,13 @@ fn an_oversized_source_traces_no_contours_along_the_tile_edges() {
 
 #[test]
 fn an_oversized_source_traces_its_whole_tile() {
-    let traced = trace_contours(&oversized_ramp_neighbourhood(), ZOOM, &ContourOptions::default())
-        .expect("the ramp neighbourhood traces");
+    let traced = trace_contours(
+        &oversized_ramp_neighbourhood(),
+        ZOOM,
+        AncestorWindow::NATIVE,
+        &ContourOptions::default(),
+    )
+    .expect("the ramp neighbourhood traces");
 
     let centre_low = whole_meters(ramp_meters(OVERSIZED_TILE, OVERSIZED_TILE));
     let centre_high = whole_meters(ramp_meters(2 * OVERSIZED_TILE, 2 * OVERSIZED_TILE));
@@ -303,4 +328,91 @@ fn an_oversized_source_traces_its_whole_tile() {
         highest >= centre_high - apron,
         "traced up to {highest} m, short of the centre tile's ceiling of {centre_high} m"
     );
+}
+
+fn lines_by_elevation(traced: &TileData) -> Vec<(i64, Vec<(f64, f64)>)> {
+    let tile = MvtReaderRef::new(traced)
+        .expect("the traced tile is valid MVT")
+        .to_tile()
+        .expect("the traced tile decodes");
+    let mut lines = Vec::new();
+    for layer in tile.layers {
+        for feature in layer.features {
+            let geo_types::Geometry::LineString(line) = feature.geometry else {
+                continue;
+            };
+            let elevation = feature
+                .properties
+                .iter()
+                .find_map(|(key, value)| match (key.as_str(), value) {
+                    ("ele", MvtValue::SInt(v)) => Some(*v),
+                    ("ele", MvtValue::UInt(v)) => i64::try_from(*v).ok(),
+                    _ => None,
+                })
+                .expect("every line carries an elevation");
+            let points = line.0.iter().map(|c| (f64::from(c.x), f64::from(c.y))).collect();
+            lines.push((elevation, points));
+        }
+    }
+    lines
+}
+
+fn distance_to_segment((px, py): (f64, f64), (ax, ay): (f64, f64), (bx, by): (f64, f64)) -> f64 {
+    let (dx, dy) = (bx - ax, by - ay);
+    let length_squared = dx.mul_add(dx, dy * dy);
+    let t = if length_squared == 0.0 {
+        0.0
+    } else {
+        ((px - ax).mul_add(dx, (py - ay) * dy) / length_squared).clamp(0.0, 1.0)
+    };
+    (px - t.mul_add(dx, ax)).hypot(py - t.mul_add(dy, ay))
+}
+
+#[test]
+fn each_child_traced_from_its_parent_stays_within_a_parent_pixel_of_its_contours() {
+    let unsimplified = ContourOptions {
+        simplification_tolerance: 0.0,
+        min_feature_length: 0.0,
+        ..ContourOptions::default()
+    };
+    let parent = trace_contours(&fixture_neighbourhood(), ZOOM, AncestorWindow::NATIVE, &unsimplified)
+        .expect("the fixture neighbourhood traces");
+    let parent_lines = lines_by_elevation(&parent);
+    let extent = 4096.0;
+    let parent_pixel = extent / 256.0;
+
+    let centre_x = u32::try_from(CENTRE_X).unwrap();
+    let centre_y = u32::try_from(CENTRE_Y).unwrap();
+    for (column, row) in [(0u32, 0u32), (1, 0), (0, 1), (1, 1)] {
+        let child = TileCoord::new_unchecked(ZOOM + 1, 2 * centre_x + column, 2 * centre_y + row);
+        let (ancestor, window) = AncestorWindow::above(child, 1);
+        assert_eq!(ancestor, TileCoord::new_unchecked(ZOOM, centre_x, centre_y));
+
+        let traced = trace_contours(&fixture_neighbourhood(), ZOOM + 1, window, &ContourOptions::default())
+            .expect("a child window traces");
+        let child_lines = lines_by_elevation(&traced);
+        assert!(!child_lines.is_empty(), "child {column},{row} traced nothing");
+
+        let mut worst = 0.0_f64;
+        for (elevation, points) in &child_lines {
+            for &(x, y) in points {
+                let in_parent = (
+                    f64::midpoint(x, f64::from(column) * extent),
+                    f64::midpoint(y, f64::from(row) * extent),
+                );
+                let nearest = parent_lines
+                    .iter()
+                    .filter(|(e, _)| e == elevation)
+                    .flat_map(|(_, line)| line.windows(2))
+                    .map(|pair| distance_to_segment(in_parent, pair[0], pair[1]))
+                    .fold(f64::INFINITY, f64::min);
+                worst = worst.max(nearest);
+            }
+        }
+        assert!(
+            worst <= parent_pixel,
+            "child {column},{row} strays {:.1} parent pixels from the parent's contours",
+            worst / parent_pixel
+        );
+    }
 }

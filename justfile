@@ -230,11 +230,11 @@ bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta'
     cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     {{insta_test}} --package martin-e2e-tests --features test-duckdb --test duckdb
 
-# Bless the style rendering tests end-to-end
+# Bless the style rendering and OGC API - Maps tests end-to-end
 [linux]
 bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    cargo build --package martin --no-default-features --features rendering
-    {{insta_test}} --package martin-e2e-tests --features test-rendering --test rendering
+    cargo build --package martin --no-default-features --features ogcapi,cog,mbtiles,pmtiles,rendering
+    {{insta_test}} --package martin-e2e-tests --features test-rendering,test-ogc-maps --test rendering --test ogc_maps
 
 # Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -914,6 +914,8 @@ update: fetch
     cargo +nightly -Z unstable-options update --breaking
     # static-files is a direct dep, so reset its manifest cap after --breaking (synced with deny.toml)
     sed 's/^static-files = .*/static-files = "0.2"/' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+    # cel 0.16 changes NaN ordering, which `where` filters and their SQL pushdown depend on (synced with deny.toml)
+    sed 's/^cel = { version = "[^"]*"/cel = { version = "0.15"/' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
     {{just}} update-lockfile
 
 # Update Cargo.lock to the latest compatible versions, keeping the crates banned in deny.toml pinned

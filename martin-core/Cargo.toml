@@ -91,7 +91,6 @@ rendering = [
     "resources",
     "overlay",
     "dep:maplibre-native-ffi",
-    "dep:flume",
     "dep:image",
     "dep:serde_json",
 ]
@@ -144,7 +143,6 @@ dashmap = { workspace = true, optional = true }
 deadpool = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 duckdb = { workspace = true, optional = true }
-flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 geo = { workspace = true, optional = true }
 geo-index = { workspace = true, optional = true }

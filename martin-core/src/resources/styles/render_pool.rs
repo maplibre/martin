@@ -1,13 +1,16 @@
+use std::collections::VecDeque;
 use std::f64::consts::PI;
+use std::hash::{Hash, Hasher as _};
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 use image::RgbaImage as Image;
 use maplibre_native_ffi::{CameraOptions, LatLng, MapMode};
-use tokio::sync::oneshot;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, oneshot};
 use tracing::{error, info};
 
 use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
@@ -15,7 +18,7 @@ use crate::resources::styles::renderer::{Renderer, Runtime, WorkerDevice};
 use crate::resources::styles::{StyleError, TileSize};
 
 /// A style to render: a file, or a style document already in memory.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum RenderStyle {
     /// A style JSON file.
     Path(PathBuf),
@@ -141,7 +144,8 @@ impl RenderPools {
     /// See [`RenderPool::new`].
     ///
     /// Each tile worker keeps up to `renderers_per_worker` renderers loaded, one per style
-    /// and tile geometry.
+    /// and tile geometry, and each static worker up to `static_renderers_per_worker`, one per
+    /// style and pixel ratio.
     ///
     /// `ambient_cache_bytes` caps `MapLibre`'s cache of the resources renderers fetch
     /// over the network, shared by both pools; `Some(0)` disables it and `None` keeps `MapLibre`'s default.
@@ -155,6 +159,7 @@ impl RenderPools {
         workers: Option<NonZeroUsize>,
         tile_size: TileSize,
         renderers_per_worker: NonZeroUsize,
+        static_renderers_per_worker: NonZeroUsize,
         ambient_cache_bytes: Option<u64>,
     ) -> Result<Self, StyleError> {
         let runtime = Arc::new(Runtime::new(ambient_cache_bytes)?);
@@ -164,7 +169,9 @@ impl RenderPools {
                 TileWorker::new(Arc::clone(&tile_runtime), renderers_per_worker)
             })?,
             tile_size,
-            free: RenderPool::new(workers, move || StaticWorker::new(Arc::clone(&runtime)))?,
+            free: RenderPool::new(workers, move || {
+                StaticWorker::new(Arc::clone(&runtime), static_renderers_per_worker)
+            })?,
         })
     }
 
@@ -216,9 +223,11 @@ impl RenderPools {
 
 /// A pool of worker threads that each own one [`Worker`].
 ///
-/// Requests are dispatched over a bounded channel to whichever worker is free.
-/// `Arc`-shared so the pool stays [`Clone`]; the last clone's `Drop` joins the
-/// worker threads.
+/// Requests wait in one shared queue. A free worker takes the oldest request whose renderer it
+/// already holds; it takes the oldest request of all once that one has waited about as long as
+/// switching renderers costs, or right away when it holds nothing a queued request needs
+/// (delay scheduling). `Arc`-shared so the pool stays [`Clone`]; the last clone's `Drop` joins
+/// the worker threads.
 struct RenderPool<W: Worker> {
     inner: Arc<Inner<W::Request>>,
 }
@@ -239,25 +248,82 @@ impl<W: Worker> std::fmt::Debug for RenderPool<W> {
     }
 }
 
+/// A queued request with what the scheduler needs to place it.
+struct Job<R> {
+    /// What to render.
+    request: R,
+    /// The renderer key of the request, if it has one.
+    key: Option<u64>,
+    /// When the request joined the queue.
+    queued: Instant,
+    /// Where the rendered image goes.
+    response: oneshot::Sender<Result<Image, StyleError>>,
+    /// Released once a worker takes the job, which bounds the queue.
+    _slot: OwnedSemaphorePermit,
+}
+
+/// The queue the workers take from.
+struct Queue<R> {
+    /// Waiting requests, oldest first.
+    jobs: VecDeque<Job<R>>,
+    /// Set once the pool is dropped, which stops the workers.
+    shutdown: bool,
+}
+
+/// Moving averages of render times with and without the renderer already loaded.
+#[derive(Debug, Clone, Copy)]
+struct SwitchCost {
+    /// Average render time in ms when the worker already held the renderer.
+    hit_ms: f64,
+    /// Average render time in ms when the worker had to load or build it first.
+    miss_ms: f64,
+}
+
+impl SwitchCost {
+    /// Folds one render of `took` into the average of hits or misses.
+    fn record(&mut self, hit: bool, took: Duration) {
+        let avg = if hit { &mut self.hit_ms } else { &mut self.miss_ms };
+        *avg += (took.as_secs_f64() * 1000.0 - *avg) * 0.1;
+    }
+
+    /// How long the oldest request may wait for a worker that holds its renderer.
+    fn delay(self) -> Duration {
+        Duration::from_secs_f64((self.miss_ms - self.hit_ms).clamp(5.0, 500.0) / 1000.0)
+    }
+}
+
+/// State the pool and its workers share.
+struct Shared<R> {
+    /// Requests waiting for a worker.
+    queue: Mutex<Queue<R>>,
+    /// Woken on every arrival, completion and shutdown.
+    ready: Condvar,
+    /// Room left in the queue, [`WORKER_QUEUE_DEPTH`] per worker.
+    slots: Arc<Semaphore>,
+    /// Measured cost of switching renderers.
+    switch: Mutex<SwitchCost>,
+}
+
+/// The shared state plus the worker threads, joined on drop.
 struct Inner<R> {
-    requests: flume::Sender<Msg<R>>,
+    /// State shared with the worker threads.
+    shared: Arc<Shared<R>>,
+    /// The worker threads.
     workers: Vec<JoinHandle<()>>,
 }
 
 impl<R> Drop for Inner<R> {
     fn drop(&mut self) {
-        for _ in 0..self.workers.len() {
-            let _ = self.requests.send(Msg::Shutdown);
-        }
+        self.shared
+            .queue
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .shutdown = true;
+        self.shared.ready.notify_all();
         for handle in self.workers.drain(..) {
             let _ = handle.join();
         }
     }
-}
-
-enum Msg<R> {
-    Render(R, oneshot::Sender<Result<Image, StyleError>>),
-    Shutdown,
 }
 
 /// Per-worker queue depth.
@@ -265,6 +331,12 @@ enum Msg<R> {
 ///
 /// Sized so that we have 2-4s of work remaining, depending on hardware.
 const WORKER_QUEUE_DEPTH: usize = 512;
+
+/// How many of the oldest queued requests a free worker looks through for one it holds.
+const LOOKAHEAD: usize = 64;
+
+/// The oldest request goes to the next free worker once it has waited this long, held or not.
+const STARVATION_CAP: Duration = Duration::from_secs(1);
 
 impl<W: Worker> RenderPool<W> {
     /// Spawn a pool with `workers` threads.
@@ -278,18 +350,29 @@ impl<W: Worker> RenderPool<W> {
         F: Fn() -> Result<W, StyleError> + Clone + Send + 'static,
     {
         let workers = workers.unwrap_or_else(default_worker_count);
-        let (requests, rx) = flume::bounded::<Msg<W::Request>>(workers.get() * WORKER_QUEUE_DEPTH);
+        let shared = Arc::new(Shared {
+            queue: Mutex::new(Queue {
+                jobs: VecDeque::new(),
+                shutdown: false,
+            }),
+            ready: Condvar::new(),
+            slots: Arc::new(Semaphore::new(workers.get() * WORKER_QUEUE_DEPTH)),
+            switch: Mutex::new(SwitchCost {
+                hit_ms: 0.0,
+                miss_ms: 50.0,
+            }),
+        });
         let mut inner = Inner {
-            requests,
+            shared: Arc::clone(&shared),
             workers: Vec::with_capacity(workers.get()),
         };
         for i in 0..workers.get() {
             let worker = new_worker()?;
-            let rx = rx.clone();
+            let shared = Arc::clone(&shared);
             let new_worker = new_worker.clone();
             let handle = thread::Builder::new()
                 .name(format!("render-{}-{i}", W::NAME))
-                .spawn(move || worker_loop(worker, &rx, &new_worker))?;
+                .spawn(move || worker_loop(worker, &shared, &new_worker))?;
             inner.workers.push(handle);
         }
 
@@ -298,16 +381,29 @@ impl<W: Worker> RenderPool<W> {
         Ok(Self { inner: Arc::new(inner) })
     }
 
-    /// Dispatch a request to a worker and await its rendered image.
+    /// Queue a request and await its rendered image.
     async fn render(&self, request: W::Request) -> Result<Image, StyleError> {
         let (response_tx, response_rx) = oneshot::channel();
-
-        // Bounded channel: async send awaits when full instead of blocking the runtime.
-        self.inner
-            .requests
-            .send_async(Msg::Render(request, response_tx))
+        let shared = &self.inner.shared;
+        let slot = Arc::clone(&shared.slots)
+            .acquire_owned()
             .await
             .map_err(|_err| StyleError::FailedToSendRequest)?;
+        let key = W::key(&request);
+        {
+            let mut queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
+            if queue.shutdown {
+                return Err(StyleError::FailedToSendRequest);
+            }
+            queue.jobs.push_back(Job {
+                request,
+                key,
+                queued: Instant::now(),
+                response: response_tx,
+                _slot: slot,
+            });
+        }
+        shared.ready.notify_all();
 
         response_rx.await.map_err(|_err| StyleError::FailedToReceiveResponse)?
     }
@@ -319,48 +415,86 @@ fn default_worker_count() -> NonZeroUsize {
     thread::available_parallelism().unwrap_or(MIN).clamp(MIN, MAX)
 }
 
-fn worker_loop<W: Worker>(
-    worker: W,
-    rx: &flume::Receiver<Msg<W::Request>>,
-    new_worker: &dyn Fn() -> Result<W, StyleError>,
-) {
+/// Blocks until there is a job for `worker` to take, or `None` once the pool shuts down.
+fn take<W: Worker>(shared: &Shared<W::Request>, worker: Option<&W>) -> Option<Job<W::Request>> {
+    let is_held = |key: Option<u64>| key.is_some_and(|key| worker.is_some_and(|w| w.holds(key)));
+    let mut queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
+    loop {
+        if queue.shutdown {
+            return None;
+        }
+        let head = queue.jobs.front().map(|job| (job.queued.elapsed(), job.key));
+        let Some((age, head_key)) = head else {
+            queue = shared.ready.wait(queue).unwrap_or_else(PoisonError::into_inner);
+            continue;
+        };
+        if age >= STARVATION_CAP {
+            return queue.jobs.pop_front();
+        }
+        if let Some(i) = queue.jobs.iter().take(LOOKAHEAD).position(|job| is_held(job.key)) {
+            return queue.jobs.remove(i);
+        }
+        let delay = shared.switch.lock().unwrap_or_else(PoisonError::into_inner).delay();
+        let has_renderer = worker.is_some_and(Worker::holds_any);
+        if age >= delay || !has_renderer || head_key.is_none() {
+            return queue.jobs.pop_front();
+        }
+        queue = shared
+            .ready
+            .wait_timeout(queue, delay.saturating_sub(age))
+            .unwrap_or_else(PoisonError::into_inner)
+            .0;
+    }
+}
+
+/// Renders the jobs [`take`] hands out until the pool shuts down, recording hit and miss times.
+fn worker_loop<W: Worker>(worker: W, shared: &Shared<W::Request>, new_worker: &dyn Fn() -> Result<W, StyleError>) {
     // Empty after a panic, until the next request builds a new worker.
     let mut worker = Some(worker);
-    while let Ok(msg) = rx.recv() {
-        match msg {
-            Msg::Render(request, response) => {
-                let mut built = match worker.take().map_or_else(new_worker, Ok) {
-                    Ok(built) => built,
-                    Err(err) => {
-                        let _ = response.send(Err(err));
-                        continue;
-                    }
-                };
-                // A panic would take the thread with it and the pool never spawns another.
-                // The worker is dropped afterwards, which is what makes the unwind safe to catch.
-                let result = match panic::catch_unwind(AssertUnwindSafe(|| built.render(request))) {
-                    Ok(result) => {
-                        worker = Some(built);
-                        result
-                    }
-                    Err(payload) => {
-                        let message = payload
-                            .downcast_ref::<&str>()
-                            .copied()
-                            .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
-                            .unwrap_or("non-string panic payload");
-                        error!(
-                            kind = W::NAME,
-                            panic = message,
-                            "Render worker panicked, replacing it for the next request"
-                        );
-                        Err(StyleError::RenderingPanicked)
-                    }
-                };
-                let _ = response.send(result);
+    while let Some(job) = take(shared, worker.as_ref()) {
+        let Job {
+            request, key, response, ..
+        } = job;
+        let hit = key.is_some_and(|key| worker.as_ref().is_some_and(|w| w.holds(key)));
+        let mut built = match worker.take().map_or_else(new_worker, Ok) {
+            Ok(built) => built,
+            Err(err) => {
+                let _ = response.send(Err(err));
+                continue;
             }
-            Msg::Shutdown => break,
+        };
+        let started = Instant::now();
+        // A panic would take the thread with it and the pool never spawns another.
+        // The worker is dropped afterwards, which is what makes the unwind safe to catch.
+        let result = match panic::catch_unwind(AssertUnwindSafe(|| built.render(request))) {
+            Ok(result) => {
+                worker = Some(built);
+                result
+            }
+            Err(payload) => {
+                let message = payload
+                    .downcast_ref::<&str>()
+                    .copied()
+                    .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+                    .unwrap_or("non-string panic payload");
+                error!(
+                    kind = W::NAME,
+                    panic = message,
+                    "Render worker panicked, replacing it for the next request"
+                );
+                Err(StyleError::RenderingPanicked)
+            }
+        };
+        if key.is_some() && result.is_ok() {
+            shared
+                .switch
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .record(hit, started.elapsed());
         }
+        let _ = response.send(result);
+        // A worker that just loaded a renderer may now hold what another waiting request needs.
+        shared.ready.notify_all();
     }
 }
 
@@ -377,6 +511,28 @@ trait Worker: Send + 'static {
 
     /// Render one request to an image.
     fn render(&mut self, request: Self::Request) -> Result<Image, StyleError>;
+
+    /// The renderer `request` needs, hashed, or `None` when any worker serves it alike.
+    fn key(_request: &Self::Request) -> Option<u64> {
+        None
+    }
+
+    /// Whether this worker holds the renderer `key` names.
+    fn holds(&self, _key: u64) -> bool {
+        false
+    }
+
+    /// Whether this worker holds any renderer at all.
+    fn holds_any(&self) -> bool {
+        false
+    }
+}
+
+/// Hashes the renderer key `key`.
+fn key_hash(key: impl Hash) -> u64 {
+    let mut hasher = std::hash::DefaultHasher::new();
+    key.hash(&mut hasher);
+    hasher.finish()
 }
 
 /// A slippy-tile render request.
@@ -390,7 +546,7 @@ struct TileRequest {
 }
 
 /// The output a tile renderer is built for. Each geometry needs its own renderer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Geometry {
     Tile(TileSize, NonZeroU8),
     /// `MapLibre` cannot zoom out below 0, so the 256 px world tile is the
@@ -450,6 +606,8 @@ pub const DEFAULT_RENDERERS_PER_WORKER: NonZeroUsize = NonZeroUsize::new(8).expe
 struct TileSlot {
     style: RenderStyle,
     geometry: Geometry,
+    /// [`Worker::key`] of `style` and `geometry`, hashed once when the slot is loaded.
+    key: u64,
     renderer: Renderer,
 }
 
@@ -491,6 +649,7 @@ impl TileWorker {
                 TileSlot {
                     style: style.clone(),
                     geometry,
+                    key: key_hash((style, geometry)),
                     renderer,
                 },
             );
@@ -502,6 +661,18 @@ impl TileWorker {
 impl Worker for TileWorker {
     const NAME: &'static str = "tile";
     type Request = TileRequest;
+
+    fn key(req: &TileRequest) -> Option<u64> {
+        Some(key_hash((&req.style, Geometry::of(req))))
+    }
+
+    fn holds(&self, key: u64) -> bool {
+        self.slots.iter().any(|s| s.key == key)
+    }
+
+    fn holds_any(&self) -> bool {
+        !self.slots.is_empty()
+    }
 
     fn render(&mut self, req: TileRequest) -> Result<Image, StyleError> {
         let geometry = Geometry::of(&req);
@@ -516,19 +687,54 @@ impl Worker for TileWorker {
     }
 }
 
-/// Worker that renders free-camera images via a static-mode map.
+/// How many renderers a static worker keeps loaded when none is configured.
+pub const DEFAULT_STATIC_RENDERERS_PER_WORKER: NonZeroUsize = NonZeroUsize::new(2).expect("2 != 0");
+
+/// Worker that renders free-camera images via static-mode maps.
+///
+/// Keeps up to `capacity` renderers, most recently used first, each at one pixel ratio with one
+/// style loaded; resized when only the size changes.
 struct StaticWorker {
     device: WorkerDevice,
-    /// Rebuilt whenever the requested pixel ratio changes, and resized when only the size does.
-    current: Option<StaticRenderer>,
+    capacity: NonZeroUsize,
+    slots: Vec<StaticRenderer>,
 }
 
 impl StaticWorker {
-    fn new(runtime: Arc<Runtime>) -> Result<Self, StyleError> {
+    fn new(runtime: Arc<Runtime>, capacity: NonZeroUsize) -> Result<Self, StyleError> {
         Ok(Self {
             device: WorkerDevice::new(runtime)?,
-            current: None,
+            capacity,
+            slots: Vec::new(),
         })
+    }
+
+    /// Moves a renderer for `params` to the front: one with its style and pixel ratio, else a new
+    /// one while there is room, else the least recently used one if its pixel ratio fits, else a new
+    /// one in its place.
+    fn slot(&mut self, params: &RenderParams, width: u32, height: u32) -> Result<&mut StaticRenderer, StyleError> {
+        let held = self
+            .slots
+            .iter()
+            .position(|r| r.pixel_ratio == params.pixel_ratio && r.loaded_style.as_ref() == Some(&params.style));
+        match held {
+            Some(i) => self.slots[..=i].rotate_right(1),
+            None if self.slots.len() < self.capacity.get() => {
+                let renderer = StaticRenderer::new(&self.device, width, height, params.pixel_ratio)?;
+                self.slots.insert(0, renderer);
+            }
+            None => {
+                let last = self.slots.len() - 1;
+                if self.slots[last].pixel_ratio != params.pixel_ratio {
+                    // A failed build leaves no renderer rather than one of the wrong pixel ratio.
+                    self.slots.pop();
+                    let renderer = StaticRenderer::new(&self.device, width, height, params.pixel_ratio)?;
+                    self.slots.push(renderer);
+                }
+                self.slots.rotate_right(1);
+            }
+        }
+        Ok(&mut self.slots[0])
     }
 }
 
@@ -536,20 +742,25 @@ impl Worker for StaticWorker {
     const NAME: &'static str = "static";
     type Request = RenderParams;
 
+    fn key(params: &RenderParams) -> Option<u64> {
+        Some(key_hash((&params.style, params.pixel_ratio)))
+    }
+
+    fn holds(&self, key: u64) -> bool {
+        self.slots.iter().any(|r| r.loaded_key == Some(key))
+    }
+
+    fn holds_any(&self) -> bool {
+        !self.slots.is_empty()
+    }
+
     fn render(&mut self, params: RenderParams) -> Result<Image, StyleError> {
         let width = params.width.max(1);
         let height = params.height.max(1);
-        let renderer = match &mut self.current {
-            Some(current) if current.pixel_ratio == params.pixel_ratio => current,
-            current => {
-                // A failed build leaves no renderer rather than one of the wrong pixel ratio.
-                *current = None;
-                current.insert(StaticRenderer::new(&self.device, width, height, params.pixel_ratio)?)
-            }
-        };
+        let renderer = self.slot(&params, width, height)?;
         let result = renderer.resize(width, height).and_then(|()| renderer.render(&params));
         if matches!(&result, Err(StyleError::RenderingError(_) | StyleError::Timeout { .. })) {
-            self.current = None;
+            self.slots.remove(0);
         }
         result
     }
@@ -615,6 +826,8 @@ struct StaticRenderer {
     height: u32,
     pixel_ratio: NonZeroU8,
     loaded_style: Option<RenderStyle>,
+    /// [`Worker::key`] of `loaded_style` at this pixel ratio, hashed once per style load.
+    loaded_key: Option<u64>,
 }
 
 impl StaticRenderer {
@@ -625,6 +838,7 @@ impl StaticRenderer {
             height,
             pixel_ratio,
             loaded_style: None,
+            loaded_key: None,
         })
     }
 
@@ -638,7 +852,11 @@ impl StaticRenderer {
     }
 
     fn render(&mut self, params: &RenderParams) -> Result<Image, StyleError> {
-        load_style_cached(&mut self.renderer, &mut self.loaded_style, &params.style)?;
+        if self.loaded_style.as_ref() != Some(&params.style) {
+            self.loaded_key = None;
+            load_style_cached(&mut self.renderer, &mut self.loaded_style, &params.style)?;
+            self.loaded_key = Some(key_hash((&params.style, self.pixel_ratio)));
+        }
         let camera = CameraOptions {
             center: Some(LatLng::new(params.lat, params.lon)),
             zoom: Some(params.zoom),
@@ -657,8 +875,8 @@ impl StaticRenderer {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, mpsc};
 
     use rstest::rstest;
 
@@ -765,8 +983,10 @@ mod tests {
     async fn static_worker_renders_each_pixel_ratio_at_its_own_size() {
         let style_file = write_style();
         let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
-        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
-            .expect("spawn render pool");
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            StaticWorker::new(Arc::clone(&runtime), DEFAULT_STATIC_RENDERERS_PER_WORKER)
+        })
+        .expect("spawn render pool");
 
         for (ratio, px) in [(1, 100), (1, 100), (2, 200), (1, 100)] {
             let pixel_ratio = NonZeroU8::new(ratio).expect("non-zero");
@@ -803,12 +1023,57 @@ mod tests {
 
         let mut worker = TileWorker::new(Arc::clone(&runtime), DEFAULT_RENDERERS_PER_WORKER).expect("start worker");
         for (&(pixel_ratio, z), alone) in requests.iter().zip(&alone) {
+            let key = TileWorker::key(&request(pixel_ratio, z)).expect("tile requests have a key");
             let image = worker.render(request(pixel_ratio, z)).expect("render in turn");
             assert!(
                 image == *alone,
                 "@{pixel_ratio}x {z}/0/0 differs from its renderer alone"
             );
+            assert!(
+                worker.holds(key),
+                "@{pixel_ratio}x {z}/0/0 is not held after its render"
+            );
         }
+    }
+
+    #[rstest]
+    #[case::one_renderer(1)]
+    #[case::two_renderers(2)]
+    fn static_renderers_taking_turns_render_as_they_do_alone(#[case] capacity: usize) {
+        let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
+        let capacity = NonZeroUsize::new(capacity).expect("non-zero");
+        let red = RenderStyle::Json(POLY_STYLE.into());
+        let blue = RenderStyle::Json(POLY_STYLE.replace("#ff0000", "#0000ff").into());
+        let params = |style: &RenderStyle, pixel_ratio| {
+            RenderParams::new(style.clone(), 0.0, 0.0, 2.0).with_size(
+                64,
+                64,
+                NonZeroU8::new(pixel_ratio).expect("non-zero"),
+            )
+        };
+        let requests = [(&red, 1), (&red, 2), (&blue, 1), (&blue, 2), (&red, 1), (&blue, 1)];
+        let alone: Vec<_> = requests
+            .iter()
+            .map(|&(style, pixel_ratio)| {
+                let mut worker = StaticWorker::new(Arc::clone(&runtime), capacity).expect("start worker");
+                worker.render(params(style, pixel_ratio)).expect("render alone")
+            })
+            .collect();
+
+        let mut worker = StaticWorker::new(Arc::clone(&runtime), capacity).expect("start worker");
+        for (i, (&(style, pixel_ratio), alone)) in requests.iter().zip(&alone).enumerate() {
+            let key = StaticWorker::key(&params(style, pixel_ratio)).expect("static requests have a key");
+            let image = worker.render(params(style, pixel_ratio)).expect("render in turn");
+            assert!(
+                image == *alone,
+                "request {i} @{pixel_ratio}x differs from its renderer alone"
+            );
+            assert!(
+                worker.holds(key),
+                "request {i} @{pixel_ratio}x is not held after its render"
+            );
+        }
+        assert_ne!(alone[0], alone[2], "the two styles render alike");
     }
 
     #[rstest]
@@ -917,8 +1182,10 @@ mod tests {
     async fn static_worker_renders_each_size_at_its_own_size() {
         let style_file = write_style();
         let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
-        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
-            .expect("spawn render pool");
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            StaticWorker::new(Arc::clone(&runtime), DEFAULT_STATIC_RENDERERS_PER_WORKER)
+        })
+        .expect("spawn render pool");
 
         for (width, height) in [(100, 100), (300, 50), (100, 100), (64, 640)] {
             let params = RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 0.0).with_size(
@@ -937,8 +1204,10 @@ mod tests {
     async fn a_static_render_below_zoom_0_renders_as_zoom_0() {
         let style_file = write_style();
         let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
-        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
-            .expect("spawn render pool");
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            StaticWorker::new(Arc::clone(&runtime), DEFAULT_STATIC_RENDERERS_PER_WORKER)
+        })
+        .expect("spawn render pool");
 
         let at_zoom_0 = pool
             .render(
@@ -1033,12 +1302,245 @@ mod tests {
         assert!(matches!(rebuilt, Err(StyleError::RenderingIsDisabled)), "{rebuilt:?}");
     }
 
+    struct KeyedWorker {
+        held: Option<u64>,
+        log: Arc<Mutex<Vec<&'static str>>>,
+    }
+
+    struct KeyedRequest {
+        key: u64,
+        name: &'static str,
+        release: Option<mpsc::Receiver<()>>,
+    }
+
+    impl Worker for KeyedWorker {
+        const NAME: &'static str = "keyed";
+        type Request = KeyedRequest;
+
+        fn render(&mut self, request: KeyedRequest) -> Result<Image, StyleError> {
+            if let Some(release) = request.release {
+                let _ = release.recv();
+            }
+            self.log.lock().expect("log").push(request.name);
+            self.held = Some(request.key);
+            Ok(Image::new(1, 1))
+        }
+
+        fn key(request: &KeyedRequest) -> Option<u64> {
+            Some(request.key)
+        }
+
+        fn holds(&self, key: u64) -> bool {
+            self.held == Some(key)
+        }
+
+        fn holds_any(&self) -> bool {
+            self.held.is_some()
+        }
+    }
+
+    #[tokio::test]
+    async fn a_worker_takes_the_requests_for_the_renderer_it_holds_first() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let worker_log = Arc::clone(&log);
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            Ok(KeyedWorker {
+                held: None,
+                log: Arc::clone(&worker_log),
+            })
+        })
+        .expect("spawn render pool");
+        let (release, released) = mpsc::channel();
+        let requests = [
+            KeyedRequest {
+                key: 1,
+                name: "a0",
+                release: Some(released),
+            },
+            KeyedRequest {
+                key: 2,
+                name: "b1",
+                release: None,
+            },
+            KeyedRequest {
+                key: 1,
+                name: "a1",
+                release: None,
+            },
+            KeyedRequest {
+                key: 2,
+                name: "b2",
+                release: None,
+            },
+            KeyedRequest {
+                key: 1,
+                name: "a2",
+                release: None,
+            },
+        ];
+
+        let mut renders = Vec::new();
+        for request in requests {
+            let mut render = Box::pin(pool.render(request));
+            assert!(futures::poll!(render.as_mut()).is_pending());
+            renders.push(render);
+        }
+        release.send(()).expect("release a0");
+        for result in futures::future::join_all(renders).await {
+            result.expect("render");
+        }
+
+        assert_eq!(*log.lock().expect("log"), ["a0", "a1", "a2", "b1", "b2"]);
+    }
+
+    #[tokio::test]
+    async fn a_request_that_waited_a_second_goes_before_the_renderer_the_worker_holds() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let worker_log = Arc::clone(&log);
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            Ok(KeyedWorker {
+                held: None,
+                log: Arc::clone(&worker_log),
+            })
+        })
+        .expect("spawn render pool");
+        let (release, released) = mpsc::channel();
+        let requests = [
+            KeyedRequest {
+                key: 1,
+                name: "a0",
+                release: Some(released),
+            },
+            KeyedRequest {
+                key: 2,
+                name: "b1",
+                release: None,
+            },
+            KeyedRequest {
+                key: 1,
+                name: "a1",
+                release: None,
+            },
+        ];
+
+        let mut renders = Vec::new();
+        for request in requests {
+            let mut render = Box::pin(pool.render(request));
+            assert!(futures::poll!(render.as_mut()).is_pending());
+            renders.push(render);
+        }
+        tokio::time::sleep(STARVATION_CAP + Duration::from_millis(100)).await;
+        release.send(()).expect("release a0");
+        for result in futures::future::join_all(renders).await {
+            result.expect("render");
+        }
+
+        assert_eq!(*log.lock().expect("log"), ["a0", "b1", "a1"]);
+    }
+
+    #[tokio::test]
+    async fn requests_for_one_renderer_are_taken_in_order() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let worker_log = Arc::clone(&log);
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            Ok(KeyedWorker {
+                held: None,
+                log: Arc::clone(&worker_log),
+            })
+        })
+        .expect("spawn render pool");
+        let (release, released) = mpsc::channel();
+        let requests = [
+            KeyedRequest {
+                key: 1,
+                name: "a0",
+                release: Some(released),
+            },
+            KeyedRequest {
+                key: 1,
+                name: "a1",
+                release: None,
+            },
+            KeyedRequest {
+                key: 1,
+                name: "a2",
+                release: None,
+            },
+            KeyedRequest {
+                key: 1,
+                name: "a3",
+                release: None,
+            },
+        ];
+
+        let mut renders = Vec::new();
+        for request in requests {
+            let mut render = Box::pin(pool.render(request));
+            assert!(futures::poll!(render.as_mut()).is_pending());
+            renders.push(render);
+        }
+        release.send(()).expect("release a0");
+        for result in futures::future::join_all(renders).await {
+            result.expect("render");
+        }
+
+        assert_eq!(*log.lock().expect("log"), ["a0", "a1", "a2", "a3"]);
+    }
+
+    #[tokio::test]
+    async fn a_request_whose_renderer_is_busy_goes_to_another_worker_after_a_wait() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let worker_log = Arc::clone(&log);
+        let pool = RenderPool::new(NonZeroUsize::new(2), move || {
+            Ok(KeyedWorker {
+                held: None,
+                log: Arc::clone(&worker_log),
+            })
+        })
+        .expect("spawn render pool");
+        let (release, released) = mpsc::channel();
+        let mut a0 = Box::pin(pool.render(KeyedRequest {
+            key: 1,
+            name: "a0",
+            release: Some(released),
+        }));
+        assert!(futures::poll!(a0.as_mut()).is_pending());
+        pool.render(KeyedRequest {
+            key: 2,
+            name: "b1",
+            release: None,
+        })
+        .await
+        .expect("render b1");
+
+        let queued = Instant::now();
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            pool.render(KeyedRequest {
+                key: 1,
+                name: "a1",
+                release: None,
+            }),
+        )
+        .await
+        .expect("a1 does not wait for a0")
+        .expect("render a1");
+        let waited = queued.elapsed();
+        release.send(()).expect("release a0");
+        a0.await.expect("render a0");
+
+        assert!(waited >= Duration::from_millis(5), "a1 waited only {waited:?}");
+        assert_eq!(*log.lock().expect("log"), ["b1", "a1", "a0"]);
+    }
+
     #[tokio::test]
     async fn static_render_honours_custom_size() {
         let style_file = write_style();
         let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
-        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
-            .expect("spawn render pool");
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            StaticWorker::new(Arc::clone(&runtime), DEFAULT_STATIC_RENDERERS_PER_WORKER)
+        })
+        .expect("spawn render pool");
         let style = style_file.path().to_path_buf();
 
         let params = RenderParams::new(style, 0.0, 0.0, 2.0).with_size(256, 384, NonZeroU8::MIN);
@@ -1054,8 +1556,10 @@ mod tests {
     async fn a_style_in_memory_renders_as_its_file_does() {
         let style_file = write_style();
         let runtime = Arc::new(Runtime::new(None).expect("start runtime"));
-        let pool = RenderPool::new(NonZeroUsize::new(1), move || StaticWorker::new(Arc::clone(&runtime)))
-            .expect("spawn render pool");
+        let pool = RenderPool::new(NonZeroUsize::new(1), move || {
+            StaticWorker::new(Arc::clone(&runtime), DEFAULT_STATIC_RENDERERS_PER_WORKER)
+        })
+        .expect("spawn render pool");
 
         let from_file = pool
             .render(RenderParams::new(style_file.path().to_path_buf(), 0.0, 0.0, 2.0))

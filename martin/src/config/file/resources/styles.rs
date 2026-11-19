@@ -3,9 +3,9 @@ use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::{env, mem};
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-use martin_core::styles::DEFAULT_RENDERERS_PER_WORKER;
 use martin_core::styles::StyleSources;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use martin_core::styles::{DEFAULT_RENDERERS_PER_WORKER, DEFAULT_STATIC_RENDERERS_PER_WORKER};
 #[cfg(feature = "rendering")]
 use martin_core::styles::{ImageQualities, ImageQuality, LossyQuality, PixelRatios, TileSize};
 use martin_core::walk_files;
@@ -54,6 +54,12 @@ pub struct RendererConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &16))]
     pub renderers_per_worker: Option<NonZeroUsize>,
+
+    /// Renderers each static worker keeps loaded, one per style and pixel ratio.
+    /// Beyond this, the least recently used one is replaced. \[default: 2\]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4))]
+    pub static_renderers_per_worker: Option<NonZeroUsize>,
 
     /// Width and height of rendered XYZ tiles, in pixels before the pixel ratio: 256 or 512.
     /// \[default: 512\]
@@ -217,7 +223,13 @@ impl StyleConfig {
             OptBoolObj::Object(ref o) if !o.enabled => results.disable_rendering(),
             OptBoolObj::Bool(true) => {
                 results
-                    .enable_rendering(None, TileSize::default(), DEFAULT_RENDERERS_PER_WORKER, None)
+                    .enable_rendering(
+                        None,
+                        TileSize::default(),
+                        DEFAULT_RENDERERS_PER_WORKER,
+                        DEFAULT_STATIC_RENDERERS_PER_WORKER,
+                        None,
+                    )
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
                 results.set_png_max_colors(RendererConfig::default().png_max_colors());
             }
@@ -227,6 +239,8 @@ impl StyleConfig {
                         o.workers,
                         o.tile_size.unwrap_or_default(),
                         o.renderers_per_worker.unwrap_or(DEFAULT_RENDERERS_PER_WORKER),
+                        o.static_renderers_per_worker
+                            .unwrap_or(DEFAULT_STATIC_RENDERERS_PER_WORKER),
                         o.ambient_cache_bytes(),
                     )
                     .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
@@ -587,6 +601,22 @@ mod tests {
             panic!("expected Object variant, got {:?}", cfg.rendering);
         };
         assert_eq!(renderer.renderers_per_worker, NonZeroUsize::new(32));
+    }
+
+    #[cfg(feature = "rendering")]
+    #[test]
+    fn renderer_config_parses_static_renderers_per_worker() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              static_renderers_per_worker: 4
+        "};
+        let cfg: InnerStyleConfig =
+            serde_saphyr::from_str(yaml).expect("rendering with static_renderers_per_worker must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert_eq!(renderer.static_renderers_per_worker, NonZeroUsize::new(4));
     }
 
     #[cfg(feature = "rendering")]
