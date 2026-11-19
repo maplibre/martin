@@ -608,6 +608,28 @@ fn a_zip_file_reads_like_the_shapefile_it_holds() {
 }
 
 #[test]
+fn a_record_the_shx_places_past_the_end_of_the_shp_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("places.shp");
+    let mut writer = shapefile::Writer::from_path(&path, TableWriterBuilder::new()).unwrap();
+    writer
+        .write_shape_and_record(&Point::new(1.0, 2.0), &dbase::Record::default())
+        .unwrap();
+    drop(writer);
+    std::fs::write(
+        dir.path().join("places.prj"),
+        r#"GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]"#,
+    )
+    .unwrap();
+    let shx = dir.path().join("places.shx");
+    let mut index = std::fs::read(&shx).unwrap();
+    index[104..108].copy_from_slice(&0x7fff_ffff_u32.to_be_bytes());
+    std::fs::write(&shx, index).unwrap();
+    let err = Shapefile::open(&path, dir.path()).unwrap_err();
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/places.shp places record 1 up to byte 4294967402, past the end of the .shp file at byte 128");
+}
+
+#[test]
 fn a_zip_file_with_two_shapefiles_is_refused() {
     let dir = tempfile::tempdir().unwrap();
     let zipped = dir.path().join("two.zip");
