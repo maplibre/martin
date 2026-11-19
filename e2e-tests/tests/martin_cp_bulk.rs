@@ -1868,6 +1868,43 @@ async fn encodes_with_the_configured_convert_to_mlt_settings() {
     ");
 }
 
+#[cfg(feature = "test-mlt-v2")]
+#[tokio::test]
+async fn refuses_allow_delta2_which_mlt_v1_tiles_ignore() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  convert_to_mlt:
+                    allow_delta2: true
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Source `points1` sets `allow_delta2` in `convert_to_mlt`, which changes only `--format mlt2` tiles; `--mode bulk` cannot write them yet");
+    assert!(!output.exists());
+}
+
 #[tokio::test]
 async fn refuses_mlt_output_for_a_source_with_mlt_conversion_disabled() {
     let dir = temp_dir();

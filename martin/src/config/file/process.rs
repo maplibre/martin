@@ -4,7 +4,7 @@ use martin_tile_utils::TileInfo;
 #[cfg(all(feature = "processing", feature = "_tiles"))]
 use martin_tile_utils::{Encoding, Format};
 #[cfg(feature = "_tiles")]
-use mlt_core::encoder::{EncoderConfig, Network, Profile, Tessellation};
+use mlt_core::encoder::{Client, EncoderConfig, Network, Profile, Tessellation};
 #[cfg(feature = "_tiles")]
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -304,8 +304,19 @@ impl CollectUnrecognizedKeys for MvtEncoderConfig {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MltEncoderConfig {
-    /// Generate tessellation data for polygons and multi-polygons.
-    pub tessellate: Option<bool>,
+    /// The tile consumer whose encoder defaults the other fields override.
+    ///
+    /// When unset, `web`.
+    pub profile: Option<MltProfile>,
+    /// How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
+    ///
+    /// When unset, `offline`.
+    pub network: Option<MltNetwork>,
+    /// Store the triangles of polygons: `true`, `false`, or `auto` for when they spare `MapLibre Native` more
+    /// drawing time than the `network` spends on their bytes.
+    ///
+    /// When unset, the `profile` decides.
+    pub tessellate: Option<MltTessellate>,
     /// Try sorting features by Z-order (Morton) curve index of their first vertex.
     pub try_spatial_morton_sort: Option<bool>,
     /// Try sorting features by Hilbert curve index of their first vertex.
@@ -328,13 +339,133 @@ pub struct MltEncoderConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-/// Applies `MltEncoderConfig` overrides on top of `EncoderConfig` defaults:
+/// The tile consumer an MLT encoder tunes its defaults for.
+#[cfg(feature = "_tiles")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+#[serde(rename_all = "kebab-case")]
+pub enum MltProfile {
+    /// `MapLibre GL JS`: no triangles, which it ignores; `FastPFOR` and `FSST` only `offline`.
+    Web,
+    /// `MapLibre Native`: `tessellate: auto` and every codec.
+    Native,
+    /// The fewest stored bytes: no triangles, Hilbert and feature-ID sorts.
+    MinSize,
+    /// Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries.
+    Diffable,
+    /// The quickest encode: no triangles, sorts or optional codecs, so tiles come out larger.
+    FastEncoding,
+}
+
+/// How tiles reach the client, which prices a stored byte against the client time it spares.
+#[cfg(feature = "_tiles")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub enum MltNetwork {
+    /// Local storage, where a byte costs nothing.
+    #[serde(rename = "offline")]
+    Offline,
+    /// 2 Mbit/s.
+    #[serde(rename = "3g")]
+    Cellular3G,
+    /// 20 Mbit/s.
+    #[serde(rename = "4g")]
+    Cellular4G,
+    /// 200 Mbit/s.
+    #[serde(rename = "5g")]
+    Cellular5G,
+}
+
+#[cfg(feature = "_tiles")]
+impl From<MltNetwork> for Network {
+    fn from(network: MltNetwork) -> Self {
+        match network {
+            MltNetwork::Offline => Self::Offline,
+            MltNetwork::Cellular3G => Self::Cellular3G,
+            MltNetwork::Cellular4G => Self::Cellular4G,
+            MltNetwork::Cellular5G => Self::Cellular5G,
+        }
+    }
+}
+
+/// Whether MLT stores the triangles of polygons: `true`, `false` or `auto`.
+#[cfg(feature = "_tiles")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MltTessellate {
+    /// `false`: no triangles, so the client cuts every polygon itself.
+    Off,
+    /// `auto`: a layer's triangles when they spare `MapLibre Native` more time than the network spends on their bytes.
+    Auto,
+    /// `true`: the triangles of every layer with polygons.
+    Always,
+}
+
+#[cfg(feature = "_tiles")]
+impl Serialize for MltTessellate {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Off => serializer.serialize_bool(false),
+            Self::Auto => serializer.serialize_str("auto"),
+            Self::Always => serializer.serialize_bool(true),
+        }
+    }
+}
+
+#[cfg(feature = "_tiles")]
+impl<'de> Deserialize<'de> for MltTessellate {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct TessellateVisitor;
+
+        impl serde::de::Visitor<'_> for TessellateVisitor {
+            type Value = MltTessellate;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(r#"a boolean or "auto""#)
+            }
+
+            fn visit_bool<E: serde::de::Error>(self, v: bool) -> Result<Self::Value, E> {
+                Ok(if v { MltTessellate::Always } else { MltTessellate::Off })
+            }
+
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                if v == "auto" {
+                    Ok(MltTessellate::Auto)
+                } else {
+                    Err(E::invalid_value(serde::de::Unexpected::Str(v), &self))
+                }
+            }
+        }
+
+        deserializer.deserialize_any(TessellateVisitor)
+    }
+}
+
+#[cfg(all(feature = "_tiles", feature = "unstable-schemas"))]
+impl schemars::JsonSchema for MltTessellate {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "MltTessellate".into()
+    }
+
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "description": "Whether MLT stores the triangles of polygons.",
+            "oneOf": [
+                { "type": "boolean" },
+                { "type": "string", "enum": ["auto"] }
+            ]
+        })
+    }
+}
+
+/// Applies `MltEncoderConfig` overrides on top of the `profile`'s `EncoderConfig` defaults:
 /// a set field overrides the default, an unset (`None`) field keeps it.
 #[cfg(feature = "_tiles")]
 impl From<MltEncoderConfig> for EncoderConfig {
     fn from(src: MltEncoderConfig) -> Self {
         // Destructure so new fields cause a compile error.
         let MltEncoderConfig {
+            profile,
+            network,
             tessellate,
             try_spatial_morton_sort,
             try_spatial_hilbert_sort,
@@ -349,9 +480,20 @@ impl From<MltEncoderConfig> for EncoderConfig {
             unrecognized: _unrecognized,
         } = src;
 
-        let mut cfg = Self::from_profile(Profile::Web(Network::Offline));
+        let network = network.map_or(Network::Offline, Network::from);
+        let mut cfg = Self::from_profile(match profile.unwrap_or(MltProfile::Web) {
+            MltProfile::Web => Profile::Web(network),
+            MltProfile::Native => Profile::Native(network),
+            MltProfile::MinSize => Profile::MinSize,
+            MltProfile::Diffable => Profile::Diffable,
+            MltProfile::FastEncoding => Profile::FastEncoding,
+        });
         if let Some(v) = tessellate {
-            cfg = cfg.with_tessellation(if v { Tessellation::Always } else { Tessellation::Off });
+            cfg = cfg.with_tessellation(match v {
+                MltTessellate::Off => Tessellation::Off,
+                MltTessellate::Auto => Tessellation::Auto(Client::Native, network),
+                MltTessellate::Always => Tessellation::Always,
+            });
         }
         if let Some(v) = try_spatial_morton_sort {
             cfg = cfg.with_spatial_morton_sort(v);
@@ -411,7 +553,7 @@ mod tests {
         assert_eq!(
             cfg,
             MltProcessConfig::Explicit(MltEncoderConfig {
-                tessellate: Some(true),
+                tessellate: Some(MltTessellate::Always),
                 allow_fsst: Some(false),
                 ..Default::default()
             })
@@ -442,10 +584,58 @@ mod tests {
     #[test]
     fn serde_round_trip_explicit() {
         let cfg = MltProcessConfig::Explicit(MltEncoderConfig {
-            tessellate: Some(true),
+            tessellate: Some(MltTessellate::Always),
             ..Default::default()
         });
         let yaml = serde_saphyr::to_string(&cfg).unwrap();
+        let parsed: MltProcessConfig = serde_saphyr::from_str(&yaml).unwrap();
+        assert_eq!(cfg, parsed);
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn a_profile_and_network_pick_the_encoder_defaults() {
+        let cfg: MltEncoderConfig = serde_saphyr::from_str(indoc! {"
+            profile: native
+            network: 4g
+        "})
+        .unwrap();
+        assert_eq!(
+            EncoderConfig::from(cfg),
+            EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        );
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn tessellate_auto_weighs_triangles_for_maplibre_native_on_the_network() {
+        let cfg: MltEncoderConfig = serde_saphyr::from_str(indoc! {"
+            network: 3g
+            tessellate: auto
+        "})
+        .unwrap();
+        assert_eq!(
+            EncoderConfig::from(cfg),
+            EncoderConfig::from_profile(Profile::Web(Network::Cellular3G))
+                .with_tessellation(Tessellation::Auto(Client::Native, Network::Cellular3G))
+        );
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn serde_round_trip_tessellate_auto() {
+        let cfg = MltProcessConfig::Explicit(MltEncoderConfig {
+            profile: Some(MltProfile::MinSize),
+            network: Some(MltNetwork::Cellular5G),
+            tessellate: Some(MltTessellate::Auto),
+            ..Default::default()
+        });
+        let yaml = serde_saphyr::to_string(&cfg).unwrap();
+        insta::assert_snapshot!(yaml, @"
+        profile: min-size
+        network: 5g
+        tessellate: auto
+        ");
         let parsed: MltProcessConfig = serde_saphyr::from_str(&yaml).unwrap();
         assert_eq!(cfg, parsed);
     }
@@ -511,18 +701,18 @@ mod tests {
         insta::assert_snapshot!(render_failure(indoc! {"
                 convert_to_mlt:
                   tessellate: yes-please
-            "}), @"
+            "}), @r#"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-          × invalid boolean
-           ╭─[config.yaml:2:15]
+          × invalid value: string "yes-please", expected a boolean or "auto"
+           ╭─[config.yaml:2:3]
          1 │ convert_to_mlt:
          2 │   tessellate: yes-please
-           ·               ──────────
+           ·   ──────────
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
-        ");
+        "#);
     }
 
     #[cfg(all(feature = "processing", feature = "_tiles"))]
@@ -569,7 +759,7 @@ mod tests {
         };
         let per_source = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Explicit(MltEncoderConfig {
-                tessellate: Some(true),
+                tessellate: Some(MltTessellate::Always),
                 ..Default::default()
             })),
             convert_to_mvt: None,
@@ -692,7 +882,7 @@ mod tests {
         let MltProcessConfig::Explicit(inner) = cfg else {
             panic!("expected explicit MltEncoderConfig");
         };
-        assert_eq!(inner.tessellate, Some(true));
+        assert_eq!(inner.tessellate, Some(MltTessellate::Always));
         let collected = inner.get_unrecognized_keys();
         let mut keys: Vec<&str> = collected.iter().map(String::as_str).collect();
         keys.sort_unstable();

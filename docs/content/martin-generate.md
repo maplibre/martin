@@ -127,7 +127,8 @@ martin cp --mode bulk --config config.yaml --output-file tileset.pmtiles --max-z
 
     Of a [table source](sources-pg-tables.md), bulk mode uses `schema`, `table`,
     `geometry_column`, `srid`, `id_column`, `properties`, `filter`, `minzoom`, `maxzoom`, `extent`,
-    `buffer`, `clip_geom`, `layer_id` and [`layers`](sources-pg-layers.md). Settings that only affect
+    `buffer`, `clip_geom`, `layer_id`, [`layers`](sources-pg-layers.md) and the MLT encoder settings
+    of [`convert_to_mlt`](postprocessing/mlt.md#tuning-the-encoder). Settings that only affect
     serving, such as caching, are ignored.
 
 ## Options
