@@ -106,7 +106,7 @@ brotli = ">=5, <10"
 bytes = "1"
 bytesize = "2.7.0"
 bytestring = "1.5"
-cel = { version = "0.15", default-features = false }
+cel = { version = "0.16", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 cog-tiles = { path = "cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
