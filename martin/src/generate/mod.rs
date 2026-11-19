@@ -26,7 +26,7 @@ use martin_tilegen::{
     TileGenResult, generate,
 };
 use mbtiles::{HASH_ALGORITHM, HashAlgorithm, MbtType, MbtTypeCli, check_metadata_edit};
-use mlt_core::encoder::EncoderConfig;
+use mlt_core::encoder::{EncoderConfig, Network};
 use postgres_protocol::escape::escape_identifier;
 use tilejson::Bounds;
 #[cfg(unix)]
@@ -37,7 +37,6 @@ use tracing::{debug, info, warn};
 
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
-#[cfg(feature = "unstable-mlt-v2")]
 use crate::config::file::MltEncoderConfig;
 use crate::config::file::postgres::resolver::{linear_geometry, row_filter};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresInfo as _, SourceSpec, TableInfo};
@@ -746,7 +745,7 @@ async fn select_sources(
             ..ProcessConfig::default()
         };
         let convert = ProcessConfig::layered(&global, &per_connection, &per_table).convert_to_mlt;
-        let encoder = mlt_encoder(convert, options.copy_format, &id)?;
+        let encoder = mlt_encoder(convert, options.copy_format, options.encoding, &id)?;
         scans.extend(lower_table(
             &id,
             info.clone(),
@@ -799,7 +798,10 @@ fn source_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) -> Option<Bou
     union
 }
 
-/// The MLT encoder settings of a source's `convert_to_mlt` for tiles of `format`, or `None` for the defaults.
+/// The MLT encoder settings of a source's `convert_to_mlt` for tiles of `format`, or `None` for MVT.
+///
+/// Where the settings name no `network`, compressed tiles are encoded as for `4g`, which leaves out the codecs
+/// that cost bytes after compression, and uncompressed ones as for `offline`.
 ///
 /// # Errors
 ///
@@ -807,9 +809,10 @@ fn source_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) -> Option<Bou
 fn mlt_encoder(
     convert: Option<MltProcessConfig>,
     format: CopyFormat,
+    encoding: Encoding,
     source_id: &str,
 ) -> GenerateResult<Option<EncoderConfig>> {
-    let encoder = match convert {
+    let settings = match convert {
         Some(MltProcessConfig::Explicit(cfg)) => {
             #[cfg(feature = "unstable-mlt-v2")]
             if matches!(format, CopyFormat::MltV1)
@@ -820,21 +823,29 @@ fn mlt_encoder(
                     key,
                 });
             }
-            Some(EncoderConfig::from(cfg))
+            cfg
         }
         Some(MltProcessConfig::Disabled) if !matches!(format, CopyFormat::Mvt) => {
             return Err(GenerateError::MltDisabled {
                 source_id: source_id.to_owned(),
             });
         }
-        _ => None,
+        _ => MltEncoderConfig::default(),
     };
+    if matches!(format, CopyFormat::Mvt) {
+        return Ok(None);
+    }
+    let network = if matches!(encoding, Encoding::Uncompressed | Encoding::Internal) {
+        Network::Offline
+    } else {
+        Network::Cellular4G
+    };
+    let encoder = settings.encoder_config(network);
     #[cfg(feature = "unstable-mlt-v2")]
     if matches!(format, CopyFormat::MltV2) {
-        let encoder = encoder.unwrap_or_else(|| EncoderConfig::from(MltEncoderConfig::default()));
         return Ok(Some(encoder.with_wire_version(mlt_core::encoder::WireVersion::V02)));
     }
-    Ok(encoder)
+    Ok(Some(encoder))
 }
 
 /// Ctrl-C and `SIGTERM` (Ctrl+Break on Windows), registered before the output exists so that neither can leave it behind.

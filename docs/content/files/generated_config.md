@@ -134,7 +134,7 @@ convert_to_mlt:
   allow_shared_dict: null
   # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
   #
-  # When unset, `offline`.
+  # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
   network: offline
   # The tile consumer whose encoder defaults the other fields override.
   #
@@ -263,7 +263,7 @@ mbtiles:
     allow_shared_dict: null
     # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
     #
-    # When unset, `offline`.
+    # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
     network: offline
     # The tile consumer whose encoder defaults the other fields override.
     #
@@ -333,7 +333,7 @@ passthrough:
     allow_shared_dict: null
     # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
     #
-    # When unset, `offline`.
+    # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
     network: offline
     # The tile consumer whose encoder defaults the other fields override.
     #
@@ -399,7 +399,7 @@ pmtiles:
     allow_shared_dict: null
     # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
     #
-    # When unset, `offline`.
+    # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
     network: offline
     # The tile consumer whose encoder defaults the other fields override.
     #
@@ -543,7 +543,7 @@ postgres:
     allow_shared_dict: null
     # How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
     #
-    # When unset, `offline`.
+    # When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
     network: offline
     # The tile consumer whose encoder defaults the other fields override.
     #

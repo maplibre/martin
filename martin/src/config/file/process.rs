@@ -310,7 +310,7 @@ pub struct MltEncoderConfig {
     pub profile: Option<MltProfile>,
     /// How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.
     ///
-    /// When unset, `offline`.
+    /// When unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles.
     pub network: Option<MltNetwork>,
     /// Store the triangles of polygons: `true`, `false`, or `auto` for when they spare `MapLibre Native` more
     /// drawing time than the `network` spends on their bytes.
@@ -479,8 +479,17 @@ impl schemars::JsonSchema for MltTessellate {
 #[cfg(feature = "_tiles")]
 impl From<MltEncoderConfig> for EncoderConfig {
     fn from(src: MltEncoderConfig) -> Self {
+        src.encoder_config(Network::Offline)
+    }
+}
+
+#[cfg(feature = "_tiles")]
+impl MltEncoderConfig {
+    /// The `EncoderConfig` these settings pick, with `default_network` where they set none.
+    #[must_use]
+    pub fn encoder_config(self, default_network: Network) -> EncoderConfig {
         // Destructure so new fields cause a compile error.
-        let MltEncoderConfig {
+        let Self {
             profile,
             network,
             tessellate,
@@ -497,10 +506,10 @@ impl From<MltEncoderConfig> for EncoderConfig {
             // Unrecognized keys are reported via the warning path during finalize();
             // they intentionally don't influence the resulting EncoderConfig.
             unrecognized: _unrecognized,
-        } = src;
+        } = self;
 
-        let network = network.map_or(Network::Offline, Network::from);
-        let mut cfg = Self::from_profile(match profile.unwrap_or(MltProfile::Web) {
+        let network = network.map_or(default_network, Network::from);
+        let mut cfg = EncoderConfig::from_profile(match profile.unwrap_or(MltProfile::Web) {
             MltProfile::Web => Profile::Web(network),
             MltProfile::Native => Profile::Native(network),
             MltProfile::MinSize => Profile::MinSize,
@@ -626,6 +635,23 @@ mod tests {
         assert_eq!(
             EncoderConfig::from(cfg),
             EncoderConfig::from_profile(Profile::Native(Network::Cellular4G))
+        );
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn a_network_left_unset_takes_the_default_network_and_a_set_one_wins() {
+        let unset: MltEncoderConfig = serde_saphyr::from_str("profile: web").unwrap();
+        let offline: MltEncoderConfig = serde_saphyr::from_str("network: offline").unwrap();
+        assert_eq!(
+            (
+                unset.encoder_config(Network::Cellular4G),
+                offline.encoder_config(Network::Cellular4G)
+            ),
+            (
+                EncoderConfig::from_profile(Profile::Web(Network::Cellular4G)),
+                EncoderConfig::from_profile(Profile::Web(Network::Offline))
+            )
         );
     }
 

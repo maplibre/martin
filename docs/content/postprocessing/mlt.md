@@ -145,6 +145,8 @@ All fields are optional.
 | `allow_fastpfor`           | Disable to reduce search space                                                                                       |
 | `allow_shared_dict`        | Disable to reduce search space                                                                                       |
 
+In [bulk mode](../martin-generate.md), an unset `network` is `4g` when the tiles are compressed (`--encoding` other than `none`), since `FSST` and `FastPFOR` cost bytes once gzip runs over them.
+
 !!! note
 
     In most cases, `convert_to_mlt: auto` is the right choice.
