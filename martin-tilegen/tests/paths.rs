@@ -1529,7 +1529,7 @@ fn a_known_value_does_not_decide_an_expression_measuring_area_in_a_macro() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("admin_level".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
+            geometry: vec![GeometryType::Polygon.into()],
             minzoom_expr: Some("admin_level == '2' && [1].exists(x, area('km2') >= 2e6) ? 2 : 5".to_owned()),
             ..LayerDef::new("boundary_labels", 0..=14, GRID)
         }],
@@ -1566,7 +1566,7 @@ fn a_known_value_does_not_decide_an_expression_reading_a_column_in_a_macro() {
             ColumnDef::Value("name".to_owned(), Some(ValueKind::String)),
         ],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
+            geometry: vec![GeometryType::Polygon.into()],
             minzoom_expr: Some("admin_level == '2' && [1].exists(x, name == 'Monaco') ? 2 : 5".to_owned()),
             ..LayerDef::new("boundary_labels", 0..=14, GRID)
         }],
