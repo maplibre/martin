@@ -69,11 +69,12 @@ mod tests {
             @r#"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-          × invalid indentation in multiline quoted scalar
-           ╭─[config.yaml:3:3]
+          × unclosed quote
+           ╭─[config.yaml:2:21]
+         1 │ srv:
          2 │   listen_addresses: "0.0.0.0:3000
+           ·                     ─
          3 │   worker_processes: 4
-           ·   ─
            ╰────
           help: Check the highlighted token in your YAML. The error usually indicates
                 a mismatched type or an unexpected shape.
