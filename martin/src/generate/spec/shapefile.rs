@@ -16,6 +16,9 @@ use crate::generate::{GenerateError, GenerateResult};
 /// The input key holding a case's record number, counting from 1, which is also its feature id.
 pub const RECORD: &str = "record";
 
+/// The input key holding a case's geometry as WKT.
+const GEOMETRY: &str = "geometry";
+
 /// The `shapefile` sources of a configuration, each file opened once.
 pub struct Shapefiles {
     sources: BTreeMap<String, (ShapefileSourceConfig, Shapefile)>,
@@ -28,7 +31,7 @@ impl Shapefiles {
     /// # Errors
     ///
     /// If the configuration or a file cannot be read, it also has database sources, or a file has a field
-    /// [`RECORD`].
+    /// [`RECORD`] or `geometry`.
     pub fn load(config_path: &Path) -> GenerateResult<Option<Self>> {
         let config: Config = read_config(config_path, &OsEnv)?;
         if config.shapefile.sources.is_empty() {
@@ -40,10 +43,10 @@ impl Shapefiles {
         let mut sources = BTreeMap::new();
         for (id, source) in config.shapefile.sources {
             let file = open(&source, &std::env::temp_dir())?;
-            if file.has_field(RECORD) {
-                return Err(GenerateError::ShapefileRecordField {
+            if let Some(field) = [RECORD, GEOMETRY].into_iter().find(|field| file.has_field(field)) {
+                return Err(GenerateError::ShapefileReservedField {
                     source_id: id,
-                    field: RECORD.to_owned(),
+                    field: field.to_owned(),
                 });
             }
             sources.insert(id, (source, file));
