@@ -270,8 +270,8 @@ pub enum GenerateError {
     #[error("Source id `{source_id}` is both a `shapefile` and an `osm` source; give them different ids")]
     SharedFileSourceId { source_id: String },
     #[cfg(feature = "shapefile")]
-    #[error("Source `{source_id}` has a field `{field}`, which `martin test` keeps the record number in")]
-    ShapefileRecordField { source_id: String, field: String },
+    #[error("Source `{source_id}` has a field `{field}`, which `martin test` reserves in each case's input")]
+    ShapefileReservedField { source_id: String, field: String },
     #[cfg(feature = "osm")]
     #[error("Source `{source_id}` reads the tag `{tag}`, which `martin test` reserves in each case's input")]
     OsmReservedTag { source_id: String, tag: String },
