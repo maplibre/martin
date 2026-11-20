@@ -95,12 +95,13 @@ impl LayerAssembler {
     /// Consecutive records of the same origin are the pieces of one feature in this tile (multi-part geometry, or
     /// a wrapped antimeridian twin) and become one multi-geometry feature; their properties and sort keys are
     /// identical, so the first record's are used. Features with a sort key are then stably sorted by it, and `ops`
-    /// run on them in that order.
+    /// run on them in that order. The `hidden` properties, of any definition, are left out once `ops` ran.
     pub fn assemble<'a>(
         &'a mut self,
         name: &'a str,
         grid: LayerGrid,
         names: &'a KeyNames,
+        hidden: &[KeyId],
         records: &[(RecordOrigin, &'a [u8])],
         ops: TileOps<'_>,
     ) -> TileGenResult<AssembledLayer<'a>> {
@@ -136,7 +137,9 @@ impl LayerAssembler {
         columns.clear();
         for feature in features.iter() {
             for &(key, value) in &props[feature.props()] {
-                columns.add(key, value);
+                if !hidden.contains(&key) {
+                    columns.add(key, value);
+                }
             }
         }
         columns.finish(names, schema);
@@ -425,7 +428,7 @@ mod tests {
             .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
-            .assemble("roads", GRID, &names, &records, TileOps::NONE)
+            .assemble("roads", GRID, &names, &[], &records, TileOps::NONE)
             .unwrap();
         let decoded = decode_mlt(
             &assembled
@@ -494,7 +497,7 @@ mod tests {
             .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
-            .assemble("roads", GRID, &names, &records, TileOps::NONE)
+            .assemble("roads", GRID, &names, &[], &records, TileOps::NONE)
             .unwrap();
         let decoded = decode_mlt(
             &assembled
@@ -544,6 +547,7 @@ mod tests {
                 "water",
                 GRID,
                 &names,
+                &[],
                 &[(
                     RecordOrigin {
                         fill_buffer: GRID.buffer,
@@ -614,7 +618,9 @@ mod tests {
             })
             .collect();
         let mut scratch = LayerAssembler::default();
-        let assembled = scratch.assemble("pois", GRID, &names, &records, TileOps::NONE).unwrap();
+        let assembled = scratch
+            .assemble("pois", GRID, &names, &[], &records, TileOps::NONE)
+            .unwrap();
         let decoded = decode_mlt(
             &assembled
                 .layer

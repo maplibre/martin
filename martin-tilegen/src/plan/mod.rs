@@ -82,6 +82,10 @@ pub enum PlanError {
         attribute: String,
     },
 
+    /// A hidden attribute the layer does not write.
+    #[error("layer `{layer}`: hidden attribute `{attribute}` is not one the layer writes")]
+    UnknownHidden { layer: String, attribute: String },
+
     /// A `thinning` key calling `area`, which only the whole geometry has, not a tile's part of it.
     #[error(
         "layer `{layer}`: thinning key `{expr}` calls `area`, which measures a feature before it is cut into tiles"
@@ -176,6 +180,8 @@ pub struct LayerDef {
     /// Run on the output layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order
     /// here, clamped into the zooms of all its definitions. Zoom ranges of one kind of operation must not overlap.
     pub per_tile: Vec<TileOpDef>,
+    /// Output attributes that `per_tile` operations read but tiles leave out.
+    pub hidden: Vec<String>,
 }
 
 impl LayerDef {
@@ -203,6 +209,7 @@ impl LayerDef {
             sort_by: Vec::new(),
             id_order: None,
             per_tile: Vec::new(),
+            hidden: Vec::new(),
         }
     }
 }
@@ -1040,6 +1047,8 @@ struct OutputDraft {
     id_order: Option<(IdOrder, String)>,
     /// Each operation, with the name and index of the definition it was taken from.
     per_tile: Vec<(TileOpDef, String, usize)>,
+    /// The attributes any of its definitions hides, each once.
+    hidden: Vec<String>,
 }
 
 impl OutputDraft {
@@ -1067,12 +1076,24 @@ impl OutputDraft {
                         .iter()
                         .map(|op| (op.clone(), def.name.clone(), index))
                         .collect(),
+                    hidden: Vec::new(),
                 });
+                drafts.last_mut().expect("just pushed").add_hidden(def);
                 continue;
             };
             draft.add(index, def)?;
+            draft.add_hidden(def);
         }
         Ok(drafts)
+    }
+
+    /// Adds the attributes `def` hides that no definition before it hid.
+    fn add_hidden(&mut self, def: &LayerDef) {
+        for name in &def.hidden {
+            if !self.hidden.contains(name) {
+                self.hidden.push(name.clone());
+            }
+        }
     }
 
     /// Adds definition `def`, number `index` in the plan.
@@ -1155,6 +1176,14 @@ impl OutputDraft {
         add_rank_keys(&self, &mut keys);
         check_group_by(&self, &keys, output_props)?;
         let per_tile = plan_per_tile(&self, &keys, output_props, exprs)?;
+        let hidden = self
+            .hidden
+            .iter()
+            .map(|name| {
+                let pos = keys.iter().position(|key| key == name);
+                key_id(pos.expect("plan_layer checks that each hidden attribute is one of its keys"))
+            })
+            .collect();
         Ok(PlannedOutput {
             info: LayerInfo {
                 encoder: if self.sort_by.is_none() && self.id_order.is_none() {
@@ -1168,6 +1197,7 @@ impl OutputDraft {
                 name: self.name,
                 grid: self.grid,
                 per_tile,
+                hidden,
             },
             layers: self.layers,
             keys,
@@ -1244,6 +1274,7 @@ fn plan_layer(
             Ok(compiler.add(&key.expr, expr, role))
         })
         .collect::<Result<_, PlanError>>()?;
+    check_hidden(&def, &keys)?;
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
         .map_err(|error| PlanError::InvalidLayer {
             layer: def.name.clone(),
@@ -1314,6 +1345,17 @@ fn add_rank_keys(draft: &OutputDraft, keys: &mut Vec<String>) {
         {
             keys.push(rank.attribute.clone());
         }
+    }
+}
+
+/// Every hidden attribute of the definition is one of its own output `keys`.
+fn check_hidden(def: &LayerDef, keys: &[String]) -> Result<(), PlanError> {
+    match def.hidden.iter().find(|name| !keys.contains(name)) {
+        Some(name) => Err(PlanError::UnknownHidden {
+            layer: def.name.clone(),
+            attribute: name.clone(),
+        }),
+        None => Ok(()),
     }
 }
 
