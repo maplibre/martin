@@ -5,12 +5,16 @@ use std::cmp::Ordering;
 
 use osmflow::BlockStrings;
 
+use crate::osm::OSM_ID;
 use crate::plan::{CompareOp, Condition, GeometryType, Literal, Pattern, Polarity, Term, ValueKind};
 
-/// The values a [`Condition`] reads from one object: its tags by column name, and its geometry type.
+/// The values a [`Condition`] reads from one object: its tags by column name, its OSM id, and its geometry type.
 pub(crate) trait Row {
     /// The value of column `name`, `None` if the object has no such tag.
     fn column(&self, name: &str) -> Option<&str>;
+
+    /// The object's OSM id, the value of the [`OSM_ID`] column.
+    fn id(&self) -> i64;
 
     /// The type of the object's geometry.
     fn geometry(&self) -> GeometryType;
@@ -221,6 +225,7 @@ fn leaf_matches(leaf: &Condition, row: &impl Row) -> Result<bool, Unknown> {
 /// The value of `term` in `row`, `None` for null.
 fn value<'a>(term: &'a Term, row: &'a impl Row) -> Result<Option<Value<'a>>, Unknown> {
     Ok(match term {
+        Term::Column(name) if name == OSM_ID => Some(Value::Int(row.id())),
         Term::Column(name) => row.column(name).map(|text| Value::Str(text.into())),
         Term::Literal(literal) => Some(literal_value(literal)),
         Term::Length(inner) => string_function(inner, row, |text| {

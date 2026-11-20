@@ -776,6 +776,10 @@ test-packages-ci: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --package martin --features unstable-mlt-v2
     {{just}} test-e2e
 
+# Run the OpenMapTiles examples test, which debug builds skip as too slow
+test-omt: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run --release --package martin --test osm_openmaptiles_test
+
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
