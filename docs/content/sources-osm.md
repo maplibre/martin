@@ -72,7 +72,8 @@ Martin reads a way as Planetiler does, whatever its other tags:
 
 Layers of polygons take the polygon and layers of lines the line, both with the way's feature id.
 A closed `highway=pedestrian` way can be both a street and a street area.
-Layers of any geometry, such as `geometry: centroid`, take the polygon only.
+Layers of any geometry, such as `geometry: centroid`, take the polygon only, as does a layer whose `geometry`
+list takes polygons and lines, so it draws the way once.
 For a closed way, `line_centroid` is the centroid of the polygon it encloses, as in Planetiler.
 
 A relation's member ways are joined into rings.

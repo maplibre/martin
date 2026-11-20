@@ -719,11 +719,11 @@ fn closed_way_is_a_polygon_and_its_outline() {
         columns: columns(&["name".to_owned()]),
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=14, GRID)
             },
         ],
@@ -772,11 +772,11 @@ fn closed_building_is_a_polygon_and_its_outline() {
         columns: columns(&["name".to_owned()]),
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=14, GRID)
             },
         ],
@@ -825,11 +825,11 @@ fn closed_way_with_area_yes_is_only_a_polygon() {
         columns: columns(&["name".to_owned()]),
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=14, GRID)
             },
         ],
@@ -875,11 +875,11 @@ fn closed_way_with_area_no_is_only_a_line() {
         columns: columns(&["name".to_owned()]),
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=14, GRID)
             },
         ],
@@ -925,11 +925,11 @@ fn closed_way_with_another_area_value_is_a_polygon_and_its_outline() {
         columns: columns(&["name".to_owned()]),
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=14, GRID)
             },
         ],
@@ -976,11 +976,11 @@ fn closed_way_of_three_nodes_is_only_a_line() {
         columns: columns(&["name".to_owned()]),
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=14, GRID)
             },
         ],
@@ -1024,11 +1024,11 @@ fn closed_way_of_three_nodes_with_area_yes_is_left_out() {
         columns: columns(&["name".to_owned()]),
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=14, GRID)
             },
         ],
@@ -1073,11 +1073,11 @@ fn open_way_with_area_yes_is_a_line() {
         columns: columns(&["name".to_owned()]),
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=14, GRID)
             },
         ],
@@ -1124,7 +1124,7 @@ fn layer_of_lines_reads_closed_ways_as_outlines() {
     let def = TableDef {
         columns: columns(&["highway".to_owned()]),
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             filter: Some("highway == 'pedestrian'".to_owned()),
             ..LayerDef::new("streets", 0..=14, GRID)
         }],
@@ -1174,7 +1174,7 @@ fn layer_of_polygons_reads_no_outlines() {
     let def = TableDef {
         columns: columns(&["highway".to_owned()]),
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
+            geometry: vec![GeometryType::Polygon.into()],
             filter: Some("highway == 'pedestrian'".to_owned()),
             ..LayerDef::new("street_polygons", 0..=14, GRID)
         }],
@@ -1227,7 +1227,7 @@ fn layer_of_any_geometry_with_a_where_reads_no_outlines() {
                 ..LayerDef::new("pois", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 filter: Some("highway == 'pedestrian'".to_owned()),
                 ..LayerDef::new("streets", 0..=14, GRID)
             },

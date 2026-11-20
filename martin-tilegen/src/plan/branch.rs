@@ -238,7 +238,7 @@ impl Test<'_> {
         errors: &mut [u64],
     ) -> bool {
         let layer = self.layer;
-        if !layer.draws(geometry, geom) {
+        if layer.entry(geometry, geom).is_none() {
             return false;
         }
         let reached = match &self.reach {
@@ -720,7 +720,7 @@ impl<'a> LayerPaths<'a, '_> {
                 Reach::Geometry | Reach::Layer => String::new(),
             };
             let mut parts = self.reached_rows(&reach);
-            if self.layer.geometry.is_none() {
+            if self.layer.geometry_condition().is_none() {
                 let shapes = [GeometryType::Line, GeometryType::Polygon].map(Condition::Geometry);
                 parts.push(("geometry", Ok(Condition::or(shapes))));
             }
@@ -851,11 +851,11 @@ impl<'a> LayerPaths<'a, '_> {
         parts
     }
 
-    /// The layer's geometry type, if it has one.
+    /// The layer's geometry types, unless it takes all.
     fn geometry(&self) -> Vec<Part<'a>> {
         self.layer
-            .geometry
-            .map(|geometry| ("geometry", Ok(Condition::Geometry(geometry))))
+            .geometry_condition()
+            .map(|condition| ("geometry", Ok(condition)))
             .into_iter()
             .collect()
     }

@@ -55,6 +55,9 @@ pub enum PlanError {
     #[error("layer `{layer}`: {error}")]
     InvalidLayer { layer: String, error: RenderLayerError },
 
+    #[error("layer `{layer}`: its `geometry` entries draw different geometry types")]
+    MixedGeometry { layer: String },
+
     #[error("layer `{layer}`: `{op}` groups by `{attribute}`, which the layer does not write")]
     UnknownGroupBy {
         layer: String,
@@ -128,10 +131,9 @@ pub struct LayerDef {
     /// WGS84: only tiles intersecting it are generated.
     pub bounds: Option<Bounds>,
     pub encoder: EncoderConfig,
-    /// Only features of this type, if set.
-    pub geometry: Option<GeometryType>,
-    /// Each feature the layer takes becomes this point of its geometry, if set.
-    pub point: Option<DerivedPoint>,
+    /// The features the layer takes and what it draws for each: a feature is drawn by the first entry that takes
+    /// its type, and left out when none does. Empty takes every feature as it is.
+    pub geometry: Vec<GeometryDef>,
     /// Only features for which this is `true`.
     pub filter: Option<String>,
     /// Per feature, clamped into `zooms`; `null` keeps the layer's.
@@ -166,8 +168,7 @@ impl LayerDef {
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
             bounds: None,
             encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
-            geometry: None,
-            point: None,
+            geometry: Vec::new(),
             filter: None,
             minzoom_expr: None,
             maxzoom_expr: None,
@@ -327,6 +328,48 @@ pub enum GeometryType {
     Point,
     Line,
     Polygon,
+}
+
+/// One entry of a layer's `geometry`: the features it takes, and what it draws for each.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GeometryDef {
+    /// Only features of this type, if set.
+    pub takes: Option<GeometryType>,
+    /// Each feature it takes becomes this point of its geometry, if set.
+    pub point: Option<DerivedPoint>,
+}
+
+impl GeometryDef {
+    /// Every feature, as it is.
+    pub const ANY: Self = Self {
+        takes: None,
+        point: None,
+    };
+
+    /// The type of the geometry it draws, if it has only one.
+    #[must_use]
+    pub fn draws(self) -> Option<GeometryType> {
+        self.point.map_or(self.takes, |_| Some(GeometryType::Point))
+    }
+
+    /// Whether it takes a feature with `geometry`, projected as `geom`: one of its type, or any but an
+    /// [`Geometry::Outline`], whose polygon it takes instead.
+    pub(crate) fn accepts(self, geometry: &Geometry, geom: FeatureGeom<'_>) -> bool {
+        match self.takes {
+            Some(kind) => kind.matches(geom),
+            None => !matches!(geometry, Geometry::Outline(_)),
+        }
+    }
+}
+
+/// Features of the type, as they are.
+impl From<GeometryType> for GeometryDef {
+    fn from(kind: GeometryType) -> Self {
+        Self {
+            takes: Some(kind),
+            point: None,
+        }
+    }
 }
 
 /// A point computed from a feature's projected geometry, which the layer draws in its place.
@@ -530,8 +573,8 @@ pub(crate) struct PlannedLayer {
     pub(crate) render: RenderLayer,
     pub(crate) info: LayerInfo,
     pub(crate) zooms: RangeInclusive<u8>,
-    pub(crate) geometry: Option<GeometryType>,
-    pub(crate) point: Option<DerivedPoint>,
+    /// The entries of [`LayerDef::geometry`], never empty.
+    pub(crate) geometry: Vec<GeometryDef>,
     /// Indexes into [`Plan::exprs`].
     pub(crate) filter: Option<ExprRef<Filter>>,
     pub(crate) id: PlannedId,
@@ -551,16 +594,37 @@ pub(crate) struct PlannedLayer {
 impl PlannedLayer {
     /// The type of the geometry the layer draws, if it has only one.
     pub(crate) fn output_geometry(&self) -> Option<GeometryType> {
-        self.point.map_or(self.geometry, |_| Some(GeometryType::Point))
+        self.geometry[0].draws()
     }
 
-    /// Whether the layer draws a feature with `geometry`, projected as `geom`: one of its geometry type, or any but an
-    /// [`Geometry::Outline`], whose polygon it draws instead.
-    pub(crate) fn draws(&self, geometry: &Geometry, geom: FeatureGeom<'_>) -> bool {
-        match self.geometry {
-            Some(kind) => kind.matches(geom),
-            None => !matches!(geometry, Geometry::Outline(_)),
+    /// The entry of the layer's `geometry` that draws a feature with `geometry`, projected as `geom`, or `None` when
+    /// the layer leaves it out. A layer with an entry taking polygons leaves out every [`Geometry::Outline`], as it
+    /// draws the closed way from its polygon.
+    pub(crate) fn entry(&self, geometry: &Geometry, geom: FeatureGeom<'_>) -> Option<GeometryDef> {
+        if matches!(geometry, Geometry::Outline(_))
+            && self
+                .geometry
+                .iter()
+                .any(|entry| entry.takes.is_none_or(|kind| kind == GeometryType::Polygon))
+        {
+            return None;
         }
+        self.geometry
+            .iter()
+            .copied()
+            .find(|entry| entry.accepts(geometry, geom))
+    }
+
+    /// The geometry types the layer takes, or `None` when it takes all.
+    pub(crate) fn geometry_condition(&self) -> Option<Condition> {
+        let mut kinds = Vec::new();
+        for entry in &self.geometry {
+            let kind = entry.takes?;
+            if !kinds.contains(&kind) {
+                kinds.push(kind);
+            }
+        }
+        Some(Condition::or(kinds.into_iter().map(Condition::Geometry)))
     }
 
     /// Whether some of the layer's features are thinned by a grid.
@@ -748,7 +812,9 @@ impl Plan {
     /// If the plan has no table `table`.
     #[must_use]
     pub fn typed_row_filter(&self, table: usize, zooms: RangeInclusive<u8>, geometry: GeometryType) -> RowFilter {
-        self.layers_row_filter(table, zooms, |layer| layer.geometry == Some(geometry))
+        self.layers_row_filter(table, zooms, |layer| {
+            layer.geometry.iter().any(|entry| entry.takes == Some(geometry))
+        })
     }
 
     /// The rows of table `table` that some layer for which `of` holds takes at one of `zooms`.
@@ -845,7 +911,7 @@ impl Compiler<'_> {
 
 /// The rows `layer` takes, by geometry type and `where`.
 fn layer_rows(columns: &[ColumnDef], layer: &PlannedLayer, exprs: &[PlannedExpr]) -> Result<Condition, Untranslatable> {
-    let geometry = layer.geometry.map(Condition::Geometry);
+    let geometry = layer.geometry_condition();
     let Some(filter) = layer.filter else {
         return Ok(Condition::and(geometry));
     };
@@ -868,6 +934,14 @@ fn key_id(pos: usize) -> KeyId {
 }
 
 fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<PlannedLayer, PlanError> {
+    let geometry = if def.geometry.is_empty() {
+        vec![GeometryDef::ANY]
+    } else {
+        def.geometry.clone()
+    };
+    if geometry.iter().any(|entry| entry.draws() != geometry[0].draws()) {
+        return Err(PlanError::MixedGeometry { layer: def.name });
+    }
     let (mut keys, mut copy) = layer_keys(&def, compiler)?;
     let (computed, banded) = plan_computed(&def, compiler, &mut copy)?;
     let attrs = PlannedAttrs {
@@ -944,8 +1018,7 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
             per_tile,
         },
         zooms: def.zooms,
-        geometry: def.geometry,
-        point: def.point,
+        geometry,
         filter,
         id,
         attributes: def.attributes,

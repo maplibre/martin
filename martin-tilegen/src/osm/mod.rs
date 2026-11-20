@@ -452,12 +452,22 @@ fn column_keys<'b>(block: &'b Block, columns: &[String]) -> Vec<Option<TagKey<'b
 
 /// The geometry types some layer of `table` takes, whatever its `where`.
 fn layer_types(table: &crate::plan::TableDef) -> Vec<GeometryType> {
-    table
-        .layers
-        .iter()
-        .map(|layer| layer.geometry)
-        .collect::<Option<Vec<_>>>()
-        .unwrap_or_else(|| vec![GeometryType::Point, GeometryType::Line, GeometryType::Polygon])
+    let all = vec![GeometryType::Point, GeometryType::Line, GeometryType::Polygon];
+    let mut types = Vec::new();
+    for layer in &table.layers {
+        if layer.geometry.is_empty() {
+            return all;
+        }
+        for entry in &layer.geometry {
+            let Some(kind) = entry.takes else {
+                return all;
+            };
+            if !types.contains(&kind) {
+                types.push(kind);
+            }
+        }
+    }
+    types
 }
 
 /// The `multipolygon` and `boundary` relations of `file` that `condition` may take as polygons, by id; only relation
