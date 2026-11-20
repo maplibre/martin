@@ -148,22 +148,24 @@ Without a SQL equivalent, Martin reads every row and checks `where` itself, with
 
 `geometry` sets the features a layer takes and what it draws for each, with Planetiler's names:
 
-| `geometry`                 | Takes    | Draws                  |
-|----------------------------|----------|------------------------|
-| `point`                    | points   | the points             |
-| `line`                     | lines    | the lines              |
-| `polygon`                  | polygons | the polygons           |
-| `polygon_centroid`         | polygons | the centroid, a point  |
-| `line_centroid`            | lines    | the centroid, a point  |
-| `centroid`                 | all      | the centroid, a point  |
-| `polygon_point_on_surface` | polygons | a point on its surface |
+| `geometry`                   | Takes    | Draws                                               |
+|------------------------------|----------|-----------------------------------------------------|
+| `point`                      | points   | the points                                          |
+| `line`                       | lines    | the lines                                           |
+| `polygon`                    | polygons | the polygons                                        |
+| `polygon_centroid`           | polygons | the centroid, a point                               |
+| `line_centroid`              | lines    | the centroid, a point                               |
+| `centroid`                   | all      | the centroid, a point                               |
+| `polygon_point_on_surface`   | polygons | a point on its surface                              |
+| `polygon_centroid_if_convex` | polygons | the centroid if convex, else a point on its surface |
 
-The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all
-parts of a multi-geometry. It can lie outside a concave polygon. A point on the surface lies inside the
-polygon: the middle of the widest stretch inside it of a horizontal line through the middle of its bounding
-box, and for a multi-polygon, that of the part where this stretch is widest. Each point is computed once per
-feature, in Web Mercator, and drawn like any point: only in the tiles it reaches, with no `min_size`, and
-[per-tile operations](#per-tile-operations) see a point.
+The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all parts
+of a multi-geometry. It can lie outside a concave polygon. A point on the surface lies inside the polygon: the
+middle of the widest stretch inside it of a horizontal line through the middle of its bounding box, and for a
+multi-polygon, that of the part where this stretch is widest. As in Planetiler, a polygon is convex when it
+has no holes and no turn of its outline goes the other way by more than a thousandth of its largest turn; a
+multi-polygon never is. Each point is computed once per feature, in Web Mercator, and drawn like any point:
+only in the tiles it reaches, with no `min_size`, and [per-tile operations](#per-tile-operations) see a point.
 
 ## Attributes
 

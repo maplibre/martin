@@ -337,12 +337,15 @@ pub enum DerivedPoint {
     Centroid,
     /// A point on the geometry, as geo's `InteriorPoint` finds it over all parts of a multi-geometry.
     PointOnSurface,
+    /// As Planetiler's `centroidIfConvex`: the centroid of a convex polygon without holes, a point on the surface
+    /// of any other polygon or multi-polygon, and the centroid of lines and points.
+    CentroidIfConvex,
 }
 
 impl DerivedPoint {
     /// The point of a feature with `geometry`, projected as `geom`, or `None` when it has none, such as an empty
     /// geometry; that of the polygon of an [`Geometry::Outline`], as Planetiler derives it from a closed way that is
-    /// also an area.
+    /// also an area, and a point on the surface of a multi-polygon of one part for [`Self::CentroidIfConvex`].
     pub(crate) fn of(self, geometry: &Geometry, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
         let area;
         let geom = if let Geometry::Outline(ring) = geometry {
@@ -351,7 +354,25 @@ impl DerivedPoint {
         } else {
             geom
         };
+        if matches!((self, geometry), (Self::CentroidIfConvex, Geometry::Polygons(_))) {
+            return Self::PointOnSurface.of_geom(geom);
+        }
+        self.of_geom(geom)
+    }
+
+    /// The point of `geom`, or `None` when it has none.
+    fn of_geom(self, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
         let point = match (self, geom) {
+            (Self::CentroidIfConvex, _) => {
+                let centroid = match geom {
+                    FeatureGeom::Polygons([polygon]) => {
+                        polygon.interiors().is_empty() && is_convex(&polygon.exterior().0)
+                    }
+                    FeatureGeom::Polygons(_) => false,
+                    FeatureGeom::Points(_) | FeatureGeom::Lines(_) => true,
+                };
+                return if centroid { Self::Centroid } else { Self::PointOnSurface }.of_geom(geom);
+            }
             (Self::Centroid | Self::PointOnSurface, FeatureGeom::Points([point])) => return Some(*point),
             (Self::Centroid, FeatureGeom::Points(points)) => MultiPoint::from(points.to_vec()).centroid(),
             (Self::Centroid, FeatureGeom::Lines([line])) => line.centroid(),
@@ -368,6 +389,53 @@ impl DerivedPoint {
         };
         point.map(|point| point.0)
     }
+}
+
+/// Whether `ring` is convex as Planetiler's `GeoUtils.isConvex` decides it: the triangles of consecutive points keep
+/// one orientation, ignoring repeated points and turns below a thousandth of the largest one the other way. Unlike
+/// Planetiler, a repeated point keeps the previous edge, so a repeated corner still turns.
+fn is_convex(ring: &[Coord<f64>]) -> bool {
+    const THRESHOLD: f64 = 1e-3;
+    const MIN_POINTS_TO_CHECK: usize = 10;
+    let ratio = |neg: f64, pos: f64| if neg < pos { neg / pos } else { pos / neg };
+    let size = ring.len();
+    if size <= 3 {
+        return false;
+    }
+    let c0 = ring[0];
+    let mut i = 1;
+    let mut c1 = ring[i];
+    while i < size {
+        c1 = ring[i];
+        if c1 != c0 {
+            break;
+        }
+        i += 1;
+    }
+    let mut d1 = c1 - c0;
+    let (mut neg, mut pos) = (1e-20, 1e-20);
+    while i <= size + 1 {
+        let c2 = ring[if i < size { i } else { i + 1 - size }];
+        let d2 = c2 - c1;
+        let z = d1.x * d2.y - d1.y * d2.x;
+        let mut extended = false;
+        if z < 0.0 && -z > neg {
+            neg = -z;
+            extended = true;
+        } else if z > 0.0 && z > pos {
+            pos = z;
+            extended = true;
+        }
+        if (i == MIN_POINTS_TO_CHECK || (i > MIN_POINTS_TO_CHECK && extended)) && ratio(neg, pos) > THRESHOLD {
+            return false;
+        }
+        c1 = c2;
+        if d2 != Coord::zero() {
+            d1 = d2;
+        }
+        i += 1;
+    }
+    ratio(neg, pos) < THRESHOLD
 }
 
 impl GeometryType {
