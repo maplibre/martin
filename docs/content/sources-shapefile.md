@@ -80,11 +80,14 @@ Each field of the `.dbf` is a property, `null` where it is empty:
 
 | Field type                                           | Property                                      |
 |------------------------------------------------------|-----------------------------------------------|
-| Character, Memo                                      | string                                        |
+| Character                                            | string                                        |
 | Numeric without decimal places, Integer              | integer                                       |
 | Numeric with decimal places, Float, Double, Currency | float                                         |
 | Logical                                              | boolean                                       |
 | Date, DateTime                                       | string, `2026-11-15` or `2026-11-15T09:30:00` |
+
+Martin does not read `.dbt` memo files, which shapefiles do not use: an empty Memo field is `null`, and a Memo field
+with text fails the run.
 
 Nothing is pushed down: Martin reads every record and checks `where` itself. With `--bbox`, it leaves out records
 outside the tiles the box touches; without it, a file of the whole world, such as the ocean polygons, renders the
