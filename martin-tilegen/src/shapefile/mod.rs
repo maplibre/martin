@@ -37,6 +37,9 @@ const HEADER_BYTES: u64 = 100;
 const RECORD_HEADER_BYTES: u64 = 8;
 /// The parts of a shapefile Martin reads, by extension.
 const PARTS: [&str; 5] = ["shp", "shx", "dbf", "prj", "cpg"];
+
+/// The smallest integer a float may not hold exactly, 2^53.
+const MAX_EXACT: f64 = 9_007_199_254_740_992.0;
 /// The highest latitude of Web Mercator.
 const MAX_LATITUDE: f64 = 85.051_128_779_806_59;
 
@@ -145,6 +148,10 @@ struct Opened {
     /// The type of every shape, from the header of the `.shp`.
     shape_type: ShapeType,
     fields: Vec<Field>,
+    /// Where the first record of the `.dbf` starts, in bytes.
+    dbf_header: u64,
+    /// How many bytes each record of the `.dbf` takes.
+    dbf_record: u64,
     /// Where each record is in the `.shp`, header included, in bytes.
     records: Vec<Range<u64>>,
     /// The directory the zip file was unpacked into, deleted with it.
@@ -157,6 +164,10 @@ struct Field {
     field_type: FieldType,
     /// Whether a numeric field has decimal places, so its values are floats.
     decimals: bool,
+    /// Where the field starts in a record, deletion flag included, in bytes.
+    offset: u64,
+    /// How many bytes the field takes in a record.
+    length: usize,
 }
 
 impl Field {
@@ -203,7 +214,7 @@ impl Shapefile {
         };
         let (shape_type, records) = record_ranges(path, &shp)?;
         let dbf = beside(&shp, "dbf").unwrap_or_else(|| shp.with_extension("dbf"));
-        let (fields, rows) = fields(&dbf, encoding.as_deref())?;
+        let (layout, rows) = fields(&dbf, encoding.as_deref())?;
         if rows != records.len() {
             return Err(ShapefileError::RecordCounts {
                 path: path.to_path_buf(),
@@ -223,7 +234,9 @@ impl Shapefile {
             encoding,
             crs,
             shape_type,
-            fields,
+            fields: layout.fields,
+            dbf_header: layout.header,
+            dbf_record: layout.record,
             records,
             _unpacked: unpacked,
         })))
@@ -397,21 +410,44 @@ fn record_ranges(path: &Path, shp: &Path) -> Result<(ShapeType, Vec<Range<u64>>)
     Ok((header.shape_type, records))
 }
 
-/// The fields of the `.dbf` at `dbf`, and how many rows it has.
-fn fields(dbf: &Path, encoding: Option<&str>) -> Result<(Vec<Field>, usize), ShapefileError> {
+/// The fields of the `.dbf` at `dbf` and where they are in its records, with how many records it has.
+fn fields(dbf: &Path, encoding: Option<&str>) -> Result<(DbfLayout, usize), ShapefileError> {
     let table = open_dbf(dbf, encoding)?;
-    let decimals = decimal_places(dbf)?;
+    let descriptors = descriptors(dbf)?;
     let fields = table
         .fields()
         .iter()
-        .zip(decimals.into_iter().chain(std::iter::repeat(0)))
-        .map(|(field, decimals)| Field {
+        .zip(
+            descriptors
+                .fields
+                .into_iter()
+                .chain(std::iter::repeat_n((0, 0, 0), usize::MAX)),
+        )
+        .map(|(field, (decimals, offset, length))| Field {
             name: field.name().to_owned(),
             field_type: field.field_type(),
             decimals: decimals > 0,
+            offset,
+            length,
         })
         .collect();
-    Ok((fields, table.num_records()))
+    Ok((
+        DbfLayout {
+            header: descriptors.header,
+            record: descriptors.record,
+            fields,
+        },
+        table.num_records(),
+    ))
+}
+
+/// The fields of a `.dbf` and where its records are.
+struct DbfLayout {
+    /// Where the first record starts, in bytes.
+    header: u64,
+    /// How many bytes each record takes.
+    record: u64,
+    fields: Vec<Field>,
 }
 
 /// Opens the `.dbf` at `dbf`, decoding its text as the `.cpg` names, else as its header says.
@@ -428,22 +464,50 @@ fn open_dbf(dbf: &Path, encoding: Option<&str>) -> Result<dbase::File<BufReader<
     .map_err(error)
 }
 
-/// The decimal places of each field of the `.dbf` at `dbf`, from its field descriptors, which `dbase` does not
-/// expose.
-fn decimal_places(dbf: &Path) -> Result<Vec<u8>, ShapefileError> {
+/// The field descriptors of the `.dbf` at `dbf`, which `dbase` does not expose.
+struct Descriptors {
+    /// Where the first record starts, in bytes.
+    header: u64,
+    /// How many bytes each record takes.
+    record: u64,
+    /// The decimal places, offset in a record and length in bytes of each field.
+    fields: Vec<(u8, u64, usize)>,
+}
+
+/// Reads the field descriptors of the `.dbf` at `dbf`.
+fn descriptors(dbf: &Path) -> Result<Descriptors, ShapefileError> {
     let mut file = BufReader::new(File::open(dbf).map_err(read_error(dbf))?);
     let mut header = [0u8; 32];
     file.read_exact(&mut header).map_err(read_error(dbf))?;
-    let mut decimals = Vec::new();
+    let mut fields = Vec::new();
+    let mut offset = 1;
     loop {
         let mut descriptor = [0u8; 32];
         file.read_exact(&mut descriptor[..1]).map_err(read_error(dbf))?;
         if descriptor[0] == 0x0d {
-            return Ok(decimals);
+            return Ok(Descriptors {
+                header: u64::from(u16::from_le_bytes([header[8], header[9]])),
+                record: u64::from(u16::from_le_bytes([header[10], header[11]])),
+                fields,
+            });
         }
         file.read_exact(&mut descriptor[1..]).map_err(read_error(dbf))?;
-        decimals.push(descriptor[17]);
+        fields.push((descriptor[17], offset, usize::from(descriptor[16])));
+        offset += u64::from(descriptor[16]);
     }
+}
+
+/// The integer a numeric field holds as text in record `record` of the `.dbf` `dbf`, read from `raw` as `dbase`
+/// reads it only as a float; `None` if the text is not one.
+fn exact_integer(raw: &mut File, opened: &Opened, record: usize, field: &Field) -> Result<Option<i64>, ShapefileError> {
+    let at = opened.dbf_header + record as u64 * opened.dbf_record + field.offset;
+    let mut text = vec![0u8; field.length];
+    raw.seek(SeekFrom::Start(at))
+        .and_then(|_| raw.read_exact(&mut text))
+        .map_err(read_error(&opened.dbf))?;
+    Ok(std::str::from_utf8(&text)
+        .ok()
+        .and_then(|text| text.trim().parse().ok()))
 }
 
 /// Which records of its file a table reads.
@@ -606,6 +670,8 @@ struct ShapefileReader<'a> {
 struct OpenFiles {
     shp: File,
     dbf: dbase::File<BufReader<File>>,
+    /// The `.dbf` again, for the text of integers too large for the float `dbase` reads them as.
+    raw_dbf: File,
 }
 
 impl<'a> ShapefileReader<'a> {
@@ -637,6 +703,7 @@ impl FeatureReader for ShapefileReader<'_> {
             empty => empty.insert(OpenFiles {
                 shp: File::open(&opened.shp).map_err(read_error(&opened.shp))?,
                 dbf: open_dbf(&opened.dbf, opened.encoding.as_deref())?,
+                raw_dbf: File::open(&opened.dbf).map_err(read_error(&opened.dbf))?,
             }),
         };
         let ranges = &opened.records[records.clone()];
@@ -683,7 +750,16 @@ impl FeatureReader for ShapefileReader<'_> {
             let mut props = Vec::with_capacity(scan.fields.len());
             for (pos, &field) in (0u32..).zip(&scan.fields) {
                 let value = row.read_field(FieldIndex(field)).map_err(attributes_error)?;
-                if let Some(prop) = prop(value, opened.fields[field].kind()) {
+                let info = &opened.fields[field];
+                let exact = if let FieldValue::Numeric(Some(number)) = value
+                    && info.kind() == ValueKind::Int
+                    && number.abs() >= MAX_EXACT
+                {
+                    exact_integer(&mut files.raw_dbf, opened, record, info)?.map(Prop::I64)
+                } else {
+                    None
+                };
+                if let Some(prop) = exact.or_else(|| prop(value, info.kind())) {
                     props.push((KeyId::new(pos), prop));
                 }
             }
