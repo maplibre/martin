@@ -36,6 +36,8 @@ use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::postgres::PostgresConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::{MltProcessConfig, MvtProcessConfig};
+#[cfg(feature = "shapefile")]
+use crate::config::file::shapefile::ShapefileConfig;
 #[cfg(feature = "resources")]
 use crate::config::file::sprites::SpriteConfig;
 use crate::config::file::srv::SrvConfig;
@@ -207,6 +209,12 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "OsmConfig::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub osm: OsmConfig,
+
+    /// ESRI shapefiles, which only `martin cp --mode bulk` renders (unstable)
+    #[cfg(feature = "shapefile")]
+    #[serde(default, skip_serializing_if = "ShapefileConfig::is_empty")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub shapefile: ShapefileConfig,
 
     /// Publish `GeoJSON` files as vector tile sources
     #[cfg(feature = "processing")]
