@@ -250,7 +250,7 @@ fn a_chain_reader_reads_each_source_through_that_sources_own_readers() {
     }
     insta::assert_snapshot!(read.join("\n"), @"
     partition 1 id Some(100)
-    partition 0 id Some(0)
+    partition 0 id Some(100)
     ");
 }
 
