@@ -130,7 +130,7 @@ async fn osm_and_database_sources_in_one_run_are_refused() {
         .arg(dir.path().join("out.mbtiles"))
         .run_expecting_failure()
         .await;
-    insta::assert_snapshot!(stderr.lines().last().unwrap_or_default(), @"ERROR `--mode bulk` renders OSM sources or database sources in one run, not both; pick them with `--source`");
+    insta::assert_snapshot!(stderr.lines().last().unwrap_or_default(), @"ERROR `--mode bulk` renders file sources (`osm`, `shapefile`) or database sources in one run, not both; pick them with `--source`");
 }
 
 #[tokio::test]

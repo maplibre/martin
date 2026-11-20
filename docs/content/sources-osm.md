@@ -37,7 +37,7 @@ osm:
 martin cp --mode bulk --config config.yaml --source berlin --output-file berlin.mbtiles
 ```
 
-A run renders either `osm` sources or database sources, not both.
+A run renders `osm` and [`shapefile`](sources-shapefile.md) sources together, or database sources, not both.
 [Building a basemap from OpenStreetMap](recipe-osm-basemap.md) has one possible basemap schema.
 
 ## Settings
