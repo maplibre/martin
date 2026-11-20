@@ -3,8 +3,8 @@
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryType, IdDef, LayerDef, Plan, PlanError, RowFilter,
-    RuleDef, SortDef, TableDef, ThinningMethod, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryDef, GeometryType, IdDef, LayerDef, Plan, PlanError,
+    RowFilter, RuleDef, SortDef, TableDef, ThinningMethod, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
 };
 use martin_tilegen::project::from_lonlat;
 use martin_tilegen::props::{KeyId, Prop};
@@ -31,6 +31,25 @@ fn evaluate(plan: &Plan, features: &[SourceFeature]) -> String {
     let errors = plan.expr_errors(&evaluator.finish());
     lines.extend(errors.iter().map(|errors| format!("{errors:?}")));
     lines.join("\n")
+}
+
+#[test]
+fn rejects_geometry_entries_drawing_different_types() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: vec![
+                GeometryType::Line.into(),
+                GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::Centroid),
+                },
+            ],
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    insta::assert_snapshot!(err, @"layer `roads`: its `geometry` entries draw different geometry types");
 }
 
 #[test]
@@ -581,15 +600,15 @@ fn a_layer_takes_only_features_of_its_geometry_type() {
         columns: vec![],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Point),
+                geometry: vec![GeometryType::Point.into()],
                 ..LayerDef::new("points", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=0, GRID)
             },
             LayerDef::new("everything", 0..=0, GRID),
@@ -1258,11 +1277,11 @@ fn a_table_reads_the_rows_of_each_layers_geometry() {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Point),
+                geometry: vec![GeometryType::Point.into()],
                 ..LayerDef::new("stops", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("roads", 0..=0, GRID)
             },
         ],
@@ -1290,7 +1309,7 @@ fn a_layer_without_a_filter_reads_every_row() {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("roads", 0..=0, GRID)
             },
             LayerDef::new("all", 0..=0, GRID),
@@ -1306,11 +1325,11 @@ fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("detail", 10..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("overview", 0..=14, GRID)
             },
         ],
@@ -1352,7 +1371,7 @@ fn a_table_reads_the_rows_some_layer_takes() {
                 ..LayerDef::new("roads", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Point),
+                geometry: vec![GeometryType::Point.into()],
                 filter: Some("!(rank >= 4)".to_owned()),
                 ..LayerDef::new("minor", 0..=0, GRID)
             },
@@ -1880,7 +1899,7 @@ fn a_minzoom_measuring_area_measures_the_polygon_of_an_outline() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             minzoom_expr: Some("area('km2') >= 100000 ? 4 : 5".to_owned()),
             attributes: AttributesDef::None,
             ..LayerDef::new("borders", 0..=14, GRID)
@@ -1934,8 +1953,10 @@ fn a_derived_point_measures_the_polygon_it_comes_from() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
-            point: Some(DerivedPoint::Centroid),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::Centroid),
+            }],
             attributes: AttributesDef::Computed {
                 attributes: vec![ComputedAttr {
                     name: "way_area".to_owned(),

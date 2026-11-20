@@ -1,6 +1,6 @@
 use geo_types::{LineString, Polygon};
 use martin_tile_utils::{Encoding, TileRect};
-use martin_tilegen::plan::{DerivedPoint, GeometryType, LayerDef, Plan, TableDef};
+use martin_tilegen::plan::{DerivedPoint, GeometryDef, GeometryType, LayerDef, Plan, TableDef};
 use martin_tilegen::source::{Crs, FeatureBatch, Geometry, SourceFeature};
 use martin_tilegen::{LayerGrid, TileFormat, render_block};
 use mlt_core::{Decoder, Parser};
@@ -103,11 +103,11 @@ fn a_layer_of_lines_draws_the_outline_of_an_area_and_a_layer_of_polygons_its_pol
         columns: vec![],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=0, GRID)
             },
         ],
@@ -169,8 +169,10 @@ fn a_line_centroid_of_an_outline_is_the_centroid_of_its_area() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
-            point: Some(DerivedPoint::Centroid),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Line),
+                point: Some(DerivedPoint::Centroid),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])

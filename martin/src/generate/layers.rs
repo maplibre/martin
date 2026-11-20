@@ -5,8 +5,8 @@ use std::ops::RangeInclusive;
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryType, IdDef, IdOrder, LayerDef, RuleDef, SortDef,
-    TableDef, ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryDef, GeometryType, IdDef, IdOrder, LayerDef, RuleDef,
+    SortDef, TableDef, ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -18,7 +18,7 @@ use super::{GenerateError, GenerateResult};
 use crate::config::args::OrderByType;
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Layers, Literal, MultiGeometry, OutputGeometry,
+    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Layers, Literal, MultiGeometry, NonEmpty, OutputGeometry,
     PerFeature, PerTile, Pixels, PropertySelector, RuleSettings, RuleThinning, Rules, Thinning, ThinningMethod, Value,
     ValueSpec, Zoom, ZoomRange, ZoomSetting,
 };
@@ -163,12 +163,8 @@ fn lower_layer(
     defaults: &LayerDef,
     static_columns: &[&str],
 ) -> GenerateResult<Option<LayerDef>> {
-    if let Some(what) = unsupported(layer) {
-        return Err(GenerateError::Unsupported {
-            layer: name.to_owned(),
-            what,
-        });
-    }
+    let geometry = lower_geometry(name, layer.geometry.as_ref())?;
+    let output = geometry.first().and_then(|entry| entry.draws());
     let fixed = |zoom: Option<&ZoomSetting>| zoom.and_then(ZoomSetting::fixed).map(|z| z.get());
     let (table_min, table_max) = (*defaults.zooms.start(), *defaults.zooms.end());
     let min = fixed(layer.minzoom.as_ref()).map_or(table_min, |z| z.max(table_min));
@@ -190,9 +186,8 @@ fn lower_layer(
         layer: name,
         zooms: min..=max,
         grid,
-        geometry: layer.geometry,
+        geometry: output,
     };
-    let (input, point) = layer.geometry.and_then(|g| layer_geometry(g).ok()).unzip();
     Ok(Some(LayerDef {
         name: name.to_owned(),
         zooms: min..=max,
@@ -210,8 +205,7 @@ fn lower_layer(
         ),
         bounds: defaults.bounds,
         encoder: defaults.encoder,
-        geometry: input.flatten(),
-        point: point.flatten(),
+        geometry,
         filter: layer.r#where.as_ref().map(|e| e.as_str().to_owned()),
         minzoom_expr: zoom_expr(layer.minzoom.as_ref()),
         maxzoom_expr: zoom_expr(layer.maxzoom.as_ref()),
@@ -240,15 +234,7 @@ fn lower_layer(
             })
             .collect(),
         id_order: None,
-        per_tile: lower_per_tile(
-            id,
-            name,
-            &layer.per_tile,
-            &(min..=max),
-            grid,
-            output_geometry(layer.geometry),
-            &grids,
-        ),
+        per_tile: lower_per_tile(id, name, &layer.per_tile, &(min..=max), grid, output, &grids),
     }))
 }
 
@@ -262,8 +248,8 @@ struct GridContext<'a> {
     zooms: RangeInclusive<u8>,
     /// The layer's extent and buffer.
     grid: LayerGrid,
-    /// The layer's `geometry`, if set.
-    geometry: Option<OutputGeometry>,
+    /// The type of the geometry the layer draws, if it has only one.
+    geometry: Option<GeometryType>,
 }
 
 impl GridContext<'_> {
@@ -309,7 +295,7 @@ impl GridContext<'_> {
             geometry,
             ..
         } = self;
-        if matches!(geometry, Some(OutputGeometry::Line | OutputGeometry::Polygon)) {
+        if matches!(geometry, Some(GeometryType::Line | GeometryType::Polygon)) {
             warn!(
                 "`{key}` of layer `{layer}` in source `{source}` only thins points by a grid, and the layer has none"
             );
@@ -393,37 +379,60 @@ fn computed_attrs(attributes: &IndexMap<String, ValueSpec>) -> Vec<ComputedAttr>
         .collect()
 }
 
-/// The features `geometry` takes and the point it derives from each, as Planetiler's custommap pairs
-/// them; `Err` names a value the engine cannot derive yet.
-fn layer_geometry(geometry: OutputGeometry) -> Result<(Option<GeometryType>, Option<DerivedPoint>), &'static str> {
-    match geometry {
-        OutputGeometry::Point => Ok((Some(GeometryType::Point), None)),
-        OutputGeometry::Line => Ok((Some(GeometryType::Line), None)),
-        OutputGeometry::Polygon => Ok((Some(GeometryType::Polygon), None)),
-        OutputGeometry::PolygonCentroid => Ok((Some(GeometryType::Polygon), Some(DerivedPoint::Centroid))),
-        OutputGeometry::LineCentroid => Ok((Some(GeometryType::Line), Some(DerivedPoint::Centroid))),
-        OutputGeometry::Centroid => Ok((None, Some(DerivedPoint::Centroid))),
-        OutputGeometry::LineMidpoint => Err("line_midpoint"),
-        OutputGeometry::PolygonCentroidIfConvex => {
-            Ok((Some(GeometryType::Polygon), Some(DerivedPoint::CentroidIfConvex)))
+/// The entries of the layer's `geometry`, refusing a value the engine cannot derive yet, entries drawing
+/// different geometry types, and an entry whose types the entries before it all take.
+fn lower_geometry(layer: &str, geometry: Option<&NonEmpty<OutputGeometry>>) -> GenerateResult<Vec<GeometryDef>> {
+    let Some(geometry) = geometry else {
+        return Ok(Vec::new());
+    };
+    let list = || {
+        let names: Vec<_> = geometry.iter().map(|entry| entry.name()).collect();
+        names.join(", ")
+    };
+    let mut lowered: Vec<GeometryDef> = Vec::new();
+    for &entry in geometry {
+        let def = layer_geometry(entry).ok_or_else(|| GenerateError::Unsupported {
+            layer: layer.to_owned(),
+            what: format!("`geometry: {}`", entry.name()),
+        })?;
+        if lowered.first().is_some_and(|first| first.draws() != def.draws()) {
+            return Err(GenerateError::MixedGeometry {
+                layer: layer.to_owned(),
+                geometry: list(),
+            });
         }
-        OutputGeometry::PolygonPointOnSurface => Ok((Some(GeometryType::Polygon), Some(DerivedPoint::PointOnSurface))),
-        OutputGeometry::PointOnLine => Err("point_on_line"),
-        OutputGeometry::InnermostPoint => Err("innermost_point"),
+        let taken = |kind: GeometryType| lowered.iter().any(|before| before.takes.is_none_or(|t| t == kind));
+        let kinds = def.takes.map_or(
+            vec![GeometryType::Point, GeometryType::Line, GeometryType::Polygon],
+            |kind| vec![kind],
+        );
+        if kinds.into_iter().all(taken) {
+            return Err(GenerateError::UnreachableGeometry {
+                layer: layer.to_owned(),
+                entry: entry.name(),
+                geometry: list(),
+            });
+        }
+        lowered.push(def);
     }
+    Ok(lowered)
 }
 
-/// The type of the geometry a layer with `geometry` draws, if it has only one.
-fn output_geometry(geometry: Option<OutputGeometry>) -> Option<GeometryType> {
-    match layer_geometry(geometry?).ok()? {
-        (_, Some(_)) => Some(GeometryType::Point),
-        (input, None) => input,
-    }
-}
-
-fn unsupported(layer: &Layer) -> Option<String> {
-    let geometry = layer.geometry.and_then(|g| layer_geometry(g).err());
-    geometry.map(|geometry| format!("`geometry: {geometry}`"))
+/// The features `geometry` takes and the point it derives from each, as Planetiler's custommap pairs
+/// them; `None` for a value the engine cannot derive yet.
+fn layer_geometry(geometry: OutputGeometry) -> Option<GeometryDef> {
+    let (takes, point) = match geometry {
+        OutputGeometry::Point => (Some(GeometryType::Point), None),
+        OutputGeometry::Line => (Some(GeometryType::Line), None),
+        OutputGeometry::Polygon => (Some(GeometryType::Polygon), None),
+        OutputGeometry::PolygonCentroid => (Some(GeometryType::Polygon), Some(DerivedPoint::Centroid)),
+        OutputGeometry::LineCentroid => (Some(GeometryType::Line), Some(DerivedPoint::Centroid)),
+        OutputGeometry::Centroid => (None, Some(DerivedPoint::Centroid)),
+        OutputGeometry::PolygonCentroidIfConvex => (Some(GeometryType::Polygon), Some(DerivedPoint::CentroidIfConvex)),
+        OutputGeometry::PolygonPointOnSurface => (Some(GeometryType::Polygon), Some(DerivedPoint::PointOnSurface)),
+        OutputGeometry::LineMidpoint | OutputGeometry::PointOnLine | OutputGeometry::InnermostPoint => return None,
+    };
+    Some(GeometryDef { takes, point })
 }
 
 /// The layer's per-tile operations within `zooms`, warning about each one that has none of them, each
@@ -702,8 +711,7 @@ mod tests {
                         },
                     ),
                     encoder: EncoderConfig { .. },
-                    geometry: None,
-                    point: None,
+                    geometry: [],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -757,8 +765,7 @@ mod tests {
                     },
                     bounds: None,
                     encoder: EncoderConfig { .. },
-                    geometry: None,
-                    point: None,
+                    geometry: [],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -855,10 +862,14 @@ mod tests {
                     },
                     bounds: None,
                     encoder: EncoderConfig { .. },
-                    geometry: Some(
-                        Line,
-                    ),
-                    point: None,
+                    geometry: [
+                        GeometryDef {
+                            takes: Some(
+                                Line,
+                            ),
+                            point: None,
+                        },
+                    ],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -887,10 +898,14 @@ mod tests {
                     },
                     bounds: None,
                     encoder: EncoderConfig { .. },
-                    geometry: Some(
-                        Point,
-                    ),
-                    point: None,
+                    geometry: [
+                        GeometryDef {
+                            takes: Some(
+                                Point,
+                            ),
+                            point: None,
+                        },
+                    ],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -919,10 +934,14 @@ mod tests {
                     },
                     bounds: None,
                     encoder: EncoderConfig { .. },
-                    geometry: Some(
-                        Polygon,
-                    ),
-                    point: None,
+                    geometry: [
+                        GeometryDef {
+                            takes: Some(
+                                Polygon,
+                            ),
+                            point: None,
+                        },
+                    ],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -1386,34 +1405,46 @@ mod tests {
             .def
             .layers
             .iter()
-            .map(|layer| (layer.name.as_str(), layer.geometry, layer.point))
+            .map(|layer| (layer.name.as_str(), &layer.geometry))
             .collect();
         insta::assert_debug_snapshot!(geometries, @r#"
         [
             (
                 "parks",
-                Some(
-                    Polygon,
-                ),
-                Some(
-                    Centroid,
-                ),
+                [
+                    GeometryDef {
+                        takes: Some(
+                            Polygon,
+                        ),
+                        point: Some(
+                            Centroid,
+                        ),
+                    },
+                ],
             ),
             (
                 "roads",
-                Some(
-                    Line,
-                ),
-                Some(
-                    Centroid,
-                ),
+                [
+                    GeometryDef {
+                        takes: Some(
+                            Line,
+                        ),
+                        point: Some(
+                            Centroid,
+                        ),
+                    },
+                ],
             ),
             (
                 "everything",
-                None,
-                Some(
-                    Centroid,
-                ),
+                [
+                    GeometryDef {
+                        takes: None,
+                        point: Some(
+                            Centroid,
+                        ),
+                    },
+                ],
             ),
         ]
         "#);
@@ -1435,15 +1466,17 @@ mod tests {
         .expect("lowers")
         .expect("has a layer");
         let layer = &scan.def.layers[0];
-        insta::assert_debug_snapshot!((layer.geometry, layer.point), @"
-        (
-            Some(
-                Polygon,
-            ),
-            Some(
-                PointOnSurface,
-            ),
-        )
+        insta::assert_debug_snapshot!(layer.geometry, @"
+        [
+            GeometryDef {
+                takes: Some(
+                    Polygon,
+                ),
+                point: Some(
+                    PointOnSurface,
+                ),
+            },
+        ]
         ");
     }
 
@@ -1463,16 +1496,89 @@ mod tests {
         .expect("lowers")
         .expect("has a layer");
         let layer = &scan.def.layers[0];
-        insta::assert_debug_snapshot!((layer.geometry, layer.point), @"
-        (
-            Some(
-                Polygon,
-            ),
-            Some(
-                CentroidIfConvex,
-            ),
-        )
+        insta::assert_debug_snapshot!(layer.geometry, @"
+        [
+            GeometryDef {
+                takes: Some(
+                    Polygon,
+                ),
+                point: Some(
+                    CentroidIfConvex,
+                ),
+            },
+        ]
         ");
+    }
+
+    #[test]
+    fn a_geometry_list_lowers_each_entry_in_order() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  addresses: { geometry: [polygon_centroid_if_convex, point] }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].geometry, @"
+        [
+            GeometryDef {
+                takes: Some(
+                    Polygon,
+                ),
+                point: Some(
+                    CentroidIfConvex,
+                ),
+            },
+            GeometryDef {
+                takes: Some(
+                    Point,
+                ),
+                point: None,
+            },
+        ]
+        ");
+    }
+
+    #[test]
+    fn a_geometry_list_drawing_lines_and_points_is_refused() {
+        let err = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads: { geometry: [line, polygon_centroid] }
+            "},
+            0..=14,
+        )
+        .map(|_| ())
+        .expect_err("mixes lines and points");
+        insta::assert_snapshot!(err, @"layer `roads`: `geometry: [line, polygon_centroid]` mixes geometry types; the entries of a list must all draw points");
+    }
+
+    #[test]
+    fn a_geometry_entry_after_entries_taking_all_its_types_is_refused() {
+        let err = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  pois: { geometry: [centroid, point] }
+            "},
+            0..=14,
+        )
+        .map(|_| ())
+        .expect_err("point is never reached");
+        insta::assert_snapshot!(err, @"layer `pois`: `point` in `geometry: [centroid, point]` takes no feature, as the entries before it take all of its types");
     }
 
     #[test]

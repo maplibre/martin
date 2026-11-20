@@ -55,7 +55,7 @@ without it. Layer names must be unique across all sources, and a run holds at mo
 | `extent`, `buffer`, `clip_geom`   | Override the table source's                                      |                                                    |
 | `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons          | [Simplification](#simplification-and-minimum-size) |
 | `min_size`, `min_size_at_maxzoom` | Pixels, below which lines and polygons are dropped               | [Simplification](#simplification-and-minimum-size) |
-| `geometry`                        | Only features of one type, or a point computed from each         | [Geometry](#geometry)                              |
+| `geometry`                        | Only features of some types, or a point computed from each       | [Geometry](#geometry)                              |
 | `where`                           | An expression: only features for which it is `true`              | [Features](#features)                              |
 | `attributes`                      | Which properties to write, and under which names                 | [Attributes](#attributes)                          |
 | `id`                              | `true` (default), `false`, or an expression                      | [Feature ids](#feature-ids)                        |
@@ -123,13 +123,13 @@ A rule's `simplify` and `min_size` apply at every zoom, including the max zoom.
 A feature belongs to a layer when all of these hold:
 
 1. the table source's `filter`, which the database applies while reading,
-2. the type the layer's [`geometry`](#geometry) takes, if set,
+2. the types the layer's [`geometry`](#geometry) takes, if set,
 3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
 
 A [rule](#rules)'s `where` is not one of them.
 A feature that matches no rule stays in the layer.
 
-The database also applies the geometry type and `where` of every layer at the zoom being read, so rows no
+The database also applies the geometry types and `where` of every layer at the zoom being read, so rows no
 layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
 
 - comparisons of a column with a literal,
@@ -166,6 +166,20 @@ multi-polygon, that of the part where this stretch is widest. As in Planetiler, 
 has no holes and no turn of its outline goes the other way by more than a thousandth of its largest turn; a
 multi-polygon never is. Each point is computed once per feature, in Web Mercator, and drawn like any point:
 only in the tiles it reaches, with no `min_size`, and [per-tile operations](#per-tile-operations) see a point.
+
+`geometry` can also be a list, as Planetiler lists several `features` with one filter and the same attributes.
+Each feature is drawn by the first entry that takes its type, and only once; the entries share the layer's
+`where`, zooms and attributes. All entries of a list draw points, and an entry whose types the entries before
+it all take is refused.
+
+```yaml
+layers:
+  pois:
+    geometry: [point, polygon_point_on_surface]
+    where: "amenity == 'cafe'"
+```
+
+This layer draws a cafe point as itself and a cafe polygon as a point on its surface, and leaves out cafe lines.
 
 ## Attributes
 

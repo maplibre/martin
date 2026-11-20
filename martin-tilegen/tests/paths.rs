@@ -2,8 +2,8 @@
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ColumnFacts, ComputedAttr, DerivedPoint, GeometryType, LayerDef, Literal, Plan, RuleDef,
-    TableDef, ValueDef, ValueKind,
+    AttributesDef, ColumnDef, ColumnFacts, ComputedAttr, DerivedPoint, GeometryDef, GeometryType, LayerDef, Literal,
+    Plan, RuleDef, TableDef, ValueDef, ValueKind,
 };
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Crs, Geometry, SourceFeature};
@@ -19,7 +19,7 @@ fn a_city_takes_the_first_rule() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             rules: vec![
                 RuleDef {
                     when: Some("class == 'city'".to_owned()),
@@ -53,7 +53,7 @@ fn a_capital_skips_the_first_rule_and_takes_the_second() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             rules: vec![
                 RuleDef {
                     when: Some("class == 'city'".to_owned()),
@@ -87,7 +87,7 @@ fn a_place_without_a_class_takes_no_rule() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             rules: vec![
                 RuleDef {
                     when: Some("class == 'city'".to_owned()),
@@ -121,7 +121,7 @@ fn a_place_above_the_population_is_where() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("population".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("population > 1000".to_owned()),
             ..LayerDef::new("places", 0..=14, GRID)
         }],
@@ -146,7 +146,7 @@ fn a_place_below_the_population_is_not_where() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("population".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("population > 1000".to_owned()),
             ..LayerDef::new("places", 0..=14, GRID)
         }],
@@ -171,7 +171,7 @@ fn a_place_without_a_population_is_where_with_the_column_null() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("population".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("population > 1000".to_owned()),
             ..LayerDef::new("places", 0..=14, GRID)
         }],
@@ -200,7 +200,7 @@ fn a_city_without_an_english_name_is_labelled_by_its_name() {
             ColumnDef::Value("name_en".to_owned(), None),
         ],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             attributes: AttributesDef::None,
             rules: vec![RuleDef {
                 when: Some("class == 'city'".to_owned()),
@@ -242,7 +242,7 @@ fn a_town_outside_the_rule_takes_none_of_the_choices_of_its_attributes() {
             ColumnDef::Value("name_en".to_owned(), None),
         ],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             attributes: AttributesDef::None,
             rules: vec![RuleDef {
                 when: Some("class == 'city'".to_owned()),
@@ -279,7 +279,7 @@ fn a_known_column_the_layer_reads_has_a_path_per_value() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             attributes: AttributesDef::Computed {
                 attributes: vec![ComputedAttr {
                     name: "kind".to_owned(),
@@ -363,7 +363,7 @@ fn a_known_value_of_a_column_of_unknown_kind_cannot_select_its_rows() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             attributes: AttributesDef::Computed {
                 attributes: vec![ComputedAttr {
                     name: "kind".to_owned(),
@@ -409,7 +409,7 @@ fn a_known_column_the_layer_does_not_read_has_no_path() {
             ColumnDef::Value("name".to_owned(), None),
         ],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             attributes: AttributesDef::Computed {
                 attributes: vec![ComputedAttr {
                     name: "label".to_owned(),
@@ -448,7 +448,7 @@ fn a_known_column_in_a_where_has_no_null_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("type == 'stop'".to_owned()),
             ..LayerDef::new("devices", 0..=14, GRID)
         }],
@@ -481,7 +481,7 @@ fn a_known_column_that_may_be_null_has_a_null_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("type == 'stop'".to_owned()),
             ..LayerDef::new("devices", 0..=14, GRID)
         }],
@@ -515,7 +515,7 @@ fn a_null_path_names_a_where_that_fails_on_null() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("type.startsWith('s')".to_owned()),
             ..LayerDef::new("devices", 0..=14, GRID)
         }],
@@ -549,7 +549,7 @@ fn a_column_that_is_never_null_has_no_null_path_without_known_values() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("population".to_owned(), Some(ValueKind::Int))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("population > 1000".to_owned()),
             ..LayerDef::new("devices", 0..=14, GRID)
         }],
@@ -579,7 +579,7 @@ fn a_feature_without_a_known_column_takes_its_null_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("type == 'stop'".to_owned()),
             ..LayerDef::new("devices", 0..=14, GRID)
         }],
@@ -612,7 +612,7 @@ fn a_value_that_decides_every_rule_names_the_rule_it_takes() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             rules: vec![RuleDef {
                 when: Some("type == 'stop'".to_owned()),
                 attributes: vec![ComputedAttr {
@@ -656,7 +656,7 @@ fn a_rule_the_values_cannot_decide_keeps_its_paths() {
             ColumnDef::Value("lanes".to_owned(), None),
         ],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             attributes: AttributesDef::Computed {
                 attributes: vec![ComputedAttr {
                     name: "kind".to_owned(),
@@ -698,7 +698,7 @@ fn a_choice_inside_an_expression_names_its_field_without_a_value() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("lanes".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             attributes: AttributesDef::Computed {
                 attributes: vec![ComputedAttr {
                     name: "rank".to_owned(),
@@ -729,7 +729,7 @@ fn a_json_column_that_may_replace_a_known_column_keeps_its_choice_paths() {
             ColumnDef::Keys("tags".to_owned()),
         ],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("type == 'stop'".to_owned()),
             ..LayerDef::new("devices", 0..=14, GRID)
         }],
@@ -760,7 +760,7 @@ fn a_known_column_with_no_values_has_only_a_null_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("type == 'stop'".to_owned()),
             ..LayerDef::new("devices", 0..=14, GRID)
         }],
@@ -789,7 +789,7 @@ fn a_column_read_as_text_has_no_path_for_a_number() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("amount".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("amount != ''".to_owned()),
             ..LayerDef::new("payments", 0..=14, GRID)
         }],
@@ -819,7 +819,7 @@ fn a_float_column_compares_a_whole_number_as_a_float() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("height".to_owned(), Some(ValueKind::Float))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             filter: Some("height > 1.0".to_owned()),
             ..LayerDef::new("poles", 0..=14, GRID)
         }],
@@ -866,7 +866,7 @@ fn a_stop_sign_takes_the_path_of_its_value() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             attributes: AttributesDef::Computed {
                 attributes: vec![ComputedAttr {
                     name: "kind".to_owned(),
@@ -906,7 +906,7 @@ fn a_value_the_filter_does_not_list_takes_no_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("type".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             attributes: AttributesDef::Computed {
                 attributes: vec![ComputedAttr {
                     name: "kind".to_owned(),
@@ -942,7 +942,7 @@ fn an_integer_property_takes_the_path_of_its_known_integer_value() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("lanes".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             filter: Some("lanes > 1".to_owned()),
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
@@ -972,7 +972,7 @@ fn a_rule_with_its_own_min_size_has_its_own_size_paths() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             rules: vec![RuleDef {
                 when: Some("class == 'major'".to_owned()),
                 min_size: Some(PixelThreshold::ZERO),
@@ -1001,7 +1001,7 @@ fn a_short_major_road_is_kept_by_the_min_size_of_its_rule() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             rules: vec![RuleDef {
                 when: Some("class == 'major'".to_owned()),
                 min_size: Some(PixelThreshold::ZERO),
@@ -1031,7 +1031,7 @@ fn a_short_minor_road_is_smaller_than_the_layer_min_size_at_every_zoom() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             rules: vec![RuleDef {
                 when: Some("class == 'major'".to_owned()),
                 min_size: Some(PixelThreshold::ZERO),
@@ -1061,7 +1061,7 @@ fn a_line_layer_without_min_size_has_a_path_per_shape() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             min_size: PixelThreshold::ZERO,
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
@@ -1120,7 +1120,7 @@ fn a_line_layer_with_the_default_min_size_has_a_path_per_shape() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
     }])
@@ -1196,7 +1196,7 @@ fn a_point_layer_has_no_shape_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
     }])
@@ -1214,8 +1214,10 @@ fn a_line_centroid_layer_reads_lines_and_has_no_shape_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
-            point: Some(DerivedPoint::Centroid),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Line),
+                point: Some(DerivedPoint::Centroid),
+            }],
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
     }])
@@ -1237,11 +1239,50 @@ fn a_line_centroid_layer_reads_lines_and_has_no_shape_path() {
 }
 
 #[test]
+fn a_layer_of_several_point_geometries_reads_each_of_their_types_and_has_no_shape_path() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: vec![
+                GeometryType::Point.into(),
+                GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::PointOnSurface),
+                },
+            ],
+            ..LayerDef::new("pois", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.branches(0, &[]).unwrap(), @r#"
+    [
+        Branch {
+            layer: "pois",
+            path: "every feature",
+            rows: Ok(
+                Or(
+                    [
+                        Geometry(
+                            Point,
+                        ),
+                        Geometry(
+                            Polygon,
+                        ),
+                    ],
+                ),
+            ),
+            shape: None,
+        },
+    ]
+    "#);
+}
+
+#[test]
 fn a_line_across_a_z14_tile_edge_takes_the_crossing_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             min_size: PixelThreshold::ZERO,
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
@@ -1267,7 +1308,7 @@ fn a_line_inside_one_z14_tile_takes_no_shape_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             min_size: PixelThreshold::ZERO,
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
@@ -1292,7 +1333,7 @@ fn a_line_shorter_than_one_z14_tile_unit_takes_the_sub_unit_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             min_size: PixelThreshold::ZERO,
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
@@ -1318,7 +1359,7 @@ fn a_line_just_below_the_default_min_size_is_kept_only_at_z14() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
     }])
@@ -1343,7 +1384,7 @@ fn a_tiny_line_is_smaller_than_the_default_min_size_at_every_zoom() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Line),
+            geometry: vec![GeometryType::Line.into()],
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
     }])
@@ -1368,7 +1409,7 @@ fn a_polygon_across_a_z14_tile_edge_takes_the_crossing_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
+            geometry: vec![GeometryType::Polygon.into()],
             min_size: PixelThreshold::ZERO,
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
@@ -1397,7 +1438,7 @@ fn a_point_in_a_layer_of_any_geometry_takes_no_shape_path() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: None,
+            geometry: vec![],
             min_size: PixelThreshold::ZERO,
             ..LayerDef::new("roads", 0..=14, GRID)
         }],
@@ -1425,7 +1466,7 @@ fn a_large_polygon_takes_the_minzoom_its_area_picks() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("admin_level".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
+            geometry: vec![GeometryType::Polygon.into()],
             minzoom_expr: Some("area('km2') >= 1e5 ? 4 : 5".to_owned()),
             ..LayerDef::new("boundary_labels", 0..=14, GRID)
         }],
@@ -1454,7 +1495,7 @@ fn a_known_value_does_not_decide_an_expression_measuring_area() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("admin_level".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
+            geometry: vec![GeometryType::Polygon.into()],
             minzoom_expr: Some("admin_level == '2' && area('km2') >= 2e6 ? 2 : 5".to_owned()),
             ..LayerDef::new("boundary_labels", 0..=14, GRID)
         }],
@@ -1488,7 +1529,7 @@ fn a_known_value_does_not_decide_an_expression_measuring_area_in_a_macro() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![ColumnDef::Value("admin_level".to_owned(), Some(ValueKind::String))],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
+            geometry: vec![GeometryType::Polygon.into()],
             minzoom_expr: Some("admin_level == '2' && [1].exists(x, area('km2') >= 2e6) ? 2 : 5".to_owned()),
             ..LayerDef::new("boundary_labels", 0..=14, GRID)
         }],
@@ -1525,7 +1566,7 @@ fn a_known_value_does_not_decide_an_expression_reading_a_column_in_a_macro() {
             ColumnDef::Value("name".to_owned(), Some(ValueKind::String)),
         ],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
+            geometry: vec![GeometryType::Polygon.into()],
             minzoom_expr: Some("admin_level == '2' && [1].exists(x, name == 'Monaco') ? 2 : 5".to_owned()),
             ..LayerDef::new("boundary_labels", 0..=14, GRID)
         }],
@@ -1564,7 +1605,7 @@ fn an_outline_takes_the_paths_of_a_layer_of_lines_and_not_of_a_layer_of_any_geom
                 ..LayerDef::new("any", 0..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 filter: Some("highway == 'pedestrian'".to_owned()),
                 ..LayerDef::new("lines", 0..=14, GRID)
             },

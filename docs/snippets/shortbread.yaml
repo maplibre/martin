@@ -147,7 +147,7 @@ osm:
             admin_level: "int(admin_level)"
             disputed: "disputed == 'yes'"
         boundary_labels:
-          geometry: polygon_centroid
+          geometry: polygon_point_on_surface
           minzoom: >-
             admin_level == '2' && area('km2') >= 2e6 ? 2 : area('km2') >= 7e5 ? 3 : area('km2') >= 1e5 ? 4 : 5
           where: "boundary == 'administrative' && admin_level in ['2', '4']"
@@ -214,7 +214,7 @@ osm:
           where: "building != null && building != 'no'"
           attributes: []
         addresses:
-          geometry: centroid
+          geometry: [polygon_centroid_if_convex, point]
           minzoom: 14
           where: >-
             (feature['addr:housenumber'] != null || feature['addr:housename'] != null) && !(amenity in ['arts_centre',
@@ -337,7 +337,7 @@ osm:
             ref_rows: "ref != null ? size(ref.split(';')) : null"
             tunnel: "tunnel in ['yes', 'building_passage'] || covered == 'yes'"
         streets_polygons_labels:
-          geometry: polygon_centroid
+          geometry: polygon_point_on_surface
           minzoom: 14
           where: "name != null && (aeroway in ['runway', 'taxiway'] || highway in ['pedestrian', 'service'])"
           attributes:
@@ -379,7 +379,7 @@ osm:
             name_en: "feature['name:en']"
             name_de: "feature['name:de']"
         public_transport:
-          geometry: centroid
+          geometry: [point, polygon_point_on_surface]
           minzoom: >-
             aeroway == 'aerodrome' ? 11 : amenity == 'ferry_terminal' ? 12 : railway in ['station', 'halt'] ||
             aerialway == 'station' || aeroway == 'helipad' || amenity == 'bus_station' ? 13 : 14
@@ -396,7 +396,7 @@ osm:
             name_de: "feature['name:de']"
             iata: iata
         pois:
-          geometry: centroid
+          geometry: [point, polygon_point_on_surface]
           minzoom: 14
           where: >-
             amenity in ['arts_centre', 'atm', 'bank', 'bar', 'bench', 'bicycle_rental', 'biergarten', 'cafe',
