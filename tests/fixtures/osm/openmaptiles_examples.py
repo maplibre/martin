@@ -3,8 +3,9 @@
 Example `i` (from 0, in file order) is the OSM object `osm_id = i + 1` of type `osm_type`, both in the spec: a node
 for `point`, an open way for `line`, a closed way for `closed_way`, or a `type=multipolygon` relation of one untagged
 outer way for `polygon` (a `boundary` example keeps its own `type`). The geometry is the spec's `osm_geometry` when
-openmaptiles_spec.py shrank a too-big input, else the recorded `geometry`. Each relation the example is a member of
-becomes relation `RELATIONS + i * 100 + k` with the recorded tags and role. Examples of other sources are left out.
+openmaptiles_spec.py shrank a too-big input, else the recorded `geometry`. The `k`-th smallest recorded relation id of
+the example becomes relation `RELATIONS + i * 100 + k`, with the recorded tags and one member per recorded membership,
+in their order. Examples of other sources are left out.
 
     uv run --with osmium --with pyyaml --with shapely python -I tests/fixtures/osm/openmaptiles_examples.py
 """
@@ -73,13 +74,14 @@ def add_example(index, example, nodes, ways, relations):
         relations.append(osmium.osm.mutable.Relation(id=osm_id, members=members, tags=polygon_tags(tags)))
     else:
         sys.exit(f"{example['name']}: cannot write {kind} {geometry.geom_type} as {osm_type}")
-    for k, relation in enumerate(example_input.get("relations") or []):
-        member = (MEMBER_TYPES[osm_type], osm_id, relation["role"])
-        relations.append(
-            osmium.osm.mutable.Relation(
-                id=RELATIONS + index * 100 + k, members=[member], tags=osm_tags(relation["tags"])
-            )
-        )
+    recorded = example_input.get("relations") or []
+    replacement = {old: RELATIONS + index * 100 + k for k, old in enumerate(sorted({r["id"] for r in recorded}))}
+    members, tags = {}, {}
+    for relation in recorded:
+        members.setdefault(relation["id"], []).append((MEMBER_TYPES[osm_type], osm_id, relation["role"]))
+        tags[relation["id"]] = osm_tags(relation["tags"])
+    for old, new in replacement.items():
+        relations.append(osmium.osm.mutable.Relation(id=new, members=members[old], tags=tags[old]))
 
 
 def main():
