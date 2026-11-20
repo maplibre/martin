@@ -10,6 +10,7 @@ use martin_tilegen::project::from_lonlat;
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
 use martin_tilegen::{LayerGrid, PixelThreshold};
+use rstest::rstest;
 
 const GRID: LayerGrid = LayerGrid {
     extent: 4096,
@@ -1570,6 +1571,33 @@ fn lower_ascii_as_a_global_function_is_untranslatable() {
         panic!("translatable");
     };
     insta::assert_snapshot!(err, @"layer `named`: `lowerAscii(name) == 'a'` uses `lowerAscii`, which has no SQL equivalent");
+}
+
+#[rstest]
+#[case::matches("name.matches('^A')", "`name.matches('^A')` uses `matches`")]
+#[case::regex_replace(
+    "regex.replace(name, 'a', 'b') == 'b'",
+    "`regex.replace(name, 'a', 'b') == 'b'` uses `regex.replace`"
+)]
+#[case::min("min(size(name), 3) == 1", "`min(size(name), 3) == 1` uses `min`")]
+#[case::is_latin("name.isLatin()", "`name.isLatin()` uses `isLatin`")]
+#[case::remove_latin("name.removeLatin() == 'A'", "`name.removeLatin() == 'A'` uses `removeLatin`")]
+fn text_functions_are_untranslatable(#[case] filter: &str, #[case] expected: &str) {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            filter: Some(filter.to_owned()),
+            ..LayerDef::new("named", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let RowFilter::Untranslatable(err) = plan.row_filter(0, 0..=0) else {
+        panic!("translatable");
+    };
+    assert_eq!(
+        err.to_string(),
+        format!("layer `named`: {expected}, which has no SQL equivalent")
+    );
 }
 
 #[test]
