@@ -97,6 +97,16 @@ impl Layers {
         self.0.keys().map(String::as_str)
     }
 
+    /// The output layers its layers write into, each once, in the order they first appear.
+    pub fn output_names(&self) -> impl Iterator<Item = &str> {
+        let names: indexmap::IndexSet<&str> = self
+            .0
+            .iter()
+            .map(|(name, layer)| layer.layer.as_deref().unwrap_or(name))
+            .collect();
+        names.into_iter()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Layer)> {
         self.0.iter().map(|(name, layer)| (name.as_str(), layer))
     }
@@ -110,6 +120,8 @@ impl Layers {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(from = "RawLayer", into = "RawLayer")]
 pub struct Layer {
+    /// The output layer it writes into, which other layers may share; the layer's own key when unset.
+    pub layer: Option<String>,
     pub r#where: Option<Expr>,
     /// One value, or a list whose first entry taking a feature's type draws it.
     pub geometry: Option<NonEmpty<OutputGeometry>>,
@@ -134,6 +146,7 @@ pub struct Layer {
 #[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize)]
 struct RawLayer {
+    layer: Option<String>,
     r#where: Option<Expr>,
     geometry: Option<NonEmpty<OutputGeometry>>,
     minzoom: Option<ZoomSetting>,
@@ -163,6 +176,7 @@ struct RawLayer {
 impl From<RawLayer> for Layer {
     fn from(raw: RawLayer) -> Self {
         Self {
+            layer: raw.layer,
             r#where: raw.r#where,
             geometry: raw.geometry,
             minzoom: raw.minzoom,
@@ -193,6 +207,7 @@ impl From<RawLayer> for Layer {
 impl From<Layer> for RawLayer {
     fn from(layer: Layer) -> Self {
         Self {
+            layer: layer.layer,
             r#where: layer.r#where,
             geometry: layer.geometry,
             minzoom: layer.minzoom,
