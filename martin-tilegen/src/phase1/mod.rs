@@ -256,7 +256,7 @@ pub(crate) fn project_geometry(crs: Crs, geometry: &mut Geometry) -> Result<bool
     }
     match geometry {
         Geometry::Point(point) => project_coords(crs, std::slice::from_mut(point)),
-        Geometry::Line(line) => project_coords(crs, &mut line.0),
+        Geometry::Line(line) | Geometry::Outline(line) => project_coords(crs, &mut line.0),
         Geometry::Polygon(polygon) => {
             polygon.exterior_mut(|ring| project_coords(crs, &mut ring.0));
             polygon.interiors_mut(|rings| {

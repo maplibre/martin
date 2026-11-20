@@ -5,9 +5,10 @@ use std::f64::consts::PI;
 use std::sync::OnceLock;
 
 use geo::Area;
-use geo_types::LineString;
+use geo_types::{LineString, Polygon};
 
 use crate::FeatureGeom;
+use crate::source::Geometry;
 
 /// The variable a view resolves to the area of its feature in square meters.
 const SQUARE_METERS: &str = "@area_m2";
@@ -186,6 +187,8 @@ impl AreaUnit {
 pub struct Areas<'g> {
     /// The geometry to measure.
     geom: FeatureGeom<'g>,
+    /// Whether `geom` is the outline of a closed way, measured as the polygon it encloses, as Planetiler does.
+    outline: Outline,
     /// Its area in square meters, once measured.
     square_meters: OnceLock<f64>,
     /// Its area in z0 tiles, once measured.
@@ -198,15 +201,38 @@ impl<'g> Areas<'g> {
     pub fn new(geom: FeatureGeom<'g>) -> Self {
         Self {
             geom,
+            outline: Outline::No,
             square_meters: OnceLock::new(),
             z0_tiles: OnceLock::new(),
         }
     }
 
+    /// The areas of a feature with `geometry`, projected as `geom`: those of the polygon an outline encloses.
+    #[must_use]
+    pub(crate) fn of(geometry: &Geometry, geom: FeatureGeom<'g>) -> Self {
+        Self {
+            outline: if matches!(geometry, Geometry::Outline(_)) {
+                Outline::Yes
+            } else {
+                Outline::No
+            },
+            ..Self::new(geom)
+        }
+    }
+
     /// The area in `base` units, measured once; lines and points have none.
     pub(super) fn get(&self, base: AreaBase) -> f64 {
-        let FeatureGeom::Polygons(polygons) = self.geom else {
-            return 0.0;
+        let polygons = match (self.geom, self.outline) {
+            (FeatureGeom::Polygons(polygons), _) => polygons,
+            (FeatureGeom::Lines([ring]), Outline::Yes) => {
+                return match base {
+                    AreaBase::SquareMeters => *self.square_meters.get_or_init(|| ring_square_meters(ring)),
+                    AreaBase::Z0Tiles => *self
+                        .z0_tiles
+                        .get_or_init(|| Polygon::new(ring.clone(), Vec::new()).unsigned_area()),
+                };
+            }
+            _ => return 0.0,
         };
         match base {
             AreaBase::SquareMeters => *self.square_meters.get_or_init(|| {
@@ -224,6 +250,15 @@ impl<'g> Areas<'g> {
                 .get_or_init(|| polygons.iter().map(Area::unsigned_area).sum()),
         }
     }
+}
+
+/// Whether a line is the outline of a closed way.
+#[derive(Clone, Copy, Debug)]
+enum Outline {
+    /// The line encloses the polygon of the same way.
+    Yes,
+    /// Any other geometry.
+    No,
 }
 
 /// Planetiler's `GeoUtils.ringAreaMeters` of a closed ring in Web Mercator unit coordinates: the spherical
