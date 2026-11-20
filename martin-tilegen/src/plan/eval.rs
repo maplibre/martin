@@ -228,7 +228,7 @@ impl Plan {
         }
         let mut slots = PropSlots::default();
         let view = slots.bind(&names.0, &feature.props);
-        match geom.map(Areas::new) {
+        match geom.map(|geom| Areas::of(&feature.geometry, geom)) {
             Some(areas) => f(&view.with_areas(&areas)),
             None => f(&view),
         }
@@ -391,20 +391,20 @@ impl Evaluator<'_> {
         if planned.evaluates && planned.dynamic_props {
             learn_keys(&mut names[index], &feature.props, &plan.keys.tables[index]);
         }
-        let areas = Areas::new(geom);
+        let areas = Areas::of(&feature.geometry, geom);
         let view = planned
             .evaluates
             .then(|| slots.bind(&names[index].0, &feature.props).with_areas(&areas));
         let view = view.as_ref();
         for layer_index in planned.layers.clone() {
             let layer = &plan.layers[layer_index];
-            if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
+            if !layer.draws(&feature.geometry, geom) {
                 continue;
             }
             let derived;
             let geom = match layer.point {
                 Some(point) => {
-                    let Some(coord) = point.of(geom) else {
+                    let Some(coord) = point.of(&feature.geometry, geom) else {
                         continue;
                     };
                     derived = coord;

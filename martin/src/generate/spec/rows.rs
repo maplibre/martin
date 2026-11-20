@@ -332,12 +332,12 @@ pub async fn read_row<B: TestBackend>(backend: &B, table: &TestTable, key: RowKe
     tokio::task::spawn_blocking(move || {
         let plan = table.plan()?;
         let mut out = None;
-        each_row(&scan, &plan, |crs, feature| {
-            if row_key(feature) != Some(key) {
+        each_row(&scan, &plan, |crs, readings| {
+            if row_key(&readings[0]) != Some(key) {
                 return Ok(ControlFlow::Continue(()));
             }
-            let paths = paths_of(&plan, &table, crs, feature)?;
-            out = Some(read(&plan, &table, key, feature, paths));
+            let paths = paths_of(&plan, &table, crs, readings)?;
+            out = Some(read(&plan, &table, key, &readings[0], paths));
             Ok(ControlFlow::Break(()))
         })?;
         Ok(out)
@@ -361,13 +361,13 @@ async fn sweep<B: TestBackend>(
         let plan = table.plan()?;
         let mut hits: Vec<Option<ReadRow>> = vec![None; wanted.len()];
         let mut seen = 0;
-        each_row(&scan, &plan, |crs, feature| {
+        each_row(&scan, &plan, |crs, readings| {
             seen += 1;
-            if let Some(key) = row_key(feature) {
-                let paths = paths_of(&plan, &table, crs, feature)?;
+            if let Some(key) = row_key(&readings[0]) {
+                let paths = paths_of(&plan, &table, crs, readings)?;
                 let open = |(path, hit): (&String, &Option<ReadRow>)| hit.is_none() && paths.contains(path);
                 if wanted.iter().zip(&hits).any(open) {
-                    let row = read(&plan, &table, key, feature, paths);
+                    let row = read(&plan, &table, key, &readings[0], paths);
                     for (path, hit) in wanted.iter().zip(&mut hits) {
                         if hit.is_none() && row.paths.contains(path) {
                             *hit = Some(row.clone());
@@ -387,25 +387,34 @@ async fn sweep<B: TestBackend>(
     .await?
 }
 
-/// Passes `visit` each row of `scan`, its geometry in the given coordinates, until it breaks; a read to the end fails
-/// if the source cannot vouch for it.
+/// Passes `visit` each row of `scan`, its geometry in the given coordinates, until it breaks: the readings of one
+/// object, a feature and the [`Geometry::Outline`] read right after it with the same id, in the same partition. A
+/// read to the end fails if the source cannot vouch for it.
 fn each_row(
     scan: &impl FeatureSource,
     plan: &Plan,
-    mut visit: impl FnMut(Crs, &SourceFeature) -> GenerateResult<ControlFlow<()>>,
+    mut visit: impl FnMut(Crs, &[SourceFeature]) -> GenerateResult<ControlFlow<()>>,
 ) -> GenerateResult<()> {
     let mut failed = None;
+    let mut row: Vec<SourceFeature> = Vec::new();
+    let mut crs = Crs::Wgs84;
     for partition in 0..scan.partitions() {
         let read = scan.read(partition, plan.table_keys(), &mut |batch| {
-            for feature in &batch.features {
-                match visit(batch.crs, feature) {
-                    Ok(ControlFlow::Continue(())) => {}
-                    Ok(ControlFlow::Break(())) => return Err(SourceError::Stopped),
-                    Err(err) => {
-                        failed = Some(err);
-                        return Err(SourceError::Stopped);
+            for feature in batch.features {
+                let same_object = matches!(feature.geometry, Geometry::Outline(_))
+                    && row.first().is_some_and(|first| first.id == feature.id);
+                if !same_object && !row.is_empty() {
+                    match visit(crs, &row) {
+                        Ok(ControlFlow::Continue(())) => row.clear(),
+                        Ok(ControlFlow::Break(())) => return Err(SourceError::Stopped),
+                        Err(err) => {
+                            failed = Some(err);
+                            return Err(SourceError::Stopped);
+                        }
                     }
                 }
+                crs = batch.crs;
+                row.push(feature);
             }
             Ok(())
         });
@@ -417,26 +426,42 @@ fn each_row(
             Err(SourceError::Stopped) => return Ok(()),
             Err(err) => return Err(TileGenError::from(err).into()),
         }
+        if !row.is_empty() {
+            if visit(crs, &row)?.is_break() {
+                return Ok(());
+            }
+            row.clear();
+        }
     }
     scan.finish().map_err(TileGenError::from)?;
     Ok(())
 }
 
-/// The paths `feature` of `table` takes, its geometry in `crs`.
-fn paths_of(plan: &Plan, table: &TestTable, crs: Crs, feature: &SourceFeature) -> GenerateResult<Vec<String>> {
-    Ok(plan
-        .paths_of(0, &table.facts, crs, feature)
-        .map_err(|err| match (err, row_key(feature)) {
-            (TileGenError::Wkb(error), Some(key)) => GenerateError::CaseGeometry {
-                source_id: table.source.clone(),
-                key,
-                error,
-            },
-            (err, _) => err.into(),
-        })?
-        .iter()
-        .map(ToString::to_string)
-        .collect())
+/// The paths some of `readings`, one row of `table`, take, their geometry in `crs`, in the order of the plan's paths.
+fn paths_of(plan: &Plan, table: &TestTable, crs: Crs, readings: &[SourceFeature]) -> GenerateResult<Vec<String>> {
+    let mut taken = Vec::with_capacity(readings.len());
+    for feature in readings {
+        let paths = plan
+            .paths_of(0, &table.facts, crs, feature)
+            .map_err(|err| match (err, row_key(feature)) {
+                (TileGenError::Wkb(error), Some(key)) => GenerateError::CaseGeometry {
+                    source_id: table.source.clone(),
+                    key,
+                    error,
+                },
+                (err, _) => err.into(),
+            })?;
+        taken.push(paths);
+    }
+    let paths = match taken.as_mut_slice() {
+        [one] => std::mem::take(one),
+        _ => plan
+            .branches(0, &table.facts)?
+            .into_iter()
+            .filter(|branch| taken.iter().any(|paths| paths.contains(branch)))
+            .collect(),
+    };
+    Ok(paths.iter().map(ToString::to_string).collect())
 }
 
 /// The key of `feature`, `None` when its id is missing or negative.
@@ -488,7 +513,7 @@ fn wkt(geometry: &Geometry) -> Option<String> {
     }
     let geometry: geo_types::Geometry<f64> = match geometry {
         Geometry::Point(point) => geo_types::Point(point).into(),
-        Geometry::Line(line) => line.into(),
+        Geometry::Line(line) | Geometry::Outline(line) => line.into(),
         Geometry::Polygon(polygon) => polygon.into(),
         Geometry::Points(points) => geo_types::MultiPoint(points.into_iter().map(geo_types::Point).collect()).into(),
         Geometry::Lines(lines) => geo_types::MultiLineString(lines).into(),

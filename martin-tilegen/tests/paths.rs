@@ -1553,3 +1553,41 @@ fn a_known_value_does_not_decide_an_expression_reading_a_column_in_a_macro() {
     ]
     "#);
 }
+
+#[test]
+fn an_outline_takes_the_paths_of_a_layer_of_lines_and_not_of_a_layer_of_any_geometry() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("highway".to_owned(), None)],
+        layers: vec![
+            LayerDef {
+                filter: Some("highway == 'pedestrian'".to_owned()),
+                ..LayerDef::new("any", 0..=14, GRID)
+            },
+            LayerDef {
+                geometry: Some(GeometryType::Line),
+                filter: Some("highway == 'pedestrian'".to_owned()),
+                ..LayerDef::new("lines", 0..=14, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    let square = SourceFeature {
+        id: Some(12),
+        geometry: Geometry::Outline(LineString::from(vec![
+            (0.0, 0.0),
+            (0.01, 0.0),
+            (0.01, 0.01),
+            (0.0, 0.01),
+            (0.0, 0.0),
+        ])),
+        props: vec![(KeyId::new(0), Prop::Str("pedestrian".into()))],
+    };
+    let paths = plan.paths_of(0, &[], Crs::Wgs84, &square).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "lines: kept by `where`",
+        "lines: crosses a z14 tile edge",
+    ]
+    "#);
+}

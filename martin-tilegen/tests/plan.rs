@@ -1876,6 +1876,31 @@ fn a_where_measuring_area_is_untranslatable() {
 }
 
 #[test]
+fn a_minzoom_measuring_area_measures_the_polygon_of_an_outline() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Line),
+            minzoom_expr: Some("area('km2') >= 100000 ? 4 : 5".to_owned()),
+            attributes: AttributesDef::None,
+            ..LayerDef::new("borders", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let outline = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Outline(
+            [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0), (0.0, 0.0)]
+                .into_iter()
+                .map(|(x, y)| from_lonlat(Coord { x, y }))
+                .collect(),
+        ),
+        props: vec![],
+    };
+    insta::assert_snapshot!(evaluate(&plan, &[outline]), @r#"LayerFeature { layer: "borders", id: Some(1), zooms: 4..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }"#);
+}
+
+#[test]
 fn a_minzoom_measuring_area_picks_each_polygons_zooms() {
     let plan = Plan::new(vec![TableDef {
         columns: vec![],

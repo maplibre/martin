@@ -19,8 +19,6 @@ The configuration is a port of Planetiler's [`shortbread.yml`](https://github.co
     These are known missing features currently, but are planned:
 
     - `ocean` is omitted since Shortbread takes it from shapefile based coastline data outside OpenStreetMap.
-    - A closed way is a line or a polygon, as its tags make it an [area](sources-osm.md#supported-features-and-handling).
-      Planetiler reads it as both unless it has `area=yes` or `area=no`, so its `street_polygons` also have closed `highway=pedestrian` ways, and `area:aeroway` ways, which Martin doesn't currently read as lines.
     - `boundary_labels` and `streets_polygons_labels` are points at each polygon's centroid.
       `pois`, `public_transport` and `addresses` at the centroid of each point, line or polygon.
       Planetiler takes points and a point on the surface of polygons, or for `addresses` the centroid of convex ones while omitting lines.
@@ -53,7 +51,7 @@ The configuration is a port of Planetiler's [`shortbread.yml`](https://github.co
 
 | Extract                     | PBF      | Features   | Tiles   | Time   | Memory  |
 |-----------------------------|----------|------------|---------|--------|---------|
-| Berlin, 2026-11-11          | 100 MB   | 1,631,630  | 914     | 3.1 s  | 2.7 GB  |
-| Germany, 2026-11-11         | 4.9 GB   | 75,134,826 | 228,018 | 3m 9s  | 18.2 GB |
+| Berlin, 2026-11-11          | 100 MB   | 1,632,485  | 914     | 3.0 s  | 2.7 GB  |
+| Germany, 2026-11-11         | 4.9 GB   | 75,160,842 | 228,018 | 3m 8s  | 17.7 GB |
 
 Measured on 24 threads, with the extract in the page cache.
