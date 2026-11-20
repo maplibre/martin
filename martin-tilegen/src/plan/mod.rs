@@ -598,8 +598,17 @@ impl PlannedLayer {
     }
 
     /// The entry of the layer's `geometry` that draws a feature with `geometry`, projected as `geom`, or `None` when
-    /// the layer leaves it out.
+    /// the layer leaves it out. A layer with an entry taking polygons leaves out every [`Geometry::Outline`], as it
+    /// draws the closed way from its polygon.
     pub(crate) fn entry(&self, geometry: &Geometry, geom: FeatureGeom<'_>) -> Option<GeometryDef> {
+        if matches!(geometry, Geometry::Outline(_))
+            && self
+                .geometry
+                .iter()
+                .any(|entry| entry.takes.is_none_or(|kind| kind == GeometryType::Polygon))
+        {
+            return None;
+        }
         self.geometry
             .iter()
             .copied()
