@@ -60,6 +60,12 @@ pub enum PlanError {
         op: &'static str,
         attribute: String,
     },
+
+    /// A `thinning` key calling `area`, which only the whole geometry has, not a tile's part of it.
+    #[error(
+        "layer `{layer}`: thinning key `{expr}` calls `area`, which measures a feature before it is cut into tiles"
+    )]
+    ThinningArea { layer: String, expr: String },
 }
 
 /// A table as its source scans it; its position in [`Plan::new`] is the [`table`] of its batches.
@@ -913,6 +919,12 @@ fn plan_per_tile(
                                 error,
                             }
                         })?;
+                        if expr.measures_area() {
+                            return Err(PlanError::ThinningArea {
+                                layer: def.name.clone(),
+                                expr: source.clone(),
+                            });
+                        }
                         Ok(compiler.add(source, expr, ThinningKey))
                     })
                     .collect::<Result<_, PlanError>>()?,

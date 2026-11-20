@@ -1419,3 +1419,137 @@ fn a_point_in_a_layer_of_any_geometry_takes_no_shape_path() {
     ]
     "#);
 }
+
+#[test]
+fn a_large_polygon_takes_the_minzoom_its_area_picks() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("admin_level".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            minzoom_expr: Some("area('km2') >= 1e5 ? 4 : 5".to_owned()),
+            ..LayerDef::new("boundary_labels", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let country = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Polygon(Polygon::new(
+            LineString::from(vec![(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0), (0.0, 0.0)]),
+            vec![],
+        )),
+        props: vec![(KeyId::new(0), Prop::Str("2".into()))],
+    };
+    let paths = plan.paths_of(0, &[], Crs::Wgs84, &country).unwrap();
+    let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
+    insta::assert_debug_snapshot!(taken, @r#"
+    [
+        "boundary_labels: minzoom 4, `area('km2') >= 100000.0` is true",
+        "boundary_labels: crosses a z14 tile edge",
+    ]
+    "#);
+}
+
+#[test]
+fn a_known_value_does_not_decide_an_expression_measuring_area() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("admin_level".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            minzoom_expr: Some("admin_level == '2' && area('km2') >= 2e6 ? 2 : 5".to_owned()),
+            ..LayerDef::new("boundary_labels", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnFacts {
+        column: "admin_level".to_owned(),
+        not_null: true,
+        values: Some(vec![Literal::String("2".to_owned())]),
+    }];
+    let paths: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(paths, @r#"
+    [
+        "boundary_labels: minzoom 2, `(admin_level == '2') && (area('km2') >= 2000000.0)` is true",
+        "boundary_labels: minzoom 5, `(admin_level == '2') && (area('km2') >= 2000000.0)` is false",
+        "boundary_labels: admin_level '2'",
+        "boundary_labels: kept only at z14 (`min_size_at_maxzoom`)",
+        "boundary_labels: dropped, smaller than `min_size` at every zoom",
+        "boundary_labels: crosses a z14 tile edge",
+    ]
+    "#);
+}
+
+#[test]
+fn a_known_value_does_not_decide_an_expression_measuring_area_in_a_macro() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("admin_level".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            minzoom_expr: Some("admin_level == '2' && [1].exists(x, area('km2') >= 2e6) ? 2 : 5".to_owned()),
+            ..LayerDef::new("boundary_labels", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnFacts {
+        column: "admin_level".to_owned(),
+        not_null: true,
+        values: Some(vec![Literal::String("2".to_owned())]),
+    }];
+    let paths: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(paths, @r#"
+    [
+        "boundary_labels: minzoom 2, `(admin_level == '2') && (...)` is true",
+        "boundary_labels: minzoom 5, `(admin_level == '2') && (...)` is false",
+        "boundary_labels: admin_level '2'",
+        "boundary_labels: kept only at z14 (`min_size_at_maxzoom`)",
+        "boundary_labels: dropped, smaller than `min_size` at every zoom",
+        "boundary_labels: crosses a z14 tile edge",
+    ]
+    "#);
+}
+
+#[test]
+fn a_known_value_does_not_decide_an_expression_reading_a_column_in_a_macro() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![
+            ColumnDef::Value("admin_level".to_owned(), Some(ValueKind::String)),
+            ColumnDef::Value("name".to_owned(), Some(ValueKind::String)),
+        ],
+        layers: vec![LayerDef {
+            geometry: Some(GeometryType::Polygon),
+            minzoom_expr: Some("admin_level == '2' && [1].exists(x, name == 'Monaco') ? 2 : 5".to_owned()),
+            ..LayerDef::new("boundary_labels", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let known = [ColumnFacts {
+        column: "admin_level".to_owned(),
+        not_null: true,
+        values: Some(vec![Literal::String("2".to_owned())]),
+    }];
+    let paths: Vec<String> = plan
+        .branches(0, &known)
+        .unwrap()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    insta::assert_debug_snapshot!(paths, @r#"
+    [
+        "boundary_labels: minzoom 2, `(admin_level == '2') && (...)` is true",
+        "boundary_labels: minzoom 5, `(admin_level == '2') && (...)` is false",
+        "boundary_labels: admin_level '2'",
+        "boundary_labels: kept only at z14 (`min_size_at_maxzoom`)",
+        "boundary_labels: dropped, smaller than `min_size` at every zoom",
+        "boundary_labels: crosses a z14 tile edge",
+    ]
+    "#);
+}

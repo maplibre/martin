@@ -71,6 +71,7 @@ osm:
             kind: >-
               natural in ['glacier', 'water'] ? natural : waterway in ['riverbank', 'dock', 'canal'] ? waterway :
               landuse
+            way_area: "area('m2')"
         water_polygons_labels:
           geometry: polygon_centroid
           minzoom: "waterway in ['dock', 'canal'] ? 10 : 14"
@@ -84,6 +85,7 @@ osm:
             name: name
             name_en: "feature['name:en']"
             name_de: "feature['name:de']"
+            way_area: "area('m2')"
         water_lines:
           geometry: line
           minzoom: "waterway in ['stream', 'ditch'] ? 14 : 9"
@@ -146,13 +148,15 @@ osm:
             disputed: "disputed == 'yes'"
         boundary_labels:
           geometry: polygon_centroid
-          minzoom: 5
+          minzoom: >-
+            admin_level == '2' && area('km2') >= 2e6 ? 2 : area('km2') >= 7e5 ? 3 : area('km2') >= 1e5 ? 4 : 5
           where: "boundary == 'administrative' && admin_level in ['2', '4']"
           attributes:
             admin_level: "int(admin_level)"
             name: name
             name_en: "feature['name:en']"
             name_de: "feature['name:de']"
+            way_area: "area('ha')"
         place_labels:
           geometry: point
           minzoom: >-

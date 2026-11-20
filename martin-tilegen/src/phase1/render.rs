@@ -69,7 +69,7 @@ pub struct Feature<'a> {
     pub thinning_grid: &'a [ThinningGrid],
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum FeatureGeom<'a> {
     Points(&'a [Coord<f64>]),
     Lines(&'a [LineString<f64>]),

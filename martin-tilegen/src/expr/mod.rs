@@ -3,6 +3,7 @@
 //! Bare identifiers are property names and `feature['k']` reads keys that are not identifiers.
 //! A missing property is `null`.
 
+mod area;
 mod coerce;
 mod compile;
 mod env;
@@ -16,8 +17,10 @@ mod view;
 use cel::common::ast::{CallExpr, Expr, IdedExpr, operators};
 use cel::common::types::CelNull;
 
+pub(crate) use crate::expr::area::Areas;
 pub use crate::expr::compile::ExprError;
 pub(crate) use crate::expr::compile::{CompiledExpr, eval_part};
+pub(crate) use crate::expr::env::AREA;
 pub(crate) use crate::expr::pushdown::condition_of;
 pub use crate::expr::role::{Attr, ExprRef, Filter, Id, Role, SortBy, ThinningKey, Zoom};
 pub(crate) use crate::expr::sort::SortValue;

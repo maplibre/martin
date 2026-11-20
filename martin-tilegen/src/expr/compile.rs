@@ -5,7 +5,8 @@ use cel::common::ast::{CallExpr, EntryExpr, Expr, IdedExpr, LiteralValue, operat
 use cel::common::types::CelString;
 use cel::{Context, ExecutionError, Value};
 
-use super::env::{SHARED, Shared};
+use super::area::AreaUnit;
+use super::env::{AREA, SHARED, Shared};
 use super::fast::FastExpr;
 use super::{FEATURE, FeatureView};
 
@@ -44,6 +45,16 @@ pub enum ExprError {
 
     #[error("`{expr}` references unknown property `{name}`")]
     UnknownProperty { expr: String, name: String },
+
+    /// `area` called on a target or without exactly one unit.
+    #[error("`{expr}` must call `area` with one unit and no target, e.g. `area('m2')`")]
+    AreaCall { expr: String },
+
+    /// `area` given a literal unit Planetiler does not know.
+    #[error(
+        "`{expr}` measures in unknown area unit `{unit}`, e.g. use `m2`, `km2`, `ha`, `ft2`, `mi2`, `ac` or `z0 px2`"
+    )]
+    UnknownAreaUnit { expr: String, unit: String },
 }
 
 #[derive(Debug)]
@@ -51,6 +62,8 @@ pub struct CompiledExpr {
     pub(super) expr: IdedExpr,
     columns: BTreeSet<String>,
     needs_all_keys: bool,
+    /// Whether the expression calls `area`, which measures the feature's whole geometry.
+    measures_area: bool,
     /// The expression without the interpreter, when it is simple enough.
     fast: Option<FastExpr>,
 }
@@ -71,6 +84,7 @@ impl CompiledExpr {
             bound: Vec::new(),
             columns: BTreeSet::new(),
             needs_all_keys: false,
+            measures_area: false,
         };
         analyzer.walk(&mut expr).map_err(|e| e.into_error(source))?;
         let fast = FastExpr::new(&expr, &analyzer.columns);
@@ -78,6 +92,7 @@ impl CompiledExpr {
             expr,
             columns: analyzer.columns,
             needs_all_keys: analyzer.needs_all_keys,
+            measures_area: analyzer.measures_area,
             fast,
         })
     }
@@ -96,6 +111,12 @@ impl CompiledExpr {
     #[must_use]
     pub fn needs_all_keys(&self) -> bool {
         self.needs_all_keys
+    }
+
+    /// Whether the expression calls `area`, so it needs the feature's whole geometry.
+    #[must_use]
+    pub fn measures_area(&self) -> bool {
+        self.measures_area
     }
 
     /// The property this expression only reads, unchanged: a bare identifier or `feature['k']`.
@@ -146,6 +167,10 @@ where
 enum WalkError {
     Function(String),
     Property(String),
+    /// A call of `area` that is not `area(unit)`.
+    AreaCall,
+    /// A literal unit of `area` that is no area unit.
+    AreaUnit(String),
 }
 
 impl WalkError {
@@ -154,6 +179,8 @@ impl WalkError {
         match self {
             Self::Function(name) => ExprError::UnknownFunction { expr, name },
             Self::Property(name) => ExprError::UnknownProperty { expr, name },
+            Self::AreaCall => ExprError::AreaCall { expr },
+            Self::AreaUnit(unit) => ExprError::UnknownAreaUnit { expr, unit },
         }
     }
 }
@@ -165,6 +192,8 @@ struct Analyzer<'a> {
     bound: Vec<String>,
     columns: BTreeSet<String>,
     needs_all_keys: bool,
+    /// Whether some call is `area`.
+    measures_area: bool,
 }
 
 impl Analyzer<'_> {
@@ -309,6 +338,18 @@ impl Analyzer<'_> {
             let key = key.inner().to_owned();
             return self.key(&key);
         }
+        if name == AREA {
+            self.measures_area = true;
+            let (None, [unit]) = (&call.target, call.args.as_mut_slice()) else {
+                return Err(WalkError::AreaCall);
+            };
+            if let Expr::Literal(LiteralValue::String(label)) = &unit.expr
+                && AreaUnit::parse(label.inner()).is_none()
+            {
+                return Err(WalkError::AreaUnit(label.inner().to_owned()));
+            }
+            return self.walk(unit);
+        }
         let is_operator = OPERATORS.contains(&name);
         let namespaced = call.target.as_deref().and_then(|t| self.qualified_name(t));
         let target_is_namespace =
@@ -385,6 +426,15 @@ mod tests {
         "feature['name:fr']",
         ExprError::UnknownProperty { expr: "feature['name:fr']".to_owned(), name: "name:fr".to_owned() }
     )]
+    #[case::unknown_area_unit(
+        "area('furlongs') > 1.0",
+        ExprError::UnknownAreaUnit { expr: "area('furlongs') > 1.0".to_owned(), unit: "furlongs".to_owned() }
+    )]
+    #[case::area_of_feature(
+        "feature.area('m2')",
+        ExprError::AreaCall { expr: "feature.area('m2')".to_owned() }
+    )]
+    #[case::area_without_unit("area()", ExprError::AreaCall { expr: "area()".to_owned() })]
     fn unknown_names_are_rejected_at_compile_time(#[case] source: &str, #[case] expected: ExprError) {
         assert_eq!(CompiledExpr::compile(source, &["name"], false).unwrap_err(), expected);
     }
@@ -407,6 +457,7 @@ mod tests {
     #[case::dynamic_index("feature[name]", false, &["name"], true)]
     #[case::bare_feature("size(feature) > 0", false, &[], true)]
     #[case::dynamic_identifier("surface == 'paved'", true, &["surface"], false)]
+    #[case::area_unit_from_a_property("area(name) > 1.0", false, &["name"], false)]
     fn references_are_collected(
         #[case] source: &str,
         #[case] dynamic_props: bool,
