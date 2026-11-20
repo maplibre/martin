@@ -1,6 +1,7 @@
 //! Several sources read as one: their tables and partitions numbered one source after another.
 
 use std::fmt;
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 
 use crate::plan::{Plan, PlanError, TableDef};
 use crate::props::KeyInterner;
@@ -113,24 +114,32 @@ impl FeatureSource for SourceChain {
         self.parts[self.part_of(partition)?].read(None, partition, keys, emit)
     }
 
-    /// As many readers as the source with partitions that opens the most, each holding one reader of every such
-    /// source; a reader that a source opened none for reads that source's partitions through [`FeatureSource::read`].
+    /// As many readers as the source with partitions that opens the most. They share the readers of every source:
+    /// a partition is read through a free reader of its source, waiting for one, so a source that opened fewer
+    /// readers still reads every partition through them, from one consistent state. A source that opened none is
+    /// read through [`FeatureSource::read`].
     fn open_readers(&self, count: usize) -> SourceResult<Vec<Box<dyn FeatureReader + '_>>> {
-        let mut opened = Vec::with_capacity(self.parts.len());
+        let mut pools = Vec::with_capacity(self.parts.len());
         for part in &self.parts {
             let readers = if part.source.partitions() == 0 {
                 Vec::new()
             } else {
                 part.source.open_readers(count)?
             };
-            opened.push(readers);
+            pools.push(ReaderPool {
+                opened: readers.len(),
+                free: Mutex::new(readers),
+                returned: Condvar::new(),
+            });
         }
-        let most = opened.iter().map(Vec::len).max().unwrap_or(0).max(1);
-        let mut opened: Vec<_> = opened.into_iter().map(Vec::into_iter).collect();
+        let most = pools.iter().map(|pool| pool.opened).max().unwrap_or(0).max(1);
+        let pools: Arc<[ReaderPool<'_>]> = pools.into();
         Ok((0..most)
             .map(|_| {
-                let readers = opened.iter_mut().map(Iterator::next).collect();
-                Box::new(ChainReader { chain: self, readers }) as Box<dyn FeatureReader + '_>
+                Box::new(ChainReader {
+                    chain: self,
+                    pools: Arc::clone(&pools),
+                }) as Box<dyn FeatureReader + '_>
             })
             .collect())
     }
@@ -141,10 +150,42 @@ impl FeatureSource for SourceChain {
     }
 }
 
-/// One reader thread of a chain: a reader of each source, where the source gave one.
+/// The readers one source opened, shared by the chain's readers.
+struct ReaderPool<'a> {
+    /// How many readers the source opened.
+    opened: usize,
+    /// The readers no chain reader is reading through.
+    free: Mutex<Vec<Box<dyn FeatureReader + 'a>>>,
+    /// Signalled when a reader is put back into `free`.
+    returned: Condvar,
+}
+
+impl<'a> ReaderPool<'a> {
+    /// A free reader, waiting until one is put back; `None` if the source opened none.
+    fn take(&self) -> Option<Box<dyn FeatureReader + 'a>> {
+        if self.opened == 0 {
+            return None;
+        }
+        let mut free = self.free.lock().unwrap_or_else(PoisonError::into_inner);
+        loop {
+            if let Some(reader) = free.pop() {
+                return Some(reader);
+            }
+            free = self.returned.wait(free).unwrap_or_else(PoisonError::into_inner);
+        }
+    }
+
+    /// Puts `reader` back for the next partition of its source.
+    fn put_back(&self, reader: Box<dyn FeatureReader + 'a>) {
+        self.free.lock().unwrap_or_else(PoisonError::into_inner).push(reader);
+        self.returned.notify_one();
+    }
+}
+
+/// One reader thread of a chain, reading each partition through a reader of its source.
 struct ChainReader<'a> {
     chain: &'a SourceChain,
-    readers: Vec<Option<Box<dyn FeatureReader + 'a>>>,
+    pools: Arc<[ReaderPool<'a>]>,
 }
 
 impl FeatureReader for ChainReader<'_> {
@@ -155,8 +196,13 @@ impl FeatureReader for ChainReader<'_> {
         emit: &mut dyn FnMut(FeatureBatch) -> SourceResult<()>,
     ) -> SourceResult<()> {
         let index = self.chain.part_of(partition)?;
-        let reader = self.readers[index].as_deref_mut();
-        self.chain.parts[index].read(reader, partition, keys, emit)
+        let pool = &self.pools[index];
+        let mut reader = pool.take();
+        let result = self.chain.parts[index].read(reader.as_deref_mut(), partition, keys, emit);
+        if let Some(reader) = reader {
+            pool.put_back(reader);
+        }
+        result
     }
 }
 
