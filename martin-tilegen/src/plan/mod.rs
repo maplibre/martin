@@ -392,7 +392,8 @@ impl DerivedPoint {
 }
 
 /// Whether `ring` is convex as Planetiler's `GeoUtils.isConvex` decides it: the triangles of consecutive points keep
-/// one orientation, ignoring leading repeated points and turns below a thousandth of the largest one the other way.
+/// one orientation, ignoring repeated points and turns below a thousandth of the largest one the other way. Unlike
+/// Planetiler, a repeated point keeps the previous edge, so a repeated corner still turns.
 fn is_convex(ring: &[Coord<f64>]) -> bool {
     const THRESHOLD: f64 = 1e-3;
     const MIN_POINTS_TO_CHECK: usize = 10;
@@ -429,7 +430,9 @@ fn is_convex(ring: &[Coord<f64>]) -> bool {
             return false;
         }
         c1 = c2;
-        d1 = d2;
+        if d2 != Coord::zero() {
+            d1 = d2;
+        }
         i += 1;
     }
     ratio(neg, pos) < THRESHOLD
