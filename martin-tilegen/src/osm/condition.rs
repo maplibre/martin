@@ -14,6 +14,9 @@ pub(crate) trait Row {
 
     /// The type of the object's geometry.
     fn geometry(&self) -> GeometryType;
+
+    /// Whether the object is a member of a relation of the relation set named `set`.
+    fn member(&self, set: &str) -> bool;
 }
 
 /// Whether `condition` holds, each comparison, null check, list and pattern decided by `leaf`.
@@ -28,7 +31,8 @@ fn holds(condition: &Condition, leaf: &mut impl FnMut(&Condition) -> bool) -> bo
         | Condition::IsNull { .. }
         | Condition::In { .. }
         | Condition::Like { .. }
-        | Condition::Geometry(_) => leaf(condition),
+        | Condition::Geometry(_)
+        | Condition::Member { .. } => leaf(condition),
     }
 }
 
@@ -43,7 +47,8 @@ pub(crate) fn may_have_type(condition: &Condition, types: &[GeometryType]) -> bo
         | Condition::Distinct { .. }
         | Condition::IsNull { .. }
         | Condition::In { .. }
-        | Condition::Like { .. } => true,
+        | Condition::Like { .. }
+        | Condition::Member { .. } => true,
     })
 }
 
@@ -108,6 +113,7 @@ pub(crate) fn may_be_in_block(
                 ..
             }
             | Condition::Distinct { .. }
+            | Condition::Member { .. }
             | Condition::Const(_)
             | Condition::And(_)
             | Condition::Or(_) => true,
@@ -207,6 +213,7 @@ fn leaf_matches(leaf: &Condition, row: &impl Row) -> Result<bool, Unknown> {
             };
             found != polarity.negated()
         }
+        Condition::Member { set, polarity } => row.member(set) != polarity.negated(),
         Condition::Const(_) | Condition::And(_) | Condition::Or(_) => return Err(Unknown),
     })
 }

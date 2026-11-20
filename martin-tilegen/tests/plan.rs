@@ -756,11 +756,13 @@ fn a_layer_takes_only_features_of_its_geometry_type() {
             id: Some(1),
             geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
             props: vec![],
+            relations: Vec::new(),
         },
         SourceFeature {
             id: Some(2),
             geometry: Geometry::Lines(vec![LineString::from(vec![(10.0, 10.0), (30.0, 20.0)])]),
             props: vec![],
+            relations: Vec::new(),
         },
         SourceFeature {
             id: Some(3),
@@ -769,6 +771,7 @@ fn a_layer_takes_only_features_of_its_geometry_type() {
                 vec![],
             )]),
             props: vec![],
+            relations: Vec::new(),
         },
     ];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -809,6 +812,7 @@ fn a_where_filter_picks_the_features_of_each_layer() {
             (KeyId::new(0), Prop::Str(class.into())),
             (KeyId::new(1), Prop::I64(rank)),
         ],
+        relations: Vec::new(),
     };
     let features = [
         point(1, "primary", 5),
@@ -840,6 +844,7 @@ fn zoom_expressions_set_each_features_zooms() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(rank))],
+        relations: Vec::new(),
     };
     let features = [point(1, 10), point(2, 2), point(3, 0), point(4, -1)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -901,6 +906,7 @@ fn computed_attributes_appear_at_their_own_zooms() {
             (KeyId::new(2), Prop::Str("river".into())),
             (KeyId::new(3), Prop::I64(7)),
         ],
+        relations: Vec::new(),
     }];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"LayerFeature { layer: "water", id: Some(1), zooms: 0..=3, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"name:en": Str("Rhine"), "kind": Str("river"), "source": Str("osm"), "big": Bool(true)}, bands: [(2, {"name:en": Str("Rhine"), "kind": Str("river"), "source": Str("osm"), "label": Str("Rhein"), "big": Bool(true)}), (3, {"name:en": Str("Rhine"), "kind": Str("river"), "source": Str("osm"), "label": Str("Rhein")})], sort: None }"#);
 }
@@ -920,6 +926,7 @@ fn an_id_expression_sets_the_feature_id() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(gid))],
+        relations: Vec::new(),
     };
     let features = [point(1, 7), point(2, -3), point(3, 0)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -952,6 +959,7 @@ fn failing_expressions_count_as_null_and_are_counted() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props,
+        relations: Vec::new(),
     };
     let features = [
         point(1, vec![(KeyId::new(0), Prop::I64(4))]),
@@ -992,6 +1000,7 @@ fn expressions_read_keys_the_source_interns_as_it_goes() {
             id: Some(i),
             geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
             props: vec![(keys.intern(&format!("tag{}", i % 2)), Prop::Bool(true))],
+            relations: Vec::new(),
         })
         .collect();
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -1025,6 +1034,7 @@ fn an_attribute_reads_its_column_after_unused_columns_are_dropped() {
         id: Some(1),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::Str("Rhein".into()))],
+        relations: Vec::new(),
     }];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"LayerFeature { layer: "water", id: Some(1), zooms: 0..=1, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [(1, {"label": Str("Rhein")})], sort: None }"#);
 }
@@ -1047,6 +1057,7 @@ fn a_json_key_named_like_its_column_is_kept() {
             (KeyId::new(0), Prop::Str("Bonn".into())),
             (KeyId::new(1), Prop::Str("city".into())),
         ],
+        relations: Vec::new(),
     }];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"LayerFeature { layer: "places", id: Some(1), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"name": Str("Bonn"), "tags": Str("city")}, bands: [], sort: None }"#);
 }
@@ -1087,6 +1098,7 @@ fn the_first_matching_rule_wins() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(rank))],
+        relations: Vec::new(),
     };
     let features = [point(1, 12), point(2, 7), point(3, 3), point(4, 0)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -1129,6 +1141,7 @@ fn a_feature_matching_no_rule_keeps_the_layer_settings() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(rank))],
+        relations: Vec::new(),
     };
     let features = [point(1, 9), point(2, 1)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -1166,6 +1179,7 @@ fn rule_zooms_are_fixed_or_per_feature() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(rank))],
+        relations: Vec::new(),
     };
     let features = [point(1, 12), point(2, 2), point(3, 3), point(4, 0)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -1200,6 +1214,7 @@ fn a_rule_sets_its_own_simplify() {
         id: Some(id),
         geometry: Geometry::Lines(vec![LineString::from(vec![(10.0, 10.0), (30.0, 10.5)])]),
         props: vec![(KeyId::new(0), Prop::Str(class.into()))],
+        relations: Vec::new(),
     };
     let features = [line(1, "detailed"), line(2, "smooth")];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -1260,6 +1275,7 @@ fn rule_attributes_replace_and_add_to_the_layers() {
             (KeyId::new(1), Prop::Str(class.into())),
             (KeyId::new(2), Prop::I64(rank)),
         ],
+        relations: Vec::new(),
     };
     let features = [point(1, "Rhein", "river", 7), point(2, "Bodensee", "lake", 9)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -1288,6 +1304,7 @@ fn a_failing_rule_condition_does_not_match_and_is_counted() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(lanes))],
+        relations: Vec::new(),
     };
     let features = [point(1, 4), point(2, 0), point(3, 0)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -1327,6 +1344,7 @@ fn a_rule_without_a_condition_or_expressions_still_applies() {
         id: Some(1),
         geometry: Geometry::Lines(vec![LineString::from(vec![(10.0, 10.0), (30.0, 10.5)])]),
         props: vec![],
+        relations: Vec::new(),
     }];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
     LayerFeature { layer: "plain", id: Some(1), zooms: 0..=0, simplify: PixelThreshold { below_max_zoom: 0.0, at_max_zoom: 0.0 }, min_size: PixelThreshold { below_max_zoom: 0.0, at_max_zoom: 0.0 }, props: {}, bands: [], sort: None }
@@ -1360,6 +1378,7 @@ fn a_rule_attribute_reads_its_column_after_unused_columns_are_dropped() {
         id: Some(1),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::Str("Rhein".into()))],
+        relations: Vec::new(),
     }];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"LayerFeature { layer: "water", id: Some(1), zooms: 0..=1, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [(1, {"label": Str("Rhein")})], sort: None }"#);
 }
@@ -1397,6 +1416,7 @@ fn sort_by_applies_whichever_rule_a_feature_matches() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(rank))],
+        relations: Vec::new(),
     };
     let features = [point(1, 2), point(2, 9), point(3, 1), point(4, 7)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -1827,6 +1847,7 @@ fn a_where_on_a_converted_string_keeps_the_low_admin_levels() {
             .map(|level| (KeyId::new(0), Prop::Str(level.into())))
             .into_iter()
             .collect(),
+        relations: Vec::new(),
     };
     let features = [
         boundary(1, Some("2")),
@@ -1869,6 +1890,7 @@ fn a_converted_attribute_reads_numbers_and_booleans_from_strings() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::Str(tag.into()))],
+        relations: Vec::new(),
     };
     let features = [
         tagged(1, "12"),
@@ -1911,6 +1933,7 @@ fn a_negated_or_keeps_every_class_but_the_listed_ones() {
             .map(|class| (KeyId::new(0), Prop::Str(class.into())))
             .into_iter()
             .collect(),
+        relations: Vec::new(),
     };
     let features = [
         area(1, Some("water")),
@@ -1947,6 +1970,7 @@ fn a_boolean_property_and_its_negation_split_the_features() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), oneway)],
+        relations: Vec::new(),
     };
     let features = [
         road(1, Prop::Bool(true)),
@@ -1981,6 +2005,7 @@ fn a_choice_sets_the_minzoom_of_each_feature() {
             .map(|area| (KeyId::new(0), Prop::F64(area)))
             .into_iter()
             .collect(),
+        relations: Vec::new(),
     };
     let features = [lake(1, Some(5_000_000.0)), lake(2, Some(20_000.0)), lake(3, None)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -2006,6 +2031,7 @@ fn a_choice_chain_sets_the_minzoom_of_each_feature() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::I64(admin_level))],
+        relations: Vec::new(),
     };
     let features = [boundary(1, 2), boundary(2, 4), boundary(3, 6)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -2078,6 +2104,7 @@ fn a_minzoom_measuring_area_measures_the_polygon_of_an_outline() {
                 .collect(),
         ),
         props: vec![],
+        relations: Vec::new(),
     };
     insta::assert_snapshot!(evaluate(&plan, &[outline]), @r#"LayerFeature { layer: "borders", id: Some(1), zooms: 4..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }"#);
 }
@@ -2103,6 +2130,7 @@ fn a_minzoom_measuring_area_picks_each_polygons_zooms() {
             vec![],
         )]),
         props: vec![],
+        relations: Vec::new(),
     };
     let features = [square(1, 1.0), square(2, 4.0)];
     insta::assert_snapshot!(evaluate(&plan, &features), @r#"
@@ -2142,6 +2170,7 @@ fn a_derived_point_measures_the_polygon_it_comes_from() {
             vec![],
         )]),
         props: vec![],
+        relations: Vec::new(),
     };
     insta::assert_snapshot!(evaluate(&plan, &[lake]), @r#"LayerFeature { layer: "lake_labels", id: Some(1), zooms: 0..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"way_area": F64(1236418.8935609078)}, bands: [], sort: None }"#);
 }

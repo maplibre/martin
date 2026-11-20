@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
-use martin_tilegen::plan::TableDef;
+use martin_tilegen::plan::{ColumnDef, RelationSetDef, TableDef};
 
 use std::sync::Arc;
 
@@ -77,7 +77,26 @@ fn lower_with(
     options: &LowerOptions,
     outputs: &OutputLayers,
 ) -> GenerateResult<Option<TableDef>> {
-    lower_source(id, &settings(source), columns(&source.tags), options, outputs)
+    lower_source(id, &settings(source), table_columns(source), options, outputs)
+}
+
+/// The columns of `source`: its tags, and its relation sets if it has some.
+fn table_columns(source: &OsmSourceConfig) -> Vec<ColumnDef> {
+    let mut columns = columns(&source.tags);
+    if !source.relations.is_empty() {
+        columns.push(ColumnDef::Relations(
+            source
+                .relations
+                .iter()
+                .map(|(name, set)| RelationSetDef {
+                    name: name.clone(),
+                    filter: set.r#where.as_str().to_owned(),
+                    tags: set.tags.clone(),
+                })
+                .collect(),
+        ));
+    }
+    columns
 }
 
 /// The settings of `source` that its layers take their defaults from.

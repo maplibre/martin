@@ -1,0 +1,338 @@
+---
+source: e2e-tests/tests/martin_cp_osm.rs
+expression: mvt_dump(&monaco.3)
+---
+layer: 0
+  name: boundary
+  version: 2
+  extent: 4096
+  feature: 0
+    id: 42272302
+    geometry: LINESTRING[count=2](457 1653,461 1652)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 1
+    id: 42272332
+    geometry: LINESTRING[count=2](519 1639,521 1638)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 2
+    id: 248743982
+    geometry: LINESTRING[count=11](416 1771,424 1763,426 1764,427 1763,426 1761,439 1748,441 1749,441 1746,445 1742,480 1720,478 1717)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 3
+    id: 248745572
+    geometry: LINESTRING[count=2](466 1712,478 1717)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 4
+    id: 308374972
+    geometry: LINESTRING[count=2](416 1771,1368 5122)
+    properties:
+      admin_level = 2 (uint)
+      relations = 3 (uint)
+  feature: 5
+    id: 377944702
+    geometry: LINESTRING[count=8](648 1374,647 1372,650 1366,648 1356,651 1350,651 1344,639 1335,630 1333)
+    properties:
+      admin_level = 2 (uint)
+      relations = 9 (uint)
+  feature: 6
+    id: 377944712
+    geometry: LINESTRING[count=18](535 1429,533 1433,534 1442,528 1452,527 1462,515 1474,511 1483,495 1502,492 1500,486 1512,468 1498,461 1504,459 1503,455 1508,452 1514,453 1515,442 1529,423 1543)
+    properties:
+      admin_level = 2 (uint)
+      relations = 9 (uint)
+  feature: 7
+    id: 378118532
+    geometry: LINESTRING[count=8](348 1611,348 1613,344 1617,350 1623,348 1631,353 1641,351 1660,348 1660)
+    properties:
+      admin_level = 2 (uint)
+      relations = 9 (uint)
+  feature: 8
+    id: 781476402
+    geometry: LINESTRING[count=2](522 1638,523 1639)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 9
+    id: 926274242
+    geometry: LINESTRING[count=2](394 1651,385 1664)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 10
+    id: 1201141102
+    geometry: LINESTRING[count=6](443 1572,436 1578,417 1601,413 1608,411 1615,401 1618)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 11
+    id: 1656360382
+    geometry: LINESTRING[count=2](430 1648,447 1653)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 12
+    id: 1665584862
+    geometry: LINESTRING[count=8](385 1664,372 1673,367 1678,350 1684,351 1687,348 1692,350 1694,341 1718)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 13
+    id: 1665584892
+    geometry: LINESTRING[count=4](527 1654,530 1653,528 1650,530 1641)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 14
+    id: 1665584912
+    geometry: LINESTRING[count=5](530 1641,543 1625,542 1623,574 1583,571 1581)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 15
+    id: 1665584942
+    geometry: LINESTRING[count=2](523 1639,530 1641)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 16
+    id: 1665584992
+    geometry: LINESTRING[count=11](416 1672,427 1674,437 1689,442 1688,448 1683,451 1684,454 1686,454 1692,459 1696,462 1694,463 1695)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 17
+    id: 1665585032
+    geometry: LINESTRING[count=10](466 1696,483 1696,487 1690,491 1690,492 1686,495 1684,505 1676,513 1678,523 1667,524 1658)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 18
+    id: 1666434112
+    geometry: LINESTRING[count=5](404 1661,404 1663,409 1668,411 1667,416 1672)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 19
+    id: 1666434132
+    geometry: LINESTRING[count=7](460 1573,495 1566,496 1567,509 1566,510 1568,529 1563,544 1562)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 20
+    id: 1692964322
+    geometry: LINESTRING[count=3](385 1664,389 1668,404 1661)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 21
+    id: 1692978632
+    geometry: LINESTRING[count=3](466 1651,484 1650,503 1644)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 22
+    id: 1692980692
+    geometry: LINESTRING[count=5](584 1450,582 1445,584 1435,588 1431,596 1428)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 23
+    id: 1692980712
+    geometry: LINESTRING[count=5](596 1427,599 1420,605 1416,612 1414,620 1418)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 24
+    id: 1692980742
+    geometry: LINESTRING[count=3](596 1428,600 1433,596 1427)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 25
+    id: 1692980762
+    geometry: LINESTRING[count=19](620 1418,618 1421,616 1423,614 1422,614 1424,619 1423,625 1414,623 1413,621 1416,618 1412,621 1405,627 1402,638 1420,642 1424,649 1426,654 1425,664 1419,665 1417,656 1379)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 26
+    id: 1765334072
+    geometry: LINESTRING[count=6](348 1660,335 1661,323 1669,317 1675,305 1694,341 1718)
+    properties:
+      admin_level = 2 (uint)
+      relations = 9 (uint)
+  feature: 27
+    id: 1770456242
+    geometry: LINESTRING[count=2](464 1652,466 1651)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 28
+    id: 1826942892
+    geometry: LINESTRING[count=2](521 1638,522 1638)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 29
+    id: 2128103112
+    geometry: LINESTRING[count=2](341 1718,416 1771)
+    properties:
+      admin_level = 2 (uint)
+      relations = 9 (uint)
+  feature: 30
+    id: 2242055652
+    geometry: LINESTRING[count=2](551 1583,571 1581)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 31
+    id: 2242055662
+    geometry: LINESTRING[count=7](600 1433,597 1435,597 1437,604 1433,604 1430,603 1430,600 1433)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 32
+    id: 2242055672
+    geometry: LINESTRING[count=2](524 1658,527 1654)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 33
+    id: 2242055682
+    geometry: LINESTRING[count=7](580 1458,582 1454,588 1451,590 1446,589 1445,586 1450,584 1450)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 34
+    id: 2280952322
+    geometry: LINESTRING[count=6](648 1374,639 1374,638 1372,611 1389,565 1426,559 1435)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 35
+    id: 3983628552
+    geometry: LINESTRING[count=2](422 1646,430 1648)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 36
+    id: 3983628562
+    geometry: LINESTRING[count=4](404 1661,405 1658,415 1653,422 1646)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 37
+    id: 3983628572
+    geometry: LINESTRING[count=3](401 1618,404 1631,394 1651)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 38
+    id: 3983678002
+    geometry: LINESTRING[count=11](369 1591,375 1593,377 1596,381 1596,376 1604,383 1605,385 1601,392 1604,390 1616,399 1616,401 1618)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 39
+    id: 3983702602
+    geometry: LINESTRING[count=3](551 1583,543 1564,544 1562)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 40
+    id: 3983721822
+    geometry: LINESTRING[count=13](559 1435,548 1461,545 1470,544 1493,545 1509,549 1507,553 1511,558 1509,559 1503,569 1484,579 1471,581 1467,580 1458)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 41
+    id: 3983721832
+    geometry: LINESTRING[count=25](544 1562,551 1553,548 1548,553 1541,552 1539,555 1535,554 1532,557 1529,555 1526,558 1521,559 1520,556 1519,560 1509,566 1511,561 1522,562 1525,560 1530,564 1531,566 1526,570 1528,579 1506,589 1498,594 1489,593 1480,580 1458)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 42
+    id: 3983721842
+    geometry: LINESTRING[count=4](559 1435,549 1427,542 1429,535 1429)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 43
+    id: 3983721862
+    geometry: LINESTRING[count=16](630 1333,629 1339,638 1345,619 1364,606 1366,593 1372,578 1376,572 1383,559 1381,557 1380,555 1393,548 1396,541 1415,536 1420,534 1428,535 1429)
+    properties:
+      admin_level = 2 (uint)
+      relations = 9 (uint)
+  feature: 44
+    id: 3983771912
+    geometry: LINESTRING[count=6](423 1543,433 1554,448 1560,449 1566,460 1564,460 1573)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 45
+    id: 3983771922
+    geometry: LINESTRING[count=10](420 1547,422 1550,421 1557,423 1561,434 1567,436 1564,438 1564,444 1569,442 1571,443 1572)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 46
+    id: 3983771932
+    geometry: LINESTRING[count=4](443 1572,445 1571,448 1575,460 1573)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 47
+    id: 3983789542
+    geometry: LINESTRING[count=2](463 1695,466 1696)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 48
+    id: 3983789552
+    geometry: LINESTRING[count=2](466 1712,466 1696)
+    properties:
+      admin_level = 8 (uint)
+      relations = 2 (uint)
+  feature: 49
+    id: 4236322592
+    geometry: LINESTRING[count=2](447 1653,456 1653)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 50
+    id: 5038135402
+    geometry: LINESTRING[count=2](456 1653,457 1653)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 51
+    id: 5038135412
+    geometry: LINESTRING[count=2](461 1652,464 1652)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 52
+    id: 7121828702
+    geometry: LINESTRING[count=2](503 1644,519 1639)
+    properties:
+      admin_level = 10 (uint)
+      relations = 2 (uint)
+  feature: 53
+    id: 7707745072
+    geometry: LINESTRING[count=3](656 1379,652 1375,648 1374)
+    properties:
+      admin_level = 2 (uint)
+      relations = 9 (uint)
+  feature: 54
+    id: 7720815952
+    geometry: LINESTRING[count=5](378 1793,376 1793,376 1796,394 1794,416 1771)
+    properties:
+      admin_level = 4 (uint)
+      relations = 4 (uint)

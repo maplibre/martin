@@ -37,6 +37,7 @@ fn a_centroid_of_a_concave_polygon_can_lie_outside_it() {
             id: Some(1),
             geometry: Geometry::Polygons(vec![Polygon::new(u_shape, vec![])]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -104,6 +105,7 @@ fn a_point_on_surface_of_a_concave_polygon_lies_inside_it() {
             id: Some(1),
             geometry: Geometry::Polygons(vec![Polygon::new(u_shape, vec![])]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -175,6 +177,7 @@ fn a_point_on_surface_of_a_multi_polygon_lies_in_its_widest_part() {
                 square(200.0, -400.0, 1000.0, 400.0),
             ]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -239,6 +242,7 @@ fn a_centroid_if_convex_of_a_convex_polygon_is_its_centroid() {
                 vec![],
             )),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -304,6 +308,7 @@ fn a_centroid_if_convex_counts_a_dent_below_a_thousandth_of_a_turn_as_convex() {
                 vec![],
             )),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -384,6 +389,7 @@ fn a_centroid_if_convex_of_a_concave_holed_or_multi_polygon_is_a_point_on_its_su
                     vec![],
                 )),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
@@ -392,6 +398,7 @@ fn a_centroid_if_convex_of_a_concave_holed_or_multi_polygon_is_a_point_on_its_su
                     vec![square(-500.0, -500.0, 500.0, 500.0)],
                 )),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(3),
@@ -400,6 +407,7 @@ fn a_centroid_if_convex_of_a_concave_holed_or_multi_polygon_is_a_point_on_its_su
                     Polygon::new(square(600.0, -100.0, 800.0, 100.0), vec![]),
                 ]),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -484,6 +492,7 @@ fn a_centroid_if_convex_of_a_concave_polygon_with_repeated_corners_is_a_point_on
                 vec![],
             )),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -548,6 +557,7 @@ fn a_centroid_if_convex_of_a_multi_polygon_of_one_convex_part_is_a_point_on_its_
                 vec![],
             )]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -619,6 +629,7 @@ fn a_centroid_of_a_multi_polygon_weighs_each_part_by_its_area() {
                 square(600.0, -100.0, 800.0, 100.0),
             ]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -679,6 +690,7 @@ fn a_centroid_of_a_line_weighs_each_segment_by_its_length() {
                 (0.0, 600.0 * UNIT),
             ])]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -746,11 +758,13 @@ fn a_derived_point_layer_takes_only_the_features_of_its_geometry_type() {
                     },
                 ]),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(0.0, 0.0), (400.0 * UNIT, 0.0)])]),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(3),
@@ -765,6 +779,7 @@ fn a_derived_point_layer_takes_only_the_features_of_its_geometry_type() {
                     vec![],
                 )]),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -872,6 +887,7 @@ fn a_layer_with_several_geometries_leaves_out_the_types_none_of_them_takes() {
                     y: 1200.0 * UNIT,
                 }),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
@@ -880,6 +896,7 @@ fn a_layer_with_several_geometries_leaves_out_the_types_none_of_them_takes() {
                     (400.0 * UNIT, 1200.0 * UNIT),
                 ])]),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(3),
@@ -898,6 +915,7 @@ fn a_layer_with_several_geometries_leaves_out_the_types_none_of_them_takes() {
                     vec![],
                 )]),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -968,6 +986,7 @@ fn the_first_geometry_entry_taking_a_features_type_draws_it() {
                     (400.0 * UNIT, 1200.0 * UNIT),
                 ])]),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(3),
@@ -986,6 +1005,7 @@ fn the_first_geometry_entry_taking_a_features_type_draws_it() {
                     vec![],
                 )]),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -1064,6 +1084,7 @@ fn a_derived_point_is_drawn_only_in_the_tiles_its_point_reaches() {
                 vec![],
             )]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -1157,11 +1178,13 @@ fn a_closed_way_read_as_polygon_and_outline_is_drawn_once_by_a_layer_taking_both
                 id: Some(1),
                 geometry: Geometry::Polygon(Polygon::new(ring.clone(), vec![])),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(1),
                 geometry: Geometry::Outline(ring),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];

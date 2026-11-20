@@ -185,6 +185,21 @@ pub struct SourceFeature {
     pub id: Option<i64>,
     pub geometry: Geometry,
     pub props: Vec<(KeyId, Prop<SourceStr>)>,
+    /// The relations of its table's relation sets that it is a member of, by set, then relation id, then role.
+    pub relations: Vec<Membership>,
+}
+
+/// A relation that a feature is a member of, as one of its table's relation sets has it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Membership {
+    /// The position of the set among the table's relation sets.
+    pub set: u16,
+    /// The relation's OSM id.
+    pub id: i64,
+    /// The feature's role in the relation, empty when it has none.
+    pub role: SourceStr,
+    /// The relation's value of each of the set's tags, by position, `None` when it has no such tag.
+    pub tags: Vec<Option<SourceStr>>,
 }
 
 /// Consecutive features of one partition and table: feature `i` is row `first_row + i`.
