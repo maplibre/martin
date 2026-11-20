@@ -148,9 +148,6 @@ TransportationTest.testPrivatePath #3:
   transportation.access none, got "no"
 TransportationTest.testInterstateMotorway #2:
   transportation.brunnel "bridge", got none
-TransportationTest.testDuplicateRoute:
-  transportation_name.route_2_network none, got "US:OK"
-  transportation_name.route_2_ref none, got "104"
 TransportationTest.testRouteWithoutNetworkType:
   transportation_name.route_1_network "US:I", got "US:NJ:NJTP"
   transportation_name.route_1_ref "95", got "NJTP"
@@ -162,11 +159,6 @@ TransportationTest.testRouteWithColour:
   transportation_name.route_2_colour "#FFFFFF", got "#000000"
   transportation_name.route_2_network "US:NJ:NJTP", got "US:I"
 TransportationTest.testSegmentWithManyRoutes:
-  transportation_name.route_2_ref "2", got "1"
-  transportation_name.route_3_ref "3", got "2"
-  transportation_name.route_4_ref "4", got "2"
-  transportation_name.route_5_ref "5", got "3"
-  transportation_name.route_6_ref "6", got "3"
   transportation_name.route_7_network "US:I", got none
   transportation_name.route_7_ref "7", got none
   transportation_name.route_8_network "US:I", got none
@@ -174,11 +166,6 @@ TransportationTest.testSegmentWithManyRoutes:
 TransportationTest.testPolishHighwayIssue165:
   transportation_name.route_1_ref "E 28", got "E 77"
   transportation_name.route_2_ref "E 77", got "E 28"
-TransportationTest.testUSAndStateHighway #2:
-  transportation_name.route_1_network "US:US", got "US:MA"
-  transportation_name.route_1_ref "3", got "2"
-  transportation_name.route_2_network "US:MA", got "US:US"
-  transportation_name.route_2_ref "2", got "3"
 TransportationTest.testGreatBritainHighway #1:
   transportation_name.network "gb-motorway", got "road"
 TransportationTest.testGreatBritainTrunk:
@@ -257,4 +244,4 @@ WaterwayTest.testWaterwayNaturalEarth #1:
   natural_earth ne_110m_rivers_lake_centerlines is not read
 WaterwayTest.testWaterwayNaturalEarth #2:
   natural_earth ne_50m_rivers_lake_centerlines is not read
-229 of 341 examples match
+231 of 341 examples match

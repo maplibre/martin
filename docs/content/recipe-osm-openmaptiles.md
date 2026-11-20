@@ -18,7 +18,7 @@ minimum sizes, buffers, label grids, merges and draw orders. It reads OpenStreet
 the whole world, and leaves out what Planetiler takes from Natural Earth and Wikidata, see
 [How it differs](#how-it-differs-from-planetilers-openmaptiles).
 
-Martin's tests render the inputs of Planetiler's OpenMapTiles layer tests: 229 of its 341 examples match. The others
+Martin's tests render the inputs of Planetiler's OpenMapTiles layer tests: 231 of its 341 examples match. The others
 are differences listed in [How it differs](#how-it-differs-from-planetilers-openmaptiles), or what the tests check
 differently from a rendered tile:
 
@@ -29,7 +29,7 @@ differently from a rendered tile:
 |       16 | Natural Earth ranks of countries, states, cities and seas                                                         |
 |       11 | `rank` from the label grid, which Planetiler's tests leave out and Martin's tiles have                            |
 |        8 | GB and IE road networks                                                                                           |
-|        6 | `route_N` order and duplicates                                                                                    |
+|        4 | `route_N` order and duplicates                                                                                    |
 |        5 | Feature lengths: short trunks at z5, `brunnel` by size                                                            |
 |        5 | Ocean polygons and large lakes below z6, and inputs the tests' whole-world polygons were shrunk to 1° for         |
 |        4 | Wikidata translations, translated names of river relations                                                        |
