@@ -1135,3 +1135,79 @@ fn a_derived_point_is_drawn_only_in_the_tiles_its_point_reaches() {
     ]
     "#);
 }
+
+#[test]
+fn a_closed_way_read_as_polygon_and_outline_is_drawn_once_by_a_layer_taking_both() {
+    let ring = LineString::from(vec![
+        (-1000.0 * UNIT, -1000.0 * UNIT),
+        (1000.0 * UNIT, -1000.0 * UNIT),
+        (1000.0 * UNIT, 1000.0 * UNIT),
+        (-1000.0 * UNIT, 1000.0 * UNIT),
+        (-1000.0 * UNIT, -1000.0 * UNIT),
+    ]);
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::WebMercator,
+        features: vec![
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Polygon(Polygon::new(ring.clone(), vec![])),
+                props: vec![],
+            },
+            SourceFeature {
+                id: Some(1),
+                geometry: Geometry::Outline(ring),
+                props: vec![],
+            },
+        ],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: vec![
+                GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::PointOnSurface),
+                },
+                GeometryDef {
+                    takes: Some(GeometryType::Line),
+                    point: Some(DerivedPoint::Centroid),
+                },
+            ],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(2048 2048)",
+        ),
+    ]
+    "#);
+}
