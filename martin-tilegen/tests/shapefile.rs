@@ -528,6 +528,69 @@ fn fields_become_properties_of_the_kind_of_their_type() {
 }
 
 #[test]
+fn an_integer_past_the_exact_range_of_a_float_keeps_every_digit() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("ids.shp");
+    let fields = TableWriterBuilder::new().add_numeric_field("osm_id".try_into().unwrap(), 20, 0);
+    let mut writer = shapefile::Writer::from_path(&path, fields).unwrap();
+    for id in [9_007_199_254_740_992.0, -9_007_199_254_740_992.0, 42.0] {
+        let mut record = dbase::Record::default();
+        record.insert("osm_id".to_owned(), FieldValue::Numeric(Some(id)));
+        writer.write_shape_and_record(&Point::new(1.0, 1.0), &record).unwrap();
+    }
+    drop(writer);
+    let dbf = dir.path().join("ids.dbf");
+    let mut bytes = std::fs::read(&dbf).unwrap();
+    for at in 0..bytes.len() - 16 {
+        if &bytes[at..at + 16] == b"9007199254740992" {
+            bytes[at + 15] = b'3';
+        }
+    }
+    std::fs::write(&dbf, bytes).unwrap();
+    std::fs::write(
+        dir.path().join("ids.prj"),
+        r#"GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]"#,
+    )
+    .unwrap();
+    let file = Shapefile::open(&path, dir.path()).unwrap();
+    let source = ShapefileSource::new(vec![(
+        TableDef {
+            columns: file.columns(),
+            layers: vec![LayerDef::new(
+                "ids",
+                0..=4,
+                LayerGrid {
+                    extent: 4096,
+                    buffer: 64,
+                },
+            )],
+        },
+        ShapefileTable {
+            file,
+            bounds: None,
+            records: Records::All,
+        },
+    )])
+    .unwrap();
+    let mut read = Vec::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in batch.features {
+                    read.push(format!("{:?} {:?}", feature.id, feature.props));
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    insta::assert_snapshot!(read.join("\n"), @"
+    Some(1) [(KeyId(0), I64(9007199254740993))]
+    Some(2) [(KeyId(0), I64(-9007199254740993))]
+    Some(3) [(KeyId(0), I64(42))]
+    ");
+}
+
+#[test]
 fn a_zip_file_reads_like_the_shapefile_it_holds() {
     let dir = tempfile::tempdir().unwrap();
     let parts = dir.path().join("parts");
