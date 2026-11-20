@@ -812,7 +812,7 @@ fn read_shape(shapes: &mut Cursor<Vec<u8>>, offset: u64, length: u64) -> Result<
 fn prop(value: FieldValue, kind: ValueKind) -> Option<Prop<SourceStr>> {
     Some(match value {
         FieldValue::Character(text) => Prop::Str(SourceStr::from(text?)),
-        FieldValue::Memo(text) => Prop::Str(SourceStr::from(text)),
+        FieldValue::Memo(text) => Prop::Str(SourceStr::from((!text.is_empty()).then_some(text)?)),
         FieldValue::Numeric(number) => {
             let number = number?;
             #[expect(
