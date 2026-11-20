@@ -489,8 +489,10 @@ fn a_centroid_if_convex_of_a_concave_polygon_with_repeated_corners_is_a_point_on
     let plan = Plan::new(vec![TableDef {
         columns: vec![],
         layers: vec![LayerDef {
-            geometry: Some(GeometryType::Polygon),
-            point: Some(DerivedPoint::CentroidIfConvex),
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::CentroidIfConvex),
+            }],
             ..LayerDef::new("labels", 0..=0, GRID)
         }],
     }])
