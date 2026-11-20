@@ -10,8 +10,9 @@
     - [x] Layers with CEL expressions, `rules` and `sort_by`
     - [x] [OSM PBF files](sources-osm.md) as sources
     - [ ] Shapefile, GeoPackage and CSV files as sources
-    - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
-    - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`,
-      `polygon_point_on_surface`, `point_on_line` and `innermost_point`
+    - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid`, `centroid` and
+      `polygon_point_on_surface`
+    - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `point_on_line` and
+      `innermost_point`
     - [x] [Per-tile operations](sources-pg-layers.md#per-tile-operations) (`merge_lines`,
       `merge_polygons`, `thinning`, `merge_multi`, `limit`)

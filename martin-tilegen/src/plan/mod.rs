@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use eval::Keys;
-use geo::{Centroid as _, Coord, MultiLineString, MultiPoint, MultiPolygon, Polygon};
+use geo::{Centroid as _, Coord, InteriorPoint as _, MultiLineString, MultiPoint, MultiPolygon, Polygon};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
@@ -335,6 +335,8 @@ pub enum DerivedPoint {
     /// The centroid of the highest dimension the geometry has: area-weighted for polygons,
     /// length-weighted for lines, the mean for points.
     Centroid,
+    /// A point on the geometry, as geo's `InteriorPoint` finds it over all parts of a multi-geometry.
+    PointOnSurface,
 }
 
 impl DerivedPoint {
@@ -350,12 +352,19 @@ impl DerivedPoint {
             geom
         };
         let point = match (self, geom) {
-            (Self::Centroid, FeatureGeom::Points([point])) => return Some(*point),
+            (Self::Centroid | Self::PointOnSurface, FeatureGeom::Points([point])) => return Some(*point),
             (Self::Centroid, FeatureGeom::Points(points)) => MultiPoint::from(points.to_vec()).centroid(),
             (Self::Centroid, FeatureGeom::Lines([line])) => line.centroid(),
             (Self::Centroid, FeatureGeom::Lines(lines)) => MultiLineString::new(lines.to_vec()).centroid(),
             (Self::Centroid, FeatureGeom::Polygons([polygon])) => polygon.centroid(),
             (Self::Centroid, FeatureGeom::Polygons(polygons)) => MultiPolygon::new(polygons.to_vec()).centroid(),
+            (Self::PointOnSurface, FeatureGeom::Points(points)) => MultiPoint::from(points.to_vec()).interior_point(),
+            (Self::PointOnSurface, FeatureGeom::Lines([line])) => line.interior_point(),
+            (Self::PointOnSurface, FeatureGeom::Lines(lines)) => MultiLineString::new(lines.to_vec()).interior_point(),
+            (Self::PointOnSurface, FeatureGeom::Polygons([polygon])) => polygon.interior_point(),
+            (Self::PointOnSurface, FeatureGeom::Polygons(polygons)) => {
+                MultiPolygon::new(polygons.to_vec()).interior_point()
+            }
         };
         point.map(|point| point.0)
     }
