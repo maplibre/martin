@@ -591,13 +591,11 @@ Martin adds these functions to CEL:
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
 - `max(a, b, ...)` or `max(list)` returns the largest value, `null` for an empty list, as
   `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
-- `area(unit)` returns the area of the feature's whole geometry, `0.0` for points and lines, as Planetiler's
-  `feature.area(unit)` measures it: on a sphere of the earth's average radius, without holes, so `area('km2')` is
-  about 12364 for a square of 1 degree at the equator. `unit` takes Planetiler's area units: `m2`, `km2`, `ha`,
-  `a`, `ac`, `ft2`, `yd2`, `mi2`, `nm2`, and `z0 ti2` and `z0 px2` in Web Mercator squares, where `z0 ti2` is 1 for
-  the whole world and `z0 px2` is that times 65536 (Planetiler divides instead). Spellings such as `sq km` or
-  `square meters` work too, and an unknown unit is a config error. A `where` calling `area` has no SQL
-  equivalent, and `thinning` keys cannot call it.
+- The `area(unit)` function calculates the total surface area of a geometry, returning 0.0 for points and lines. It measures the shape on a spherical model of the Earth using its average radius and ignores any internal holes. For context, measuring a one-degree square at the equator will return approximately 12,364 square kilometers.
+
+  You must specify a valid unit using either abbreviations or common spellings, such as `km2` or `square meters`. Supported units include metric (`m2`, `km2`, `ha`, `a`) and imperial or nautical units (`ft2`, `yd2`, `mi2`, `ac`, `nm2`). You can also use Web Mercator squares, where `z0 ti2` represents the entire world as `1`, and `z0 px2` represents the entire world as `65,536` (though Planetiler handles this by dividing instead).
+  
+  Limitations are that you cannot use it within a `where` clause (because no direct SQL equivalent), and you cannot use it within `thinning` keys.
 
 Regular expressions (`matches`) and timestamps are not available.
 
