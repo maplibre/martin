@@ -878,6 +878,7 @@ fn a_key_has_one_column_kind_in_every_mlt_tile() {
         id: Some(i64::from(id)),
         geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
         props: vec![(KeyId::new(0), rank)],
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
@@ -928,6 +929,7 @@ fn integers_a_float_column_rounds_are_counted() {
         id: Some(i64::from(id)),
         geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
         props: vec![(KeyId::new(0), big), (KeyId::new(1), size)],
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
@@ -974,6 +976,7 @@ fn a_key_of_a_later_definition_has_one_column_kind_in_every_tile_of_its_output_l
         id: Some(i64::from(id)),
         geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
         props: vec![(KeyId::new(0), rank)],
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
@@ -1033,6 +1036,7 @@ fn integers_a_float_column_of_a_later_definition_rounds_are_counted_by_output_la
         id: Some(i64::from(id)),
         geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
         props: vec![(KeyId::new(0), size)],
+        relations: Vec::new(),
     };
     let source = MemorySource {
         batches: vec![FeatureBatch {
