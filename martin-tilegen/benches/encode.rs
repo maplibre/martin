@@ -14,7 +14,7 @@ use std::hint::black_box;
 use criterion::{BatchSize, Criterion, Throughput};
 use martin_tile_utils::Encoding;
 use martin_tilegen::internals::record::{EncodedProps, Geom, encode};
-use martin_tilegen::internals::{DedupIndex, EncodeSettings, LayerInfo, Seq, TileEncoder, TileRecords};
+use martin_tilegen::internals::{DedupIndex, DefinitionInfo, EncodeSettings, LayerInfo, Seq, TileEncoder, TileRecords};
 use martin_tilegen::props::{KeyInterner, KeyNames};
 use martin_tilegen::{LayerGrid, TileFormat, TileOrder};
 use mlt_core::PropValueRef;
@@ -83,6 +83,7 @@ fn encode_tiles(c: &mut Criterion<cycles::Cycles>) {
         )];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &[DefinitionInfo { output: 0, buffer: 64 }],
             keys: &keys,
             format,
             encoding,

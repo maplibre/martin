@@ -46,7 +46,7 @@ use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::cp::{CopierArgs, CopyArgs, CopyFormat, MartinCpError, MvtQuirk, check_bboxes};
-use crate::generate::layers::{LowerOptions, lower_table};
+use crate::generate::layers::{LowerOptions, OutputLayerMismatch, OutputLayers, lower_table_with, table_settings};
 use crate::generate::metadata::BulkMetadata;
 use crate::generate::postgres::{PgScanSource, ScanTable};
 use crate::generate::progress::Monitor;
@@ -242,6 +242,8 @@ pub enum GenerateError {
     V2OnlyKey { source_id: String, key: &'static str },
     #[error("Source `{0}` uses tile grid `{1}`; `--mode bulk` supports Web Mercator only")]
     UnsupportedGrid(String, String),
+    #[error(transparent)]
+    OutputLayerMismatch(Box<OutputLayerMismatch>),
     #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
     Unsupported { layer: String, what: String },
     #[error(
@@ -415,13 +417,15 @@ pub async fn start(args: CopierArgs) -> GenerateResult<()> {
         sources.push((Box::new(source), defs));
         metadata
     } else {
+        #[cfg(any(feature = "osm", feature = "shapefile"))]
+        let outputs = Arc::new(file_outputs(&config, &files, &options.zooms)?);
         #[cfg(feature = "shapefile")]
-        if let Some((source, defs)) = shapefile::source(&config, &options, &files).await? {
+        if let Some((source, defs)) = shapefile::source(&config, &options, &files, &outputs).await? {
             geometry_finders.extend(defs.iter().map(|_| None));
             sources.push((Box::new(source), defs));
         }
         #[cfg(feature = "osm")]
-        if let Some((source, defs)) = osm::source(&config, &options, &files).await? {
+        if let Some((source, defs)) = osm::source(&config, &options, &files, &outputs).await? {
             geometry_finders.extend(defs.iter().map(|_| None));
             sources.push((Box::new(source), defs));
         }
@@ -485,6 +489,27 @@ fn file_sources(config: &Config, options: &GenerateOptions) -> GenerateResult<Ve
         return Err(GenerateError::MixedSources);
     }
     Ok(ours.into_iter().cloned().collect())
+}
+
+/// The output layers of the file sources `ids`, rendered at `zooms`.
+///
+/// # Errors
+///
+/// If layers writing into one output layer disagree on a setting it has once.
+#[cfg(any(feature = "osm", feature = "shapefile"))]
+fn file_outputs(config: &Config, ids: &[String], zooms: &RangeInclusive<u8>) -> GenerateResult<OutputLayers> {
+    let mut sources = Vec::new();
+    #[cfg(feature = "shapefile")]
+    sources.extend(
+        ids.iter()
+            .filter_map(|id| Some((id.as_str(), shapefile::settings(config.shapefile.sources.get(id)?)))),
+    );
+    #[cfg(feature = "osm")]
+    sources.extend(
+        ids.iter()
+            .filter_map(|id| Some((id.as_str(), osm::settings(config.osm.sources.get(id)?)))),
+    );
+    OutputLayers::new(sources, zooms)
 }
 
 /// The metadata of a bulk tileset covering `bounds`, merged from the tables' SQL `comments`.
@@ -773,13 +798,8 @@ async fn select_sources(
     } else {
         options.sources.clone()
     };
-    let lower = LowerOptions {
-        zooms: options.zooms.clone(),
-        bounds: options.bbox,
-        encoder: None,
-        order_by: None,
-    };
-    let mut scans = Vec::with_capacity(requested.len());
+
+    let mut chosen = Vec::with_capacity(requested.len());
     let mut pool = None;
     for id in requested {
         let Some((info, pool_idx)) = tables.get(&id) else {
@@ -815,15 +835,19 @@ async fn select_sources(
         };
         let convert = ProcessConfig::layered(&global, &per_connection, &per_table).convert_to_mlt;
         let encoder = mlt_encoder(convert, options.copy_format, options.encoding, &id)?;
-        scans.extend(lower_table(
-            &id,
-            info.clone(),
-            &LowerOptions {
-                encoder,
-                order_by: connection.order_by,
-                ..lower.clone()
-            },
-        )?);
+        chosen.push((id, info, encoder, connection.order_by));
+    }
+    let settings = chosen.iter().map(|(id, info, ..)| (id.as_str(), table_settings(info)));
+    let outputs = OutputLayers::new(settings, &options.zooms)?;
+    let mut scans = Vec::with_capacity(chosen.len());
+    for (id, info, encoder, order_by) in chosen {
+        let options = LowerOptions {
+            zooms: options.zooms.clone(),
+            bounds: options.bbox,
+            encoder,
+            order_by,
+        };
+        scans.extend(lower_table_with(&id, info.clone(), &options, &outputs)?);
     }
     let pool = pool.ok_or(GenerateError::NoSources)?;
     if scans.is_empty() {

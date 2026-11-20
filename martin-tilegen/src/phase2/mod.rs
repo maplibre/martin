@@ -11,7 +11,7 @@ use tilejson::{TileJSON, VectorLayer};
 
 pub(crate) use crate::phase2::assemble::Rounded;
 pub use crate::phase2::encode::TileFormat;
-use crate::phase2::encode::{DedupIndex, EncodeSettings, LayerStats};
+use crate::phase2::encode::{DedupIndex, DefinitionInfo, EncodeSettings, LayerStats};
 pub(crate) use crate::phase2::encode::{LayerInfo, TileEncoder};
 pub(crate) use crate::phase2::per_tile::LayerOpCounts;
 use crate::phase2::per_tile::OutputExprs;
@@ -24,14 +24,17 @@ use crate::{EncodedTile, TileGenResult, TileOrder};
 /// The stage types of phase 2, for this crate's benches and stage-level tests only.
 #[cfg(feature = "internals")]
 pub(crate) mod internals {
-    pub use crate::phase2::assemble::{AssembledLayer, LayerAssembler};
-    pub use crate::phase2::encode::{DedupIndex, EncodeSettings, LayerInfo, LayerStats, TileEncoder};
+    pub use crate::phase2::assemble::{AssembledLayer, LayerAssembler, RecordOrigin};
+    pub use crate::phase2::encode::{DedupIndex, DefinitionInfo, EncodeSettings, LayerInfo, LayerStats, TileEncoder};
     pub use crate::phase2::per_tile::TileOps;
 }
 
 /// Encodes grouped tiles of a rendered plan, shared by every encoder thread.
 pub(crate) struct TileEncoding<'p> {
+    /// By output layer.
     infos: Vec<LayerInfo>,
+    /// By layer byte of the sort key.
+    definitions: Vec<DefinitionInfo>,
     /// Only complete once every feature is rendered, since rendering interns new keys.
     names: Vec<KeyNames>,
     format: TileFormat,
@@ -64,7 +67,15 @@ impl<'p> TileEncoding<'p> {
                 .collect();
         }
         let encoding = Self {
-            infos: plan.layers.iter().map(|layer| layer.info.clone()).collect(),
+            infos: plan.outputs.iter().map(|output| output.info.clone()).collect(),
+            definitions: plan
+                .layers
+                .iter()
+                .map(|layer| DefinitionInfo {
+                    output: u8::try_from(layer.output).expect("at most 256 output layers"),
+                    buffer: layer.render.grid.buffer,
+                })
+                .collect(),
             exprs: OutputExprs::new(plan, &names),
             names,
             format,
@@ -80,6 +91,7 @@ impl<'p> TileEncoding<'p> {
     pub(crate) fn encode(&self, encoder: &mut TileEncoder, batch: Vec<TileRecords>) -> TileGenResult<Vec<EncodedTile>> {
         let settings = EncodeSettings {
             layers: &self.infos,
+            definitions: &self.definitions,
             keys: &self.names,
             format: self.format,
             encoding: self.encoding,

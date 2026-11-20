@@ -53,19 +53,74 @@ fn rejects_geometry_entries_drawing_different_types() {
 }
 
 #[test]
-fn rejects_a_repeated_layer_name() {
+fn rejects_definitions_of_one_output_layer_with_different_extents() {
     let err = Plan::new(vec![
         TableDef {
             columns: vec![],
-            layers: vec![LayerDef::new("roads", 0..=14, GRID)],
+            layers: vec![LayerDef::new("ocean", 0..=14, GRID)],
         },
         TableDef {
             columns: vec![],
-            layers: vec![LayerDef::new("roads", 0..=14, GRID)],
+            layers: vec![LayerDef {
+                output: Some("ocean".to_owned()),
+                ..LayerDef::new("lakes", 0..=14, LayerGrid { extent: 512, buffer: 8 })
+            }],
         },
     ])
     .unwrap_err();
-    assert_eq!(err.to_string(), "layer name `roads` is used more than once");
+    insta::assert_snapshot!(err, @"layers `ocean` and `lakes` both write into layer `ocean` but with different `extent`; it must be equal wherever it is set");
+}
+
+#[test]
+fn rejects_definitions_of_one_output_layer_with_different_sort_by() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
+        layers: vec![
+            LayerDef::new("pois", 0..=14, GRID),
+            LayerDef {
+                output: Some("pois".to_owned()),
+                sort_by: vec![SortDef {
+                    expr: "rank".to_owned(),
+                    descending: false,
+                }],
+                ..LayerDef::new("shops", 0..=14, GRID)
+            },
+            LayerDef {
+                output: Some("pois".to_owned()),
+                sort_by: vec![SortDef {
+                    expr: "rank".to_owned(),
+                    descending: true,
+                }],
+                ..LayerDef::new("cafes", 0..=14, GRID)
+            },
+        ],
+    }])
+    .unwrap_err();
+    insta::assert_snapshot!(err, @"layers `shops` and `cafes` both write into layer `pois` but with different `sort_by`; it must be equal wherever it is set");
+}
+
+#[test]
+fn rejects_definitions_of_one_output_layer_with_different_operations_of_one_kind() {
+    let limit = |count| TileOpDef {
+        zooms: 0..=14,
+        op: TileOp::Limit { count },
+    };
+    let err = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![
+            LayerDef {
+                per_tile: vec![limit(10)],
+                ..LayerDef::new("pois", 0..=14, GRID)
+            },
+            LayerDef {
+                output: Some("pois".to_owned()),
+                per_tile: vec![limit(20)],
+                ..LayerDef::new("shops", 0..=14, GRID)
+            },
+        ],
+    }])
+    .unwrap_err();
+    insta::assert_snapshot!(err, @"layers `pois` and `shops` both write into layer `pois` but with different `limit`; it must be equal wherever it is set");
 }
 
 #[test]
