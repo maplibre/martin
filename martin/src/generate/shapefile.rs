@@ -32,7 +32,12 @@ pub async fn source(
     if sources.is_empty() {
         return Ok(None);
     }
-    let (zooms, bounds, format) = (options.zooms.clone(), options.bbox, options.format);
+    let (zooms, bounds, format, encoding) = (
+        options.zooms.clone(),
+        options.bbox,
+        options.copy_format,
+        options.encoding,
+    );
     let convert = config.convert_to_mlt.clone();
     let temp_dir = options.temp_dirs.first().cloned().unwrap_or_else(std::env::temp_dir);
     tokio::task::spawn_blocking(move || {
@@ -41,7 +46,7 @@ pub async fn source(
             let lower_options = LowerOptions {
                 zooms: zooms.clone(),
                 bounds,
-                encoder: mlt_encoder(convert.clone(), format, id)?,
+                encoder: mlt_encoder(convert.clone(), format, encoding, id)?,
                 order_by: None,
             };
             if !has_zoom_in(source, &zooms) {
