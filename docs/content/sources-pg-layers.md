@@ -594,7 +594,7 @@ Martin adds these functions to CEL:
 - The `area(unit)` function calculates the total surface area of a geometry, returning 0.0 for points and lines. It measures the shape on a spherical model of the Earth using its average radius and ignores any internal holes. For context, measuring a one-degree square at the equator will return approximately 12,364 square kilometers.
 
   You must specify a valid unit using either abbreviations or common spellings, such as `km2` or `square meters`. Supported units include metric (`m2`, `km2`, `ha`, `a`) and imperial or nautical units (`ft2`, `yd2`, `mi2`, `ac`, `nm2`). You can also use Web Mercator squares, where `z0 ti2` represents the entire world as `1`, and `z0 px2` represents the entire world as `65,536` (though Planetiler handles this by dividing instead).
-  
+
   Limitations are that you cannot use it within a `where` clause (because no direct SQL equivalent), and you cannot use it within `thinning` keys.
 
 Regular expressions (`matches`) and timestamps are not available.
