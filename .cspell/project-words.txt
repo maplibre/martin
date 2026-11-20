@@ -56,6 +56,7 @@ geoparquet
 geospatial
 geotransform
 geozero
+gridrank
 gungraun
 haswell
 healthcheck
@@ -185,6 +186,7 @@ toon
 tui
 unclipped
 undecoded
+unranked
 untap
 upsamples
 urlencode

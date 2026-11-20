@@ -126,7 +126,7 @@ impl<'de, T: Op + Deserialize<'de>> Deserialize<'de> for ByZoomRange<T> {
 pub enum RuleThinning {
     /// `null`: the rule's features are not thinned by a grid.
     Off,
-    /// The rule's own grid thinning, of `method: grid` without `keys`.
+    /// The rule's own grid thinning, of `method: grid` with a `limit` and without `keys` or `rank`.
     Grid(ByZoomRange<Thinning>),
 }
 
@@ -137,10 +137,16 @@ impl RuleThinning {
         let Some(thinning) = Option::<ByZoomRange<Thinning>>::deserialize(deserializer)? else {
             return Ok(Some(Self::Off));
         };
-        if thinning
-            .iter()
-            .any(|entry| !matches!(entry.method, ThinningMethod::Grid { .. }) || entry.keys.is_some())
-        {
+        if thinning.iter().any(|entry| {
+            !matches!(
+                entry.method,
+                ThinningMethod::Grid {
+                    limit: Some(_),
+                    rank: None,
+                    ..
+                }
+            ) || entry.keys.is_some()
+        }) {
             return Err(de::Error::custom(TilingConfigError::RuleThinningNotGrid));
         }
         Ok(Some(Self::Grid(thinning)))
@@ -175,8 +181,10 @@ pub enum ThinningMethod {
     Grid {
         /// Side of a grid square, in pixels of a 256-pixel tile.
         size: Pixels,
-        /// Points kept per square.
-        limit: NonZeroU32,
+        /// Points kept per square; every point when unset.
+        limit: Option<NonZeroU32>,
+        /// Writes each kept point's position in its square to an attribute.
+        rank: Option<GridRank>,
     },
     /// Features closer than `distance` pixels to an earlier kept one.
     Distance {
@@ -185,6 +193,16 @@ pub enum ThinningMethod {
     },
     /// Features anywhere in the tile.
     Tile,
+}
+
+/// A grid's `rank` and `rank_offset`: the attribute each kept point gets its 1-based position in its square
+/// in, plus the offset, unless it already has the attribute.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GridRank {
+    /// The output attribute written.
+    pub attribute: String,
+    /// Added to the position.
+    pub offset: i64,
 }
 
 /// `thinning`: drops features that an earlier kept feature with the same key crowds out.
@@ -303,6 +321,8 @@ struct RawThinning {
     method: MethodName,
     size: Option<Pixels>,
     limit: Option<NonZeroU32>,
+    rank: Option<String>,
+    rank_offset: Option<i64>,
     distance: Option<Pixels>,
     keys: Option<NonEmpty<Expr>>,
     minzoom: Option<Zoom>,
@@ -331,12 +351,26 @@ impl TryFrom<RawThinning> for Thinning {
                 if size.get() <= 0.0 {
                     return Err(TilingConfigError::GridSizeNotPositive);
                 }
-                let limit = raw.limit.ok_or_else(|| needs("limit"))?;
-                ThinningMethod::Grid { size, limit }
+                if raw.limit.is_none() && raw.rank.is_none() {
+                    return Err(TilingConfigError::GridNeedsLimitOrRank);
+                }
+                if raw.rank.is_none() && raw.rank_offset.is_some() {
+                    return Err(TilingConfigError::RankOffsetWithoutRank);
+                }
+                ThinningMethod::Grid {
+                    size,
+                    limit: raw.limit,
+                    rank: raw.rank.map(|attribute| GridRank {
+                        attribute,
+                        offset: raw.rank_offset.unwrap_or_default(),
+                    }),
+                }
             }
             MethodName::Distance => {
                 ignores("size", raw.size.is_some())?;
                 ignores("limit", raw.limit.is_some())?;
+                ignores("rank", raw.rank.is_some())?;
+                ignores("rank_offset", raw.rank_offset.is_some())?;
                 ThinningMethod::Distance {
                     distance: raw.distance.ok_or_else(|| needs("distance"))?,
                 }
@@ -344,6 +378,8 @@ impl TryFrom<RawThinning> for Thinning {
             MethodName::Tile => {
                 ignores("size", raw.size.is_some())?;
                 ignores("limit", raw.limit.is_some())?;
+                ignores("rank", raw.rank.is_some())?;
+                ignores("rank_offset", raw.rank_offset.is_some())?;
                 ignores("distance", raw.distance.is_some())?;
                 if raw.keys.is_none() {
                     return Err(needs("keys"));
@@ -362,15 +398,17 @@ impl TryFrom<RawThinning> for Thinning {
 
 impl From<&Thinning> for RawThinning {
     fn from(op: &Thinning) -> Self {
-        let (method, size, limit, distance) = match op.method {
-            ThinningMethod::Grid { size, limit } => (MethodName::Grid, Some(size), Some(limit), None),
-            ThinningMethod::Distance { distance } => (MethodName::Distance, None, None, Some(distance)),
-            ThinningMethod::Tile => (MethodName::Tile, None, None, None),
+        let (method, size, limit, rank, distance) = match &op.method {
+            ThinningMethod::Grid { size, limit, rank } => (MethodName::Grid, Some(*size), *limit, rank.as_ref(), None),
+            ThinningMethod::Distance { distance } => (MethodName::Distance, None, None, None, Some(*distance)),
+            ThinningMethod::Tile => (MethodName::Tile, None, None, None, None),
         };
         Self {
             method,
             size,
             limit,
+            rank: rank.map(|rank| rank.attribute.clone()),
+            rank_offset: rank.map(|rank| rank.offset).filter(|&offset| offset != 0),
             distance,
             keys: op.keys.clone(),
             minzoom: op.zooms.minzoom(),
@@ -610,7 +648,8 @@ mod tests {
     use indoc::indoc;
 
     use super::{
-        ByZoomRange, Limit, MergeLines, MergeMulti, MergePolygons, MultiGeometry, PerTile, Thinning, ThinningMethod,
+        ByZoomRange, GridRank, Limit, MergeLines, MergeMulti, MergePolygons, MultiGeometry, PerTile, Thinning,
+        ThinningMethod,
     };
     use crate::config::file::tiling::setting::Pixels;
     use crate::config::file::tiling::tests::{parse, rejection};
@@ -634,7 +673,7 @@ mod tests {
               merge_lines: { min_length: 1, tolerance: 0.5, buffer: 4 }
               merge_polygons: { min_area: 4, min_hole_area: 1, distance: 0.5, buffer: 4, group_by: [kind] }
               thinning:
-                - { maxzoom: 9, method: grid, size: 64, limit: 2, keys: [kind] }
+                - { maxzoom: 9, method: grid, size: 64, limit: 2, rank: rank, rank_offset: 10, keys: [kind] }
                 - { minzoom: 10, maxzoom: 13, method: distance, distance: 64, keys: [name, ref] }
                 - { minzoom: 14, method: tile, keys: [name] }
               merge_multi: { geometry: [point], group_by: [kind] }
@@ -663,7 +702,11 @@ mod tests {
                         Thinning {
                             method: ThinningMethod::Grid {
                                 size: px(64.0),
-                                limit: NonZeroU32::new(2).expect("positive"),
+                                limit: NonZeroU32::new(2),
+                                rank: Some(GridRank {
+                                    attribute: "rank".to_owned(),
+                                    offset: 10,
+                                }),
                             },
                             keys: Some(NonEmpty::new(expr("kind"))),
                             zooms: zooms(None, Some(9)),
@@ -952,10 +995,46 @@ mod tests {
     }
 
     #[test]
-    fn a_thinning_grid_needs_a_limit() {
+    fn a_thinning_grid_needs_a_limit_or_a_rank() {
         insta::assert_snapshot!(
             rejection("pois: { thinning: { method: grid, size: 64 } }"),
-            @"error: line 1 column 19: `method: grid` needs `limit`"
+            @"error: line 1 column 19: `method: grid` needs `limit`, `rank` or both"
+        );
+    }
+
+    #[test]
+    fn a_thinning_grid_with_only_a_rank_keeps_every_point() {
+        let layers = parse("pois: { thinning: { method: grid, size: 64, rank: rank } }");
+        let thinning = layers
+            .get("pois")
+            .and_then(|layer| layer.per_tile.thinning.clone())
+            .expect("pois has a thinning");
+        assert_eq!(
+            thinning.iter().map(|entry| entry.method.clone()).collect::<Vec<_>>(),
+            [ThinningMethod::Grid {
+                size: px(64.0),
+                limit: None,
+                rank: Some(GridRank {
+                    attribute: "rank".to_owned(),
+                    offset: 0,
+                }),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_rank_offset_needs_a_rank() {
+        insta::assert_snapshot!(
+            rejection("pois: { thinning: { method: grid, size: 64, limit: 1, rank_offset: 10 } }"),
+            @"error: line 1 column 19: `rank_offset` needs `rank`"
+        );
+    }
+
+    #[test]
+    fn a_thinning_distance_rejects_a_rank() {
+        insta::assert_snapshot!(
+            rejection("pois: { thinning: { method: distance, distance: 8, rank: rank } }"),
+            @"error: line 1 column 19: `rank` does not apply to `method: distance`"
         );
     }
 

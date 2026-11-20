@@ -99,7 +99,7 @@ pub(crate) struct LayerTile<'r, 'a> {
     pub(crate) merged: RefCell<Vec<Merged>>,
 }
 
-impl LayerTile<'_, '_> {
+impl<'a> LayerTile<'_, 'a> {
     /// Fills `out` with the feature's geometry in tile coordinates, a fill as the square of the tile and its
     /// buffer, and returns its kind and id.
     pub(crate) fn geometry(&self, feature: &TileFeature, out: &mut GeomBuf) -> TileGenResult<(GeomKind, Option<u64>)> {
@@ -164,6 +164,19 @@ impl LayerTile<'_, '_> {
                 props.push((key, value));
             }
         }
+        feature.props_first = narrow(start);
+        feature.props_end = narrow(props.len());
+    }
+
+    /// Gives `feature` the property `value` under `key`, unless it already has `key`.
+    pub(crate) fn add_prop(&self, feature: &mut TileFeature, key: KeyId, value: PropValueRef<'a>) {
+        let mut props = self.props.borrow_mut();
+        if props[feature.props()].iter().any(|&(other, _)| other == key) {
+            return;
+        }
+        let start = props.len();
+        props.extend_from_within(feature.props());
+        props.push((key, value));
         feature.props_first = narrow(start);
         feature.props_end = narrow(props.len());
     }

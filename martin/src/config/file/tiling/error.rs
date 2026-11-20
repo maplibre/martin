@@ -43,8 +43,12 @@ pub enum TilingConfigError {
     ThinningNeeds { method: &'static str, key: &'static str },
     #[error("`{key}` does not apply to `method: {method}`")]
     ThinningIgnores { method: &'static str, key: &'static str },
+    #[error("`method: grid` needs `limit`, `rank` or both")]
+    GridNeedsLimitOrRank,
+    #[error("`rank_offset` needs `rank`")]
+    RankOffsetWithoutRank,
     #[error(
-        "a rule's `thinning` can only be a `method: grid` without `keys`; other methods and keys apply to the whole layer"
+        "a rule's `thinning` can only be a `method: grid` with a `limit` and without `keys` or `rank`; other methods, keys and ranks apply to the whole layer"
     )]
     RuleThinningNotGrid,
     #[error("table `{table}`: `{key}` is a layer key; move it under one of `layers`")]

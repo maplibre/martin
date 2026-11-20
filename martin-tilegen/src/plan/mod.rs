@@ -67,6 +67,14 @@ pub enum PlanError {
     #[error("layer `{layer}`: its `geometry` entries draw different geometry types")]
     MixedGeometry { layer: String },
 
+    /// A grid's rank offset so large that a point's rank does not fit an `i64`.
+    #[error("layer `{layer}`: a rank of `{attribute}` from `rank_offset` {offset} does not fit a 64-bit integer")]
+    RankOverflow {
+        layer: String,
+        attribute: String,
+        offset: i64,
+    },
+
     #[error("layer `{layer}`: `{op}` groups by `{attribute}`, which the layer does not write")]
     UnknownGroupBy {
         layer: String,
@@ -307,12 +315,24 @@ pub enum ThinningMethod {
         size: f64,
         /// Points kept per square and key.
         limit: NonZeroU32,
+        /// Writes each kept point's position in its square to an attribute.
+        rank: Option<GridRank>,
     },
     /// Drops a feature within `distance` pixels of a 256-pixel tile of an earlier kept one with its key,
     /// measured between representative points.
     Distance { distance: f64 },
     /// Drops a feature whose key an earlier kept one has anywhere in the tile.
     Tile,
+}
+
+/// Planetiler's `gridrank`: each kept point of a grid square gets its 1-based position among the kept points
+/// of its square and key, in draw order, plus `offset`, unless it already has the attribute.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GridRank {
+    /// The output attribute written.
+    pub attribute: String,
+    /// Added to the position.
+    pub offset: i64,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1132,6 +1152,7 @@ impl OutputDraft {
             layers[layer].rekey(&map);
         }
         let output_props = self.layers.iter().any(|&layer| own_keys[layer].1);
+        add_rank_keys(&self, &mut keys);
         check_group_by(&self, &keys, output_props)?;
         let per_tile = plan_per_tile(&self, &keys, output_props, exprs)?;
         Ok(PlannedOutput {
@@ -1278,6 +1299,24 @@ fn check_group_by(draft: &OutputDraft, keys: &[String], output_props: bool) -> R
     Ok(())
 }
 
+/// Adds the attributes grid thinning writes ranks to, unless the output layer already writes them.
+fn add_rank_keys(draft: &OutputDraft, keys: &mut Vec<String>) {
+    for (op, ..) in draft
+        .per_tile
+        .iter()
+        .filter(|(op, ..)| clamped_zooms(op, &draft.zooms).is_some())
+    {
+        if let TileOp::Thinning {
+            method: ThinningMethod::Grid { rank: Some(rank), .. },
+            ..
+        } = &op.op
+            && !keys.contains(&rank.attribute)
+        {
+            keys.push(rank.attribute.clone());
+        }
+    }
+}
+
 /// The operation's zooms clamped into the layer's, or `None` when it runs at none of them.
 fn clamped_zooms(op: &TileOpDef, zooms: &RangeInclusive<u8>) -> Option<RangeInclusive<u8>> {
     let lo = (*op.zooms.start()).max(*zooms.start());
@@ -1349,7 +1388,26 @@ fn plan_per_tile(
                     })
                     .collect::<Result<_, PlanError>>()?,
                 method: match method {
-                    ThinningMethod::Grid { .. } => PlannedThinning::Grid,
+                    ThinningMethod::Grid { limit, rank, .. } => PlannedThinning::Grid(match rank {
+                        Some(rank) => {
+                            if rank.offset.checked_add(i64::from(limit.get())).is_none() {
+                                return Err(PlanError::RankOverflow {
+                                    layer: name.clone(),
+                                    attribute: rank.attribute.clone(),
+                                    offset: rank.offset,
+                                });
+                            }
+                            Some(PlannedRank {
+                                key: key_id(
+                                    keys.iter()
+                                        .position(|key| *key == rank.attribute)
+                                        .expect("OutputDraft::plan adds every rank attribute to the keys"),
+                                ),
+                                offset: rank.offset,
+                            })
+                        }
+                        None => None,
+                    }),
                     ThinningMethod::Distance { distance } => PlannedThinning::Distance(distance * units),
                     ThinningMethod::Tile => PlannedThinning::Tile,
                 },
@@ -1431,10 +1489,17 @@ impl PlannedOp {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum PlannedThinning {
     /// Rendering put each point in its square and gave it its limit.
-    Grid,
+    Grid(Option<PlannedRank>),
     /// In tile units.
     Distance(f64),
     Tile,
+}
+
+/// A [`GridRank`] with its attribute's key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct PlannedRank {
+    pub(crate) key: KeyId,
+    pub(crate) offset: i64,
 }
 
 /// The first zoom of each run of zooms with the same `banded` attributes; empty without any.
@@ -1551,7 +1616,7 @@ fn layer_grids(draft: &OutputDraft) -> Vec<ThinningGrid> {
         .iter()
         .filter_map(|(op, ..)| {
             let TileOp::Thinning {
-                method: ThinningMethod::Grid { size, limit },
+                method: ThinningMethod::Grid { size, limit, .. },
                 ..
             } = &op.op
             else {
