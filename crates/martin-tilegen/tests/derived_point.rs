@@ -492,6 +492,7 @@ fn a_centroid_if_convex_of_a_concave_polygon_with_repeated_corners_is_a_point_on
                 vec![],
             )),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -1177,11 +1178,13 @@ fn a_closed_way_read_as_polygon_and_outline_is_drawn_once_by_a_layer_taking_both
                 id: Some(1),
                 geometry: Geometry::Polygon(Polygon::new(ring.clone(), vec![])),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(1),
                 geometry: Geometry::Outline(ring),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];
