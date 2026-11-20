@@ -11,7 +11,7 @@ use super::{
     AttributesDef, Case, IdOrder, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedTable, PlannedValue,
     PlannedZoom,
 };
-use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role};
+use crate::expr::{Areas, ExprKeys, ExprRef, FeatureView, PropSlots, Role};
 use crate::phase2::Rounded;
 use crate::props::{KeyId, KeyInterner, KeyNames, LayerKinds, Prop, SourceStr};
 use crate::sort::record::EncodedProps;
@@ -213,11 +213,13 @@ impl Plan {
         )
     }
 
-    /// Passes `f` the view expressions of table `table` have of `feature`.
+    /// Passes `f` the view expressions of table `table` have of `feature`, measuring `geom`, its projected geometry,
+    /// for `area()` if given.
     pub(super) fn with_view<T>(
         &self,
         table: usize,
         feature: &SourceFeature,
+        geom: Option<FeatureGeom<'_>>,
         f: impl FnOnce(&FeatureView<'_, SourceStr>) -> T,
     ) -> T {
         let mut names = self.keys.names[table].clone();
@@ -225,7 +227,11 @@ impl Plan {
             learn_keys(&mut names, &feature.props, &self.keys.tables[table]);
         }
         let mut slots = PropSlots::default();
-        f(&slots.bind(&names.0, &feature.props))
+        let view = slots.bind(&names.0, &feature.props);
+        match geom.map(Areas::new) {
+            Some(areas) => f(&view.with_areas(&areas)),
+            None => f(&view),
+        }
     }
 
     /// The feature's zooms and the first case it matches, or `None` when the layer filters the feature
@@ -385,7 +391,10 @@ impl Evaluator<'_> {
         if planned.evaluates && planned.dynamic_props {
             learn_keys(&mut names[index], &feature.props, &plan.keys.tables[index]);
         }
-        let view = planned.evaluates.then(|| slots.bind(&names[index].0, &feature.props));
+        let areas = Areas::new(geom);
+        let view = planned
+            .evaluates
+            .then(|| slots.bind(&names[index].0, &feature.props).with_areas(&areas));
         let view = view.as_ref();
         for layer_index in planned.layers.clone() {
             let layer = &plan.layers[layer_index];

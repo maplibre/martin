@@ -7,6 +7,7 @@ use cel::common::value::{CowVal, Val};
 use cel::context::VariableResolver;
 use mlt_core::PropValueRef;
 
+use super::area::{AreaBase, Areas};
 use super::{FEATURE, NULL};
 use crate::props::{KeyId, Prop};
 
@@ -80,6 +81,7 @@ impl PropSlots {
             slots: &self.slots,
             generation: self.generation,
             props,
+            areas: None,
         }
     }
 }
@@ -90,6 +92,8 @@ pub struct FeatureView<'a, S> {
     slots: &'a [(u32, u32)],
     generation: u32,
     props: &'a [(KeyId, Prop<S>)],
+    /// The feature's whole geometry for `area()`, which fails without it.
+    areas: Option<&'a Areas<'a>>,
 }
 
 impl<S> Clone for FeatureView<'_, S> {
@@ -99,6 +103,17 @@ impl<S> Clone for FeatureView<'_, S> {
 }
 
 impl<S> Copy for FeatureView<'_, S> {}
+
+impl<'a, S> FeatureView<'a, S> {
+    /// This view, with `areas` measuring the feature's whole geometry for `area()`.
+    #[must_use]
+    pub fn with_areas(self, areas: &'a Areas<'a>) -> Self {
+        Self {
+            areas: Some(areas),
+            ..self
+        }
+    }
+}
 
 impl<'a, S: AsRef<str>> FeatureView<'a, S> {
     pub(super) fn prop(&self, key: KeyId) -> Option<PropValueRef<'a>> {
@@ -244,6 +259,12 @@ impl<S: AsRef<str> + Debug + Send + Sync> VariableResolver for FeatureView<'_, S
     fn resolve<'b>(&'b self, variable: &str) -> Option<CowVal<'b, 'b>> {
         if variable == FEATURE {
             return Some(CowVal::Borrowed(self));
+        }
+        if let Some(base) = [AreaBase::SquareMeters, AreaBase::Z0Tiles]
+            .into_iter()
+            .find(|base| base.variable() == variable)
+        {
+            return self.areas.map(|areas| CowVal::owned(CelDouble::from(areas.get(base))));
         }
         let key = self.keys.get(variable)?;
         Some(prop_val(self.prop(key)))

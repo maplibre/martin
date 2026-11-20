@@ -19,8 +19,6 @@ The configuration is a port of Planetiler's [`shortbread.yml`](https://github.co
     These are known missing features currently, but are planned:
 
     - `ocean` is omitted since Shortbread takes it from shapefile based coastline data outside OpenStreetMap.
-    - `way_area` is left out of `water_polygons`, `water_polygons_labels` and `boundary_labels`, and every `boundary_label` starts at zoom 5.
-      This is because expressions cannot currently read a feature's area.
     - A closed way is a line or a polygon, as its tags make it an [area](sources-osm.md#supported-features-and-handling).
       Planetiler reads it as both unless it has `area=yes` or `area=no`, so its `street_polygons` also have closed `highway=pedestrian` ways, and `area:aeroway` ways, which Martin doesn't currently read as lines.
     - `boundary_labels` and `streets_polygons_labels` are points at each polygon's centroid.

@@ -135,6 +135,7 @@ cases:
     zooms: 11-14
     attributes:
       kind: water
+      way_area: 694.5492257551442
 - source: shortbread
   paths:
   - "water_polygons: dropped, `where` is false"
@@ -447,6 +448,7 @@ cases:
     zooms: 14-14
     attributes:
       kind: water
+      way_area: 51.231241241659895
   - layer: pois
     id: 5729354772
     geometry: point
@@ -612,6 +614,7 @@ cases:
     zooms: 14-14
     attributes:
       kind: water
+      way_area: 68.45309372582172
   - layer: water_polygons_labels
     id: 5729354792
     geometry: point
@@ -619,6 +622,7 @@ cases:
     attributes:
       kind: water
       name: Fontaine du Casino
+      way_area: 68.45309372582172
   - layer: pois
     id: 5729354792
     geometry: point
