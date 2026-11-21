@@ -636,6 +636,18 @@ expression in YAML, for example `where: "kind == 'park'"`.
     'Main St'.indexOf('St')             // 5
     ```
 
+=== "Regular expressions"
+
+    ```text
+    '12a'.matches('^[0-9]+$')                              // false
+    matches('12', '^[0-9]+$')                              // true
+    regex.replace('5a;7b', '[^0-9;]', '')                  // '5;7'
+    regex.replace('B 39', '([A-Z]+) ([0-9]+)', '\\2 \\1')  // '39 B'
+    ```
+
+    Patterns use the syntax of Rust's [`regex`](https://docs.rs/regex/latest/regex/#syntax) crate,
+    which has no lookaround and no backreferences.
+
 === "Lists and maps"
 
     ```text
@@ -661,13 +673,39 @@ Martin adds these functions to CEL:
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
 - `max(a, b, ...)` or `max(list)` returns the largest value, `null` for an empty list, as
   `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
+- `min(a, b, ...)` or `min(list)` returns the smallest value, `null` for an empty list.
+- `regex.replace(text, pattern, replacement)` replaces each match of `pattern` in `text`, as cel-go's
+  `regex.replace`: `\1` to `\9` in `replacement` insert a group, `\0` the whole match and `\\` a backslash
+  (written `'\\1'` in a CEL string). It returns `null` for a `null` text.
+- `text.isLatin()` is `true` when `text` holds only Latin letters and characters that are no letters, such as digits,
+  punctuation and spaces, as Planetiler's `containsOnlyLatinCharacters`. It is `false` for `null` and `''`.
+- `text.removeLatin()` drops the Latin letters from `text`, then brackets left empty and the spaces, dots, slashes
+  and dashes at both ends, as Planetiler's `removeLatinCharacters`. It returns `null` for `null` and when dropping
+  Latin letters leaves only blanks, so `'日本 (Japan)'.removeLatin()` is `'日本'`. A `text` without Latin letters is
+  only trimmed, so `''.removeLatin()` is `''`.
 - The `area(unit)` function calculates the total surface area of a geometry, returning 0.0 for points and lines. It measures the shape on a spherical model of the Earth using its average radius and ignores any internal holes. For context, measuring a one-degree square at the equator will return approximately 12,364 square kilometers.
 
   You must specify a valid unit using either abbreviations or common spellings, such as `km2` or `square meters`. Supported units include metric (`m2`, `km2`, `ha`, `a`) and imperial or nautical units (`ft2`, `yd2`, `mi2`, `ac`, `nm2`). You can also use Web Mercator squares, where `z0 ti2` represents the entire world as `1`, and `z0 px2` represents the entire world as `65,536` (though Planetiler handles this by dividing instead).
 
   Limitations are that you cannot use it within a `where` clause (because no direct SQL equivalent), and you cannot use it within `thinning` keys.
 
-Regular expressions (`matches`) and timestamps are not available.
+Timestamps are not available. A `where` calling `matches`, `regex.replace`, `max`, `min`, `isLatin` or
+`removeLatin` has no SQL equivalent.
+
+OpenMapTiles' `name:latin` is the first name written only in Latin letters, and `name:nonlatin` the rest of a
+name that is not:
+
+```yaml
+attributes:
+  name: name
+  "name:latin": >-
+    name.isLatin() ? name
+    : feature['name:en'].isLatin() ? feature['name:en']
+    : int_name.isLatin() ? int_name
+    : feature['name:de'].isLatin() ? feature['name:de']
+    : null
+  "name:nonlatin": "name.isLatin() ? null : name.removeLatin()"
+```
 
 | Expression           | Result                                                              |
 |----------------------|---------------------------------------------------------------------|

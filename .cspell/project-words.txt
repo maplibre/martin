@@ -107,6 +107,7 @@ newtype
 nextest
 nixpkgs
 nodata
+nonlatin
 notnull
 noto
 NZTM

@@ -2,6 +2,7 @@
 
 use cel::common::ast::{CallExpr, Expr, IdedExpr, LiteralValue, operators};
 
+use super::env::SHARED;
 use super::{CompiledExpr, FEATURE};
 use crate::plan::{ColumnDef, CompareOp, Condition, Literal, Pattern, Polarity, Term, TranslateError, ValueKind};
 
@@ -223,7 +224,13 @@ impl Translator<'_> {
         let name = call.func_name.as_str();
         let unsupported = || {
             let shown = name.trim_matches('_').trim_start_matches('@');
-            TranslateError::Function(shown.to_owned())
+            let namespace = call.target.as_deref().and_then(qualified_name);
+            match namespace {
+                Some(namespace) if SHARED.is_function(&format!("{namespace}.{shown}")) => {
+                    TranslateError::Function(format!("{namespace}.{shown}"))
+                }
+                _ => TranslateError::Function(shown.to_owned()),
+            }
         };
         let ((Some(arg), []) | (None, [arg])) = (call.target.as_deref(), call.args.as_slice()) else {
             return Err(unsupported());

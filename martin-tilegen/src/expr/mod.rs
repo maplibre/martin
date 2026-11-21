@@ -11,6 +11,7 @@ mod fast;
 mod pushdown;
 mod role;
 mod sort;
+mod text;
 mod unparse;
 mod view;
 

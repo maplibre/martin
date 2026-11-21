@@ -1812,6 +1812,7 @@ dependencies = [
  "lazy_static",
  "nom",
  "pastey",
+ "regex",
  "serde",
  "thiserror 2.0.21",
 ]
@@ -6037,6 +6038,7 @@ dependencies = [
  "pmtiles",
  "radsort",
  "rayon",
+ "regex",
  "rstest",
  "rustix",
  "serde_json",
