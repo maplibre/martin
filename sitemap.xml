@@ -181,6 +181,9 @@
         <loc>https://maplibre.org/martin/sources-pmtiles/</loc>
       </url>
       <url>
+        <loc>https://maplibre.org/martin/sources-shapefile/</loc>
+      </url>
+      <url>
         <loc>https://maplibre.org/martin/sources-sprites/</loc>
       </url>
       <url>

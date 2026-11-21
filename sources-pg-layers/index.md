@@ -12,8 +12,8 @@
 > - [x] The PostgreSQL source with partitioned whole-table scans
 > - [x] Bulk mode in `martin cp`, and PMTiles output
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
-> - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) as sources
-> - [ ] Shapefile, GeoPackage and CSV files as sources
+> - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) and [shapefiles](<https://maplibre.org/martin/sources-shapefile/index.md>) as sources
+> - [ ] GeoPackage and CSV files as sources
 > - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid`, `centroid`, `polygon_point_on_surface` and `polygon_centroid_if_convex`
 > - [ ] `geometry` with Planetiler's `line_midpoint`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
@@ -46,12 +46,13 @@ postgres:
           id: false
 ```
 
-Every feature is offered to each layer, which may take it or not. Inside each tile, the layers of one table come in the order they are listed. Tables come in the order of `--source`, or ordered by source id without it. Layer names must be unique across all sources, and a run holds at most 256 layers.
+Every feature is offered to each layer, which may take it or not. Inside each tile, the layers of one table come in the order they are listed. Tables come in the order of `--source`, or ordered by source id without it. Layers with the same name, or the same [`layer`](<#combining-layers>), are written into one output layer, which comes where its first layer would. A run holds at most 256 layers.
 
 ## Layer keys
 
 | Key | Meaning | Details |
 | --- | --- | --- |
+| `layer` | The output layer it writes into; the layer's key when unset | [Combining layers](<#combining-layers>) |
 | `minzoom`, `maxzoom` | A number, or an expression for each feature's own zoom | [Zooms](<#zooms>) |
 | `extent`, `buffer`, `clip_geom` | Override the table source's |  |
 | `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons | [Simplification](<#simplification-and-minimum-size>) |
@@ -202,7 +203,7 @@ A rule can set:
 
 ## Draw order
 
-Without `sort_by`, the features of a layer keep the order the source reads them in.
+Without `sort_by`, the features of a layer keep the order the source reads them in. An output layer that [combines layers](<#combining-layers>) holds the features of its first layer, then those of the next.
 
 - A table is read in its physical order.
 - A view or foreign table with an integer `id_column` is read in 32 partitions by id remainder (`abs(id % 32)`), which interleaves the ids and overrides the view's `ORDER BY`.
@@ -405,6 +406,45 @@ Features in the tile's buffer count too, so a feature near a tile edge can be ke
 
 Unlike `max_feature_count` of a table source, which limits the rows read for a tile, `limit` limits the features written to it.
 
+## Combining layers
+
+`layer` names the output layer a layer writes into. Without it, the layer's key is its output layer. Layers of one output layer, from one source or from several sources of one run, are merged into that one layer in each tile. The key stays the layer's name in errors, warnings and [`martin test`](<https://maplibre.org/martin/martin-test/index.md>) paths.
+
+```yaml
+postgres:
+  tables:
+    parks:
+      schema: public
+      table: parks
+      geometry_column: geom
+      id_column: osm_id
+      properties:
+        class: text
+        name: text
+      layers:
+        park:
+          geometry: polygon
+          buffer: 4
+          attributes: [class]
+        park_label:
+          layer: park
+          where: "name != null"
+          geometry: polygon_point_on_surface
+          buffer: 256
+          attributes: [name]
+```
+
+Each layer keeps its own `where`, `geometry`, zooms, `buffer`, `clip_geom`, simplification, `attributes`, `id` and `rules`, and its features keep their ids. With the `parks` source above, each tile holds one `park` layer, with each park's polygon and, for a named park, the point labeling it.
+
+The output layer has some settings once, so its layers must agree on them, or the run fails naming two of them:
+
+| Key | Must be |
+| --- | --- |
+| `extent` | Equal on all of them, after defaulting to the source's or 4096 |
+| `sort_by`, `merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit` | Equal wherever set; set on one layer, it applies to all |
+
+`sort_by` and the per-tile operations act on the features of all the layers together, within the zooms of all of them. An operation without its own `buffer` keeps the widest `buffer` of the layers. The `vector_layers` metadata lists the output layer once, with the attributes of all its layers, and the zooms its tiles have it at.
+
 ## Expressions
 
 Expressions are written in [CEL](<https://cel.dev>), the Common Expression Language. CEL looks like the conditions of C, Java or JavaScript, but it has no statements, loops or side effects. Every expression returns one value, and it always finishes.
@@ -456,6 +496,15 @@ size('Straße')                      // 6
 ```
 
 ```text
+'12a'.matches('^[0-9]+$')                              // false
+matches('12', '^[0-9]+$')                              // true
+regex.replace('5a;7b', '[^0-9;]', '')                  // '5;7'
+regex.replace('B 39', '([A-Z]+) ([0-9]+)', '\\2 \\1')  // '39 B'
+```
+
+Patterns use the syntax of Rust's [`regex`](<https://docs.rs/regex/latest/regex/#syntax>) crate, which has no lookaround and no backreferences.
+
+```text
 'shop;cafe'.split(';')                          // ['shop', 'cafe']
 ['shop', 'cafe'].join(', ')                     // 'shop, cafe'
 'shop;cafe'.split(';').exists(k, k == 'shop')   // true
@@ -475,13 +524,31 @@ Martin adds these functions to CEL:
 
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
 - `max(a, b, ...)` or `max(list)` returns the largest value, `null` for an empty list, as `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
+- `min(a, b, ...)` or `min(list)` returns the smallest value, `null` for an empty list.
+- `regex.replace(text, pattern, replacement)` replaces each match of `pattern` in `text`, as cel-go's `regex.replace`: `\1` to `\9` in `replacement` insert a group, `\0` the whole match and `\\` a backslash (written `'\\1'` in a CEL string). It returns `null` for a `null` text.
+- `text.isLatin()` is `true` when `text` holds only Latin letters and characters that are no letters, such as digits, punctuation and spaces, as Planetiler's `containsOnlyLatinCharacters`. It is `false` for `null` and `''`.
+- `text.removeLatin()` drops the Latin letters from `text`, then brackets left empty and the spaces, dots, slashes and dashes at both ends, as Planetiler's `removeLatinCharacters`. It returns `null` for `null` and when dropping Latin letters leaves only blanks, so `'日本 (Japan)'.removeLatin()` is `'日本'`. A `text` without Latin letters is only trimmed, so `''.removeLatin()` is `''`.
 - The `area(unit)` function calculates the total surface area of a geometry, returning 0.0 for points and lines. It measures the shape on a spherical model of the Earth using its average radius and ignores any internal holes. For context, measuring a one-degree square at the equator will return approximately 12,364 square kilometers.
 
 You must specify a valid unit using either abbreviations or common spellings, such as `km2` or `square meters`. Supported units include metric (`m2`, `km2`, `ha`, `a`) and imperial or nautical units (`ft2`, `yd2`, `mi2`, `ac`, `nm2`). You can also use Web Mercator squares, where `z0 ti2` represents the entire world as `1`, and `z0 px2` represents the entire world as `65,536` (though Planetiler handles this by dividing instead).
 
 Limitations are that you cannot use it within a `where` clause (because no direct SQL equivalent), and you cannot use it within `thinning` keys.
 
-Regular expressions (`matches`) and timestamps are not available.
+Timestamps are not available. A `where` calling `matches`, `regex.replace`, `max`, `min`, `isLatin` or `removeLatin` has no SQL equivalent.
+
+OpenMapTiles' `name:latin` is the first name written only in Latin letters, and `name:nonlatin` the rest of a name that is not:
+
+```yaml
+attributes:
+  name: name
+  "name:latin": >-
+    name.isLatin() ? name
+    : feature['name:en'].isLatin() ? feature['name:en']
+    : int_name.isLatin() ? int_name
+    : feature['name:de'].isLatin() ? feature['name:de']
+    : null
+  "name:nonlatin": "name.isLatin() ? null : name.removeLatin()"
+```
 
 | Expression | Result |
 | --- | --- |
@@ -546,6 +613,6 @@ postgres:
 ## Validation
 
 - **Reading the configuration** fails on invalid values, with their line and column: a zoom above 30, a negative `simplify`, a `minzoom` above `maxzoom`, an expression that is not valid CEL, `layer_id` together with `layers`, overlapping zoom ranges in one per-tile operation's list, a `thinning` option its `method` does not take, or a per-tile operation on a table source or, except a grid `thinning`, in a rule. Unknown keys are warned about.
-- **Before rendering**, after connecting to the database, the run fails on unknown property names, duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported yet, and on a `group_by` attribute the layer does not write. It warns about a per-tile operation whose zooms miss the layer's, and drops it, about one that never acts on the layer's `geometry`, and about a grid `thinning` with squares larger than the layer's `buffer`.
+- **Before rendering**, after connecting to the database, the run fails on unknown property names, layers of one output layer that disagree on `extent`, `sort_by` or a per-tile operation, more than 256 layers, a zoom above 27, and the settings that are not supported yet, and on a `group_by` attribute the layer does not write. It warns about a per-tile operation whose zooms miss the layer's, and drops it, about one that never acts on the layer's `geometry`, and about a grid `thinning` with squares larger than the layer's `buffer`.
 
 [`martin test`](<https://maplibre.org/martin/martin-test/index.md>) checks what the layers make of real rows of the database, and keeps it in a spec file.

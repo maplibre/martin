@@ -27,7 +27,7 @@
         <link rel="prev" href="../sources-duckdb/">
       
       
-        <link rel="next" href="../sources-passthrough/">
+        <link rel="next" href="../sources-shapefile/">
       
       
         
@@ -1318,6 +1318,8 @@
       
         
       
+        
+      
     
     
     
@@ -1722,6 +1724,35 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sources-shapefile/" class="md-nav__link">
+        
+  
+  
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 2v6h2.28l1.29 8H4v6h6v-1.94l5-.01V22h6v-6h-1.83L20 9h2V3h-6v3.53L14.8 8H9.59L8 5.82V2M4 4h2v2H4m14-1h2v2h-2M6.31 8h.8L9 10.59V14h6v-3.09L16.57 9H18l-.84 7H15v2.06h-5V16H7.6m3.4-6h2v2h-2m-5 6h2v2H6m11-2h2v2h-2"/></svg>
+  
+  <span class="md-ellipsis">
+    
+  
+  Shapefile Sources
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2366,6 +2397,8 @@
       
         
       
+        
+      
     
     
     
@@ -2427,7 +2460,7 @@ The tile serving mode can only serve them after they are brought into a more sui
 </span></code></pre></div>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>martin<span class="w"> </span>cp<span class="w"> </span>--mode<span class="w"> </span>bulk<span class="w"> </span>--config<span class="w"> </span>config.yaml<span class="w"> </span>--source<span class="w"> </span>berlin<span class="w"> </span>--output-file<span class="w"> </span>berlin.mbtiles
 </span></code></pre></div>
-<p>A run renders either <code>osm</code> sources or database sources, not both.
+<p>A run renders <code>osm</code> and <a href="../sources-shapefile/"><code>shapefile</code></a> sources together, or database sources, not both.
 <a href="../recipe-osm-basemap/">Building a basemap from OpenStreetMap</a> has one possible basemap schema.</p>
 <h2 id="settings">Settings</h2>
 <table>
@@ -2650,13 +2683,13 @@ The output does not depend on <code>--threads</code>.</p>
         
         
           
-          <a href="../sources-passthrough/" class="md-footer__link md-footer__link--next" aria-label="Next: Passthrough Sources">
+          <a href="../sources-shapefile/" class="md-footer__link md-footer__link--next" aria-label="Next: Shapefile Sources">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Passthrough Sources
+                Shapefile Sources
               </div>
             </div>
             <div class="md-footer__button md-icon">
