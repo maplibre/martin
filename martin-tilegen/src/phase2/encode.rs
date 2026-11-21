@@ -1229,6 +1229,26 @@ mod document_tests {
     }
 
     #[test]
+    fn a_null_document_in_a_string_column_is_null_not_text() {
+        let layers = v2_layers(&[vec![
+            vec![("name", doc(r#""a""#))],
+            vec![("name", doc("null"))],
+            vec![("name", doc("7"))],
+        ]]);
+
+        assert_eq!(layers[0].property_names(), ["name"]);
+        let values: Vec<_> = layers[0].features().iter().map(|f| f.properties().to_vec()).collect();
+        assert_eq!(
+            values,
+            [
+                vec![PropValue::Str(Some("a".into()))],
+                vec![PropValue::Str(None)],
+                vec![PropValue::Str(Some("7".into()))],
+            ]
+        );
+    }
+
+    #[test]
     fn negative_integer_documents_keep_their_sign() {
         let layers = v2_layers(&[vec![vec![("rank", doc("-4"))], vec![("rank", doc("9"))]]]);
 

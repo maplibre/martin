@@ -56,9 +56,16 @@ impl Documents {
     }
 
     /// Reads the scalar document `value` of `key` as the column's kind, for [`Leaves`] to hand out.
+    ///
+    /// A `null` document stays null rather than becoming the text `null` of a string column.
     pub(super) fn collect_leaf(&mut self, names: &KeyNames, key: KeyId, value: PropValueRef<'_>) {
         if let (Some(DocumentColumn::Scalar(kind)), PropValueRef::Str(json)) = (names.document(key), value) {
-            self.leaves.push(leaf_value(*kind, parse(json)));
+            let document = parse(json);
+            self.leaves.push(if document.is_null() {
+                PropValue::null(*kind)
+            } else {
+                leaf_value(*kind, document)
+            });
         }
     }
 
