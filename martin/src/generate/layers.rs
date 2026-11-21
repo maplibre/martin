@@ -575,12 +575,33 @@ pub fn lower_source(
     if let Some(encoder) = options.encoder {
         defaults.encoder = encoder;
     }
-    // A run that keeps `jsonb` documents whole makes each such column one property, which a prefix can select.
+    // A run that keeps `jsonb` documents whole reads each such column as one value, named after the column.
+    let documents: Option<Vec<String>> = options.keeps_documents().then(|| {
+        columns
+            .iter()
+            .filter(|column| matches!(column, ColumnDef::Keys(_)))
+            .map(|column| column.name().to_owned())
+            .collect()
+    });
+    let columns: Vec<ColumnDef> = if documents.is_some() {
+        columns
+            .into_iter()
+            .map(|column| match column {
+                ColumnDef::Keys(name) => ColumnDef::Value(name, None),
+                value @ ColumnDef::Value(..) => value,
+            })
+            .collect()
+    } else {
+        columns
+    };
     let static_columns: Vec<&str> = columns
         .iter()
-        .filter(|column| options.keeps_documents() || !matches!(column, ColumnDef::Keys(_)))
+        .filter(|column| !matches!(column, ColumnDef::Keys(_)))
         .map(ColumnDef::name)
         .collect();
+    let documents: Option<Vec<&str>> = documents
+        .as_ref()
+        .map(|names| names.iter().map(String::as_str).collect());
     let layers = match source.layers {
         None => vec![LayerDef {
             name: source.layer_id.unwrap_or(id).to_owned(),
@@ -593,13 +614,6 @@ pub fn lower_source(
         Some(layers) => {
             let mut lowered = Vec::new();
             for (name, layer) in layers.iter() {
-                let documents = options.keeps_documents().then(|| {
-                    columns
-                        .iter()
-                        .filter(|column| matches!(column, ColumnDef::Keys(_)))
-                        .map(ColumnDef::name)
-                        .collect::<Vec<_>>()
-                });
                 if let Some(def) = lower_layer(
                     id,
                     name,
@@ -1102,7 +1116,7 @@ fn refuse_keys_inside_documents(
 }
 
 /// Named keys in their order, each prefix as the matching table columns in table order; keys inside
-/// a `jsonb` column that is spread are only selected by name.
+/// a `jsonb` column are only selected by name.
 fn expand(selectors: &[PropertySelector], static_columns: &[&str]) -> Vec<String> {
     let mut keys = IndexSet::new();
     for selector in selectors {
@@ -1465,6 +1479,7 @@ mod tests {
 
     #[cfg(feature = "unstable-mlt-v2")]
     mod documents {
+        use martin_tilegen::plan::ValueKind;
         use mlt_core::encoder::{Network, Profile, WireVersion};
 
         use super::*;
@@ -1506,6 +1521,13 @@ mod tests {
                 .expect("lowers")
                 .expect("has a layer");
             assert!(scan.keep_documents);
+            assert_eq!(
+                scan.def.columns,
+                [
+                    ColumnDef::Value("class".to_owned(), Some(ValueKind::String)),
+                    ColumnDef::Value("links".to_owned(), None),
+                ]
+            );
         }
 
         #[test]
@@ -1535,6 +1557,13 @@ mod tests {
                     .expect("lowers")
                     .expect("has a layer");
                 assert!(!scan.keep_documents);
+                assert_eq!(
+                    scan.def.columns,
+                    [
+                        ColumnDef::Value("class".to_owned(), Some(ValueKind::String)),
+                        ColumnDef::Keys("links".to_owned()),
+                    ]
+                );
             }
         }
     }

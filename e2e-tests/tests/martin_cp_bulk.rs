@@ -535,6 +535,106 @@ mod mlt_v2 {
         assert_eq!(mlt_dump(&bulk_layers), mlt_dump(&tile_mode_layers));
     }
 
+    /// A prefix in a list of `attributes` selects a `jsonb` column kept whole, as it selects any column.
+    #[tokio::test]
+    async fn a_list_prefix_selects_a_kept_jsonb_column() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(
+            &config,
+            format!("{CONFIG}      layers:\n        props:\n          attributes: [\"do*\"]\n"),
+        )
+        .expect("failed to write the config");
+
+        let output = dir.path().join("list_prefix.mbtiles");
+        MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        let (_, _, _, data) = tiles(&output)
+            .await
+            .into_iter()
+            .next()
+            .expect("the copy wrote no tiles");
+        let layers = mlt_layers(&data);
+
+        assert_eq!(layers[0].nested_names(), ["doc"]);
+        assert_eq!(layers[0].property_names(), [] as [String; 0]);
+    }
+
+    /// A prefix in a map of `attributes` copies a `jsonb` column kept whole, as it copies any column.
+    #[tokio::test]
+    async fn a_map_prefix_copies_a_kept_jsonb_column() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(
+            &config,
+            format!("{CONFIG}      layers:\n        props:\n          attributes:\n            \"do*\": \"do*\"\n"),
+        )
+        .expect("failed to write the config");
+
+        let output = dir.path().join("map_prefix.mbtiles");
+        MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        let (_, _, _, data) = tiles(&output)
+            .await
+            .into_iter()
+            .next()
+            .expect("the copy wrote no tiles");
+        let layers = mlt_layers(&data);
+
+        assert_eq!(layers[0].nested_names(), ["doc"]);
+        assert_eq!(layers[0].property_names(), [] as [String; 0]);
+    }
+
+    /// An expression cannot read a key inside a `jsonb` column once the column is kept whole.
+    #[tokio::test]
+    async fn refuses_an_expression_reading_a_key_inside_a_jsonb_column() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(
+            &config,
+            format!("{CONFIG}      layers:\n        props:\n          where: \"rank > 0\"\n"),
+        )
+        .expect("failed to write the config");
+
+        let log = MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(dir.path().join("refused.mbtiles"))
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--max-zoom")
+            .arg("0")
+            .run_expecting_failure()
+            .await;
+        assert!(log.contains("`rank > 0` references unknown property `rank`"), "{log}");
+    }
+
     /// A key inside a `jsonb` column cannot be selected once the column is kept whole.
     #[tokio::test]
     async fn refuses_to_select_a_key_inside_a_jsonb_column() {

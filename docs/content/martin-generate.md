@@ -165,8 +165,9 @@ after the column, with lists, maps and typed values. Every tile of a layer gives
 the union of the shapes of all its documents, and a column of documents that are all scalars is an ordinary
 property. `--format mlt` and `--format mvt` spread each document into one property per top-level key, as
 `ST_AsMVT` does.
-Because a kept document has no keys of its own, a layer's `attributes` selects it by the column's name and
-refuses a name that is not a column, and expressions do not see inside it.
+A kept document is one property named after its column, so a layer's `attributes` and its expressions see
+the column, and refuse a key inside it as they refuse any name that is not a column.
+An expression reads the document as its JSON text.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
 Without `--bbox`, bulk mode picks the tiles touching the union of the `bounds` of every selected source
