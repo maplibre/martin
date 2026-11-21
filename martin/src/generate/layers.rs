@@ -575,7 +575,7 @@ pub fn lower_source(
     if let Some(encoder) = options.encoder {
         defaults.encoder = encoder;
     }
-    // A run that keeps `jsonb` documents whole reads each such column as one value, named after the column.
+    // A run that keeps `jsonb` documents whole reads each such column as one document, named after the column.
     let documents: Option<Vec<String>> = options.keeps_documents().then(|| {
         columns
             .iter()
@@ -587,8 +587,8 @@ pub fn lower_source(
         columns
             .into_iter()
             .map(|column| match column {
-                ColumnDef::Keys(name) => ColumnDef::Value(name, None),
-                value @ ColumnDef::Value(..) => value,
+                ColumnDef::Keys(name) => ColumnDef::Document(name),
+                other @ (ColumnDef::Value(..) | ColumnDef::Document(_)) => other,
             })
             .collect()
     } else {
@@ -1479,7 +1479,7 @@ mod tests {
 
     #[cfg(feature = "unstable-mlt-v2")]
     mod documents {
-        use martin_tilegen::plan::ValueKind;
+        use martin_tilegen::plan::{Plan, RowFilter, TranslateError, ValueKind};
         use mlt_core::encoder::{Network, Profile, WireVersion};
 
         use super::*;
@@ -1525,7 +1525,7 @@ mod tests {
                 scan.def.columns,
                 [
                     ColumnDef::Value("class".to_owned(), Some(ValueKind::String)),
-                    ColumnDef::Value("links".to_owned(), None),
+                    ColumnDef::Document("links".to_owned()),
                 ]
             );
         }
@@ -1538,6 +1538,59 @@ mod tests {
             assert_eq!(
                 scan.def.layers[0].attributes,
                 AttributesDef::Columns(vec!["links".to_owned()])
+            );
+        }
+
+        fn v2_row_filter(filter: &str) -> RowFilter {
+            let yaml = format!(
+                indoc! {r#"
+                    schema: public
+                    table: roads
+                    srid: 4326
+                    geometry_column: geom
+                    properties:
+                      class: text
+                      links: jsonb
+                    layers:
+                      roads:
+                        where: "{}"
+                "#},
+                filter
+            );
+            let info: TableInfo = serde_saphyr::from_str(&yaml).expect("valid table");
+            let scan = lower_table(
+                "roads_source",
+                info,
+                &LowerOptions {
+                    zooms: 0..=14,
+                    bounds: None,
+                    encoder: Some(
+                        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(WireVersion::V02),
+                    ),
+                    order_by: None,
+                },
+            )
+            .expect("lowers")
+            .expect("has a layer");
+            Plan::new(vec![scan.def]).expect("plans").row_filter(0, 0..=14)
+        }
+
+        /// PostgreSQL's `IS NULL` misses a JSON `null`, which the scan reads as no document, so a source never
+        /// filters on a kept document.
+        #[test]
+        fn v2_leaves_a_filter_reading_a_kept_jsonb_column_to_the_features() {
+            let RowFilter::Untranslatable(untranslatable) = v2_row_filter("links == null") else {
+                panic!("a filter reading a kept document reached the source");
+            };
+            assert_eq!(untranslatable.reason, TranslateError::NotAColumn("links".to_owned()));
+        }
+
+        #[test]
+        fn v2_still_lets_a_source_filter_on_the_other_columns() {
+            let rows = v2_row_filter("class == 'primary'");
+            assert_eq!(
+                rows.condition().map(ToString::to_string).as_deref(),
+                Some("class = 'primary'")
             );
         }
 
