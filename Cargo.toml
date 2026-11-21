@@ -262,3 +262,10 @@ unicode-ident.debug = false
 # Make release binaries a bit smaller
 lto = true
 codegen-units = 1
+
+[patch.crates-io]
+# maplibre/maplibre-tile-spec#2092: nested columns in `LayerWriter`
+mlt-core = { git = "https://github.com/CommanderStorm/maplibre-tile-spec", rev = "0530605f02a05979b41a7964e6cf08f051258c86" }
+# georust/geo#1533: unpin `earcut`, which the mlt-core above needs at ^0.4.10
+geo = { git = "https://github.com/georust/geo", rev = "f34ee562db2a843037fb865d354b82a521cd9796" }
+geo-types = { git = "https://github.com/georust/geo", rev = "f34ee562db2a843037fb865d354b82a521cd9796" }
