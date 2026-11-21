@@ -348,7 +348,7 @@ fn osm_and_database_sources_together_are_refused() {
     "};
     file.write_all(yaml.replace("${MONACO}", monaco).as_bytes()).unwrap();
     let error = Osm::load(file.path()).err().unwrap();
-    insta::assert_snapshot!(error, @"`martin test` tests OSM sources or database sources, not both; put them in separate configuration files");
+    insta::assert_snapshot!(error, @"`martin test` tests file sources (`osm`, `shapefile`) or database sources, not both; put them in separate configuration files");
 }
 
 #[tokio::test]

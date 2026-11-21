@@ -1,4 +1,4 @@
-#![cfg(feature = "osm")]
+#![cfg(all(feature = "osm", feature = "shapefile"))]
 #![expect(clippy::unwrap_used)]
 
 use std::collections::BTreeMap;
@@ -8,6 +8,7 @@ use std::io::Write as _;
 use martin::generate::spec::backend::TestBackend as _;
 use martin::generate::spec::check;
 use martin::generate::spec::file::{Attribute, Output, read_spec};
+use martin::generate::spec::files::Files;
 use martin::generate::spec::osm::Osm;
 use martin::generate::spec::render::{outputs, render_bulk};
 use serde::Deserialize;
@@ -168,28 +169,27 @@ fn issues(expected: &[Expected], mut actual: Vec<Output>) -> Vec<String> {
 
 #[tokio::test]
 async fn shortbread_snippet_renders_planetiler_examples() {
-    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures");
     let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
         .unwrap()
         .replace(
             "path: berlin-latest.osm.pbf",
-            &format!("path: {fixtures}/shortbread-examples.osm.pbf"),
+            &format!("path: {fixtures}/osm/shortbread-examples.osm.pbf"),
+        )
+        .replace(
+            "path: water-polygons-split-3857.zip",
+            &format!("path: {fixtures}/shapefile/ocean.zip"),
         );
     let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     config.write_all(snippet.as_bytes()).unwrap();
-    let backend = Osm::load(config.path()).unwrap().unwrap();
+    let backend = Files::load(config.path()).unwrap().unwrap();
     let tables = backend.tables(14).unwrap();
-    let spec_yaml = std::fs::read_to_string(format!("{fixtures}/shortbread.spec.yml")).unwrap();
+    let spec_yaml = std::fs::read_to_string(format!("{fixtures}/osm/shortbread.spec.yml")).unwrap();
     let spec: Spec =
         serde_saphyr::from_str_with_options(&spec_yaml, serde_saphyr::options! { strict_booleans: true }).unwrap();
     let mut report = String::new();
     let mut matched = 0;
-    let mut osm = 0;
     for (index, example) in spec.examples.iter().enumerate() {
-        if example.input.source != "osm" {
-            continue;
-        }
-        osm += 1;
         let tags = example.input.tags.clone().unwrap_or_default();
         let kind = match example.input.geometry.as_str() {
             "point" => 1,
@@ -197,8 +197,12 @@ async fn shortbread_snippet_renders_planetiler_examples() {
             geometry if geometry.starts_with("POLYGON") && tags.contains_key("boundary") => 3,
             _ => 2,
         };
-        let key = (index as u64 + 1) * 10 + kind;
-        let (tiles, _) = render_bulk(&backend, &tables[0], key).await.unwrap();
+        let (source, key) = match example.input.source.as_str() {
+            "osm" => ("shortbread", (index as u64 + 1) * 10 + kind),
+            source => (source, 1),
+        };
+        let table = tables.iter().find(|table| table.source == source).unwrap();
+        let (tiles, _) = render_bulk(&backend, table, key).await.unwrap();
         let expected = match &example.output {
             OneOrMany::One(one) => std::slice::from_ref(one),
             OneOrMany::Many(many) => many.as_slice(),
@@ -218,25 +222,29 @@ async fn shortbread_snippet_renders_planetiler_examples() {
             }
         }
     }
-    writeln!(report, "{matched} of {osm} examples match").unwrap();
+    writeln!(report, "{matched} of {} examples match", spec.examples.len()).unwrap();
     insta::assert_snapshot!(report, @"
-    66 of 66 examples match
+    67 of 67 examples match
     ");
 }
 
 #[tokio::test]
 async fn shortbread_snippet_passes_its_monaco_spec() {
-    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures");
     let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
         .unwrap()
         .replace(
             "path: berlin-latest.osm.pbf",
-            &format!("path: {fixtures}/monaco.osm.pbf"),
+            &format!("path: {fixtures}/osm/monaco.osm.pbf"),
+        )
+        .replace(
+            "path: water-polygons-split-3857.zip",
+            &format!("path: {fixtures}/shapefile/ocean.zip"),
         );
     let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     config.write_all(snippet.as_bytes()).unwrap();
-    let backend = Osm::load(config.path()).unwrap().unwrap();
-    let spec = read_spec(format!("{fixtures}/shortbread-monaco.spec.yaml").as_ref()).unwrap();
+    let backend = Files::load(config.path()).unwrap().unwrap();
+    let spec = read_spec(format!("{fixtures}/osm/shortbread-monaco.spec.yaml").as_ref()).unwrap();
     let tables = backend.tables(spec.max_zoom).unwrap();
     let mut report = String::new();
     let mut passed = 0;
@@ -257,7 +265,7 @@ async fn shortbread_snippet_passes_its_monaco_spec() {
         }
     }
     writeln!(report, "{passed} of {} cases pass", spec.cases.len()).unwrap();
-    insta::assert_snapshot!(report, @"51 of 51 cases pass");
+    insta::assert_snapshot!(report, @"52 of 52 cases pass");
 }
 
 #[tokio::test]
