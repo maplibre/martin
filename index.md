@@ -14,12 +14,12 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
   ---
 
   [PostGIS](<https://maplibre.org/martin/pg-connections/index.md>) tables and functions with automatic discovery, [PMTiles](<https://maplibre.org/martin/sources-pmtiles/index.md>), [MBTiles](<https://maplibre.org/martin/sources-mbtiles/index.md>), [COG](<https://maplibre.org/martin/sources-cog-files/index.md>), [GeoJSON](<https://maplibre.org/martin/sources-geojson/index.md>), and [GeoParquet](<https://maplibre.org/martin/sources-duckdb/index.md>), [combined](<https://maplibre.org/martin/sources-composite/index.md>) into one source where you need it.
-- **Styles, sprites &amp; fonts**
+- **Styles, sprites & fonts**
 
   ---
 
   Serve [styles](<https://maplibre.org/martin/sources-styles/index.md>) and generate [sprites](<https://maplibre.org/martin/sources-sprites/index.md>) and [font glyphs](<https://maplibre.org/martin/sources-fonts/index.md>) on the fly, so a map needs nothing but Martin.
-- **Bulk generation &amp; tooling**
+- **Bulk generation & tooling**
 
   ---
 
@@ -31,7 +31,7 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
   A single binary on a server, in [Docker](<https://maplibre.org/martin/run-with-docker/index.md>), on [AWS Lambda](<https://maplibre.org/martin/run-with-lambda/index.md>), or behind [NGINX](<https://maplibre.org/martin/run-with-nginx/index.md>) and [Apache](<https://maplibre.org/martin/run-with-apache/index.md>).
 - ![The Martin terminal dashboard, showing per-source request counts and timings, a world map of recent tile requests, a request-rate chart, and a log pane](<https://maplibre.org/martin/images/tui-dashboard.webp>)
 
-  **Terminal &amp; web UI**
+  **Terminal & web UI**
 
   ---
 

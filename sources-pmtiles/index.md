@@ -132,7 +132,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 >
 > Martin picks up the credential-discovery variables these runtimes inject (`AWS_CONTAINER_CREDENTIALS_RELATIVE_URI`, `AWS_CONTAINER_CREDENTIALS_FULL_URI`, `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_ROLE_ARN`, `AWS_ROLE_SESSION_NAME`, `AWS_ENDPOINT_URL_STS`) automatically, so task roles, IRSA and Pod Identity work without any of the settings below. Explicit configuration and `profile` override them. On EC2, the instance metadata service is used when nothing else is configured.
 
-#### AWS specific Authentication &amp; Credentials
+#### AWS specific Authentication & Credentials
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -144,7 +144,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 | `role_session_name` | Session name for web identity assumption | `my-session` |
 | `endpoint_url_sts` | Custom STS endpoint for web identity token exchange | `https://sts.amazonaws.com` |
 
-#### AWS specific Connection &amp; Endpoint Configuration
+#### AWS specific Connection & Endpoint Configuration
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -156,7 +156,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 | `container_credentials_full_uri` | EKS container credentials full URI | `http://169.254.170.2/v2/credentials/abc123` |
 | `container_authorization_token_file` | Authorization token file for EKS container creds | `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` |
 
-#### AWS specific Request Behavior &amp; Fallbacks
+#### AWS specific Request Behavior & Fallbacks
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -168,7 +168,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 | `s3_express` | Enable S3 Express One Zone | `true` |
 | `request_payer` | Enable S3 Requester Pays | `true` |
 
-#### AWS Specific Object Integrity &amp; Encryption
+#### AWS Specific Object Integrity & Encryption
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -225,7 +225,7 @@ Public or presigned individual objects can also use Azure HTTPS endpoints:
 
 #### Available Microsoft Azure settings
 
-#### Azure specific Authentication &amp; Credentials
+#### Azure specific Authentication & Credentials
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -243,7 +243,7 @@ Public or presigned individual objects can also use Azure HTTPS endpoints:
 | `federated_token_file` | File containing token for Azure AD workload identity federation | `/var/run/secrets/azure/federated-token` |
 | `use_azure_cli` | Use Azure CLI for acquiring access token | `true` |
 
-#### Azure specific Connection &amp; Endpoint Configuration
+#### Azure specific Connection & Endpoint Configuration
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -252,7 +252,7 @@ Public or presigned individual objects can also use Azure HTTPS endpoints:
 | `use_fabric_endpoint` | Use Azure Fabric endpoint (account.dfs.fabric.microsoft.com) | `true` |
 | `container_name` | Container name in the storage account | `mycontainer` |
 
-#### Azure specific Request Behavior &amp; Security Options
+#### Azure specific Request Behavior & Security Options
 
 | configuration | description | example |
 | --- | --- | --- |

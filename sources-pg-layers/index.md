@@ -14,8 +14,8 @@
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) as sources
 > - [ ] Shapefile, GeoPackage and CSV files as sources
-> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
-> - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
+> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid`, `centroid`, `polygon_point_on_surface` and `polygon_centroid_if_convex`
+> - [ ] `geometry` with Planetiler's `line_midpoint`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 `layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` writes them into a tileset, and the tile server renders them on request, see [Serving](<#serving>).
@@ -56,7 +56,7 @@ Every feature is offered to each layer, which may take it or not. Inside each ti
 | `extent`, `buffer`, `clip_geom` | Override the table source's |  |
 | `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons | [Simplification](<#simplification-and-minimum-size>) |
 | `min_size`, `min_size_at_maxzoom` | Pixels, below which lines and polygons are dropped | [Simplification](<#simplification-and-minimum-size>) |
-| `geometry` | Only features of one type, or a point computed from each | [Geometry](<#geometry>) |
+| `geometry` | Only features of some types, or a point computed from each | [Geometry](<#geometry>) |
 | `where` | An expression: only features for which it is `true` | [Features](<#features>) |
 | `attributes` | Which properties to write, and under which names | [Attributes](<#attributes>) |
 | `id` | `true` (default), `false`, or an expression | [Feature ids](<#feature-ids>) |
@@ -107,12 +107,12 @@ The layer's max zoom is its highest zoom after narrowing, not the highest zoom o
 A feature belongs to a layer when all of these hold:
 
 1. the table source's `filter`, which the database applies while reading,
-2. the type the layer's [`geometry`](<#geometry>) takes, if set,
+2. the types the layer's [`geometry`](<#geometry>) takes, if set,
 3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
 
 A [rule](<#rules>)'s `where` is not one of them. A feature that matches no rule stays in the layer.
 
-The database also applies the geometry type and `where` of every layer at the zoom being read, so rows no layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
+The database also applies the geometry types and `where` of every layer at the zoom being read, so rows no layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
 
 - comparisons of a column with a literal,
 - `==` or `!=` between two columns, unless both are floats,
@@ -134,8 +134,21 @@ Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differ
 | `polygon_centroid` | polygons | the centroid, a point |
 | `line_centroid` | lines | the centroid, a point |
 | `centroid` | all | the centroid, a point |
+| `polygon_point_on_surface` | polygons | a point on its surface |
+| `polygon_centroid_if_convex` | polygons | the centroid if convex, else a point on its surface |
 
-The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all parts of a multi-geometry. It can lie outside a concave polygon. It is computed once per feature, in Web Mercator, and drawn like any point: only in the tiles it reaches, with no `min_size`, and [per-tile operations](<#per-tile-operations>) see a point.
+The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all parts of a multi-geometry. It can lie outside a concave polygon. A point on the surface lies inside the polygon: the middle of the widest stretch inside it of a horizontal line through the middle of its bounding box, and for a multi-polygon, that of the part where this stretch is widest. As in Planetiler, a polygon is convex when it has no holes and no turn of its outline goes the other way by more than a thousandth of its largest turn; a multi-polygon never is. Each point is computed once per feature, in Web Mercator, and drawn like any point: only in the tiles it reaches, with no `min_size`, and [per-tile operations](<#per-tile-operations>) see a point.
+
+`geometry` can also be a list, as Planetiler lists several `features` with one filter and the same attributes. Each feature is drawn by the first entry that takes its type, and only once; the entries share the layer's `where`, zooms and attributes. All entries of a list draw points, and an entry whose types the entries before it all take is refused.
+
+```yaml
+layers:
+  pois:
+    geometry: [point, polygon_point_on_surface]
+    where: "amenity == 'cafe'"
+```
+
+This layer draws a cafe point as itself and a cafe polygon as a point on its surface, and leaves out cafe lines.
 
 ## Attributes
 
@@ -462,6 +475,11 @@ Martin adds these functions to CEL:
 
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
 - `max(a, b, ...)` or `max(list)` returns the largest value, `null` for an empty list, as `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
+- The `area(unit)` function calculates the total surface area of a geometry, returning 0.0 for points and lines. It measures the shape on a spherical model of the Earth using its average radius and ignores any internal holes. For context, measuring a one-degree square at the equator will return approximately 12,364 square kilometers.
+
+You must specify a valid unit using either abbreviations or common spellings, such as `km2` or `square meters`. Supported units include metric (`m2`, `km2`, `ha`, `a`) and imperial or nautical units (`ft2`, `yd2`, `mi2`, `ac`, `nm2`). You can also use Web Mercator squares, where `z0 ti2` represents the entire world as `1`, and `z0 px2` represents the entire world as `65,536` (though Planetiler handles this by dividing instead).
+
+Limitations are that you cannot use it within a `where` clause (because no direct SQL equivalent), and you cannot use it within `thinning` keys.
 
 Regular expressions (`matches`) and timestamps are not available.
 

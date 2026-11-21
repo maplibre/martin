@@ -27,12 +27,12 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
   ---
 
   [PostGIS](<https://maplibre.org/martin/pg-connections/index.md>) tables and functions with automatic discovery, [PMTiles](<https://maplibre.org/martin/sources-pmtiles/index.md>), [MBTiles](<https://maplibre.org/martin/sources-mbtiles/index.md>), [COG](<https://maplibre.org/martin/sources-cog-files/index.md>), [GeoJSON](<https://maplibre.org/martin/sources-geojson/index.md>), and [GeoParquet](<https://maplibre.org/martin/sources-duckdb/index.md>), [combined](<https://maplibre.org/martin/sources-composite/index.md>) into one source where you need it.
-- **Styles, sprites &amp; fonts**
+- **Styles, sprites & fonts**
 
   ---
 
   Serve [styles](<https://maplibre.org/martin/sources-styles/index.md>) and generate [sprites](<https://maplibre.org/martin/sources-sprites/index.md>) and [font glyphs](<https://maplibre.org/martin/sources-fonts/index.md>) on the fly, so a map needs nothing but Martin.
-- **Bulk generation &amp; tooling**
+- **Bulk generation & tooling**
 
   ---
 
@@ -44,7 +44,7 @@ Martin is a tile server optimized for speed and heavy traffic, written in [Rust]
   A single binary on a server, in [Docker](<https://maplibre.org/martin/run-with-docker/index.md>), on [AWS Lambda](<https://maplibre.org/martin/run-with-lambda/index.md>), or behind [NGINX](<https://maplibre.org/martin/run-with-nginx/index.md>) and [Apache](<https://maplibre.org/martin/run-with-apache/index.md>).
 - ![The Martin terminal dashboard, showing per-source request counts and timings, a world map of recent tile requests, a request-rate chart, and a log pane](<https://maplibre.org/martin/images/tui-dashboard.webp>)
 
-  **Terminal &amp; web UI**
+  **Terminal & web UI**
 
   ---
 
@@ -200,7 +200,7 @@ cargo binstall martin
 martin --help
 ```
 
-#### Verify Release Integrity &amp; Provenance
+#### Verify Release Integrity & Provenance
 
 Starting with recent releases, binaries and packages are signed via GitHub Actions artifact attestations. You can verify that a downloaded asset was built by MapLibre's official CI workflow and has not been tampered with by a third party.
 
@@ -2134,7 +2134,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 >
 > Martin picks up the credential-discovery variables these runtimes inject (`AWS_CONTAINER_CREDENTIALS_RELATIVE_URI`, `AWS_CONTAINER_CREDENTIALS_FULL_URI`, `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_ROLE_ARN`, `AWS_ROLE_SESSION_NAME`, `AWS_ENDPOINT_URL_STS`) automatically, so task roles, IRSA and Pod Identity work without any of the settings below. Explicit configuration and `profile` override them. On EC2, the instance metadata service is used when nothing else is configured.
 
-#### AWS specific Authentication &amp; Credentials
+#### AWS specific Authentication & Credentials
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -2146,7 +2146,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 | `role_session_name` | Session name for web identity assumption | `my-session` |
 | `endpoint_url_sts` | Custom STS endpoint for web identity token exchange | `https://sts.amazonaws.com` |
 
-#### AWS specific Connection &amp; Endpoint Configuration
+#### AWS specific Connection & Endpoint Configuration
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -2158,7 +2158,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 | `container_credentials_full_uri` | EKS container credentials full URI | `http://169.254.170.2/v2/credentials/abc123` |
 | `container_authorization_token_file` | Authorization token file for EKS container creds | `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` |
 
-#### AWS specific Request Behavior &amp; Fallbacks
+#### AWS specific Request Behavior & Fallbacks
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -2170,7 +2170,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 | `s3_express` | Enable S3 Express One Zone | `true` |
 | `request_payer` | Enable S3 Requester Pays | `true` |
 
-#### AWS Specific Object Integrity &amp; Encryption
+#### AWS Specific Object Integrity & Encryption
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -2227,7 +2227,7 @@ Public or presigned individual objects can also use Azure HTTPS endpoints:
 
 #### Available Microsoft Azure settings
 
-#### Azure specific Authentication &amp; Credentials
+#### Azure specific Authentication & Credentials
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -2245,7 +2245,7 @@ Public or presigned individual objects can also use Azure HTTPS endpoints:
 | `federated_token_file` | File containing token for Azure AD workload identity federation | `/var/run/secrets/azure/federated-token` |
 | `use_azure_cli` | Use Azure CLI for acquiring access token | `true` |
 
-#### Azure specific Connection &amp; Endpoint Configuration
+#### Azure specific Connection & Endpoint Configuration
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -2254,7 +2254,7 @@ Public or presigned individual objects can also use Azure HTTPS endpoints:
 | `use_fabric_endpoint` | Use Azure Fabric endpoint (account.dfs.fabric.microsoft.com) | `true` |
 | `container_name` | Container name in the storage account | `mycontainer` |
 
-#### Azure specific Request Behavior &amp; Security Options
+#### Azure specific Request Behavior & Security Options
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -2759,8 +2759,8 @@ A function may return tiles that are already gzip or zlib compressed. Martin det
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) as sources
 > - [ ] Shapefile, GeoPackage and CSV files as sources
-> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
-> - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
+> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid`, `centroid`, `polygon_point_on_surface` and `polygon_centroid_if_convex`
+> - [ ] `geometry` with Planetiler's `line_midpoint`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 `layers` is a key of a [PostgreSQL table source](<https://maplibre.org/martin/sources-pg-tables/index.md>). It turns one table into one or more output layers, all fed by a single read of the table, each choosing its features, zooms, attributes and draw order. The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` writes them into a tileset, and the tile server renders them on request, see [Serving](<#serving>).
@@ -2801,7 +2801,7 @@ Every feature is offered to each layer, which may take it or not. Inside each ti
 | `extent`, `buffer`, `clip_geom` | Override the table source's |  |
 | `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons | [Simplification](<#simplification-and-minimum-size>) |
 | `min_size`, `min_size_at_maxzoom` | Pixels, below which lines and polygons are dropped | [Simplification](<#simplification-and-minimum-size>) |
-| `geometry` | Only features of one type, or a point computed from each | [Geometry](<#geometry>) |
+| `geometry` | Only features of some types, or a point computed from each | [Geometry](<#geometry>) |
 | `where` | An expression: only features for which it is `true` | [Features](<#features>) |
 | `attributes` | Which properties to write, and under which names | [Attributes](<#attributes>) |
 | `id` | `true` (default), `false`, or an expression | [Feature ids](<#feature-ids>) |
@@ -2852,12 +2852,12 @@ The layer's max zoom is its highest zoom after narrowing, not the highest zoom o
 A feature belongs to a layer when all of these hold:
 
 1. the table source's `filter`, which the database applies while reading,
-2. the type the layer's [`geometry`](<#geometry>) takes, if set,
+2. the types the layer's [`geometry`](<#geometry>) takes, if set,
 3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
 
 A [rule](<#rules>)'s `where` is not one of them. A feature that matches no rule stays in the layer.
 
-The database also applies the geometry type and `where` of every layer at the zoom being read, so rows no layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
+The database also applies the geometry types and `where` of every layer at the zoom being read, so rows no layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
 
 - comparisons of a column with a literal,
 - `==` or `!=` between two columns, unless both are floats,
@@ -2879,8 +2879,21 @@ Columns of type `bpchar` or `name` have none, as PostgreSQL compares them differ
 | `polygon_centroid` | polygons | the centroid, a point |
 | `line_centroid` | lines | the centroid, a point |
 | `centroid` | all | the centroid, a point |
+| `polygon_point_on_surface` | polygons | a point on its surface |
+| `polygon_centroid_if_convex` | polygons | the centroid if convex, else a point on its surface |
 
-The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all parts of a multi-geometry. It can lie outside a concave polygon. It is computed once per feature, in Web Mercator, and drawn like any point: only in the tiles it reaches, with no `min_size`, and [per-tile operations](<#per-tile-operations>) see a point.
+The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all parts of a multi-geometry. It can lie outside a concave polygon. A point on the surface lies inside the polygon: the middle of the widest stretch inside it of a horizontal line through the middle of its bounding box, and for a multi-polygon, that of the part where this stretch is widest. As in Planetiler, a polygon is convex when it has no holes and no turn of its outline goes the other way by more than a thousandth of its largest turn; a multi-polygon never is. Each point is computed once per feature, in Web Mercator, and drawn like any point: only in the tiles it reaches, with no `min_size`, and [per-tile operations](<#per-tile-operations>) see a point.
+
+`geometry` can also be a list, as Planetiler lists several `features` with one filter and the same attributes. Each feature is drawn by the first entry that takes its type, and only once; the entries share the layer's `where`, zooms and attributes. All entries of a list draw points, and an entry whose types the entries before it all take is refused.
+
+```yaml
+layers:
+  pois:
+    geometry: [point, polygon_point_on_surface]
+    where: "amenity == 'cafe'"
+```
+
+This layer draws a cafe point as itself and a cafe polygon as a point on its surface, and leaves out cafe lines.
 
 ## Attributes
 
@@ -3207,6 +3220,11 @@ Martin adds these functions to CEL:
 
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
 - `max(a, b, ...)` or `max(list)` returns the largest value, `null` for an empty list, as `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
+- The `area(unit)` function calculates the total surface area of a geometry, returning 0.0 for points and lines. It measures the shape on a spherical model of the Earth using its average radius and ignores any internal holes. For context, measuring a one-degree square at the equator will return approximately 12,364 square kilometers.
+
+You must specify a valid unit using either abbreviations or common spellings, such as `km2` or `square meters`. Supported units include metric (`m2`, `km2`, `ha`, `a`) and imperial or nautical units (`ft2`, `yd2`, `mi2`, `ac`, `nm2`). You can also use Web Mercator squares, where `z0 ti2` represents the entire world as `1`, and `z0 px2` represents the entire world as `65,536` (though Planetiler handles this by dividing instead).
+
+Limitations are that you cannot use it within a `where` clause (because no direct SQL equivalent), and you cannot use it within `thinning` keys.
 
 Regular expressions (`matches`) and timestamps are not available.
 
@@ -3324,10 +3342,23 @@ A run renders either `osm` sources or database sources, not both. [Building a ba
 | OSM object | Feature | `osm_type` | Feature id |
 | --- | --- | --- | --- |
 | Node with tags | point | `node` | id \* 10 + 1 |
-| Way with tags | line, or polygon if closed and its tags make it an area | `way` | id \* 10 + 2 |
+| Way with tags | line, polygon or both, below | `way` | id \* 10 + 2 |
 | Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon | `relation` | id \* 10 + 3 |
 
-Martin leaves out objects without tags, and other relations. Whether a closed way is an area follows [osmflow's `AreaRules`](<https://github.com/nyurik/osmflow/blob/main/crates/osmflow/src/area.rs>) (`building`, `landuse`, `natural` other than `coastline`, `area=yes` and so on). A relation's member ways are joined into rings. A ring inside an odd number of others is a hole, whatever its role. A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.
+Martin leaves out objects without tags, and other relations. Martin reads a way as Planetiler does, whatever its other tags:
+
+| Way | Polygon | Line |
+| --- | --- | --- |
+| Not closed | no | yes |
+| Closed, no `area` tag or another value | yes | yes |
+| Closed, `area=yes` | yes | no |
+| Closed, `area=no` | no | yes |
+| Closed, fewer than 4 nodes | no | yes |
+| Closed, fewer than 4 nodes, `area=yes` | no | no |
+
+Layers of polygons take the polygon and layers of lines the line, both with the way's feature id. A closed `highway=pedestrian` way can be both a street and a street area. Layers of any geometry, such as `geometry: centroid`, take the polygon only, as does a layer whose `geometry` list takes polygons and lines, so it draws the way once. For a closed way, `line_centroid` is the centroid of the polygon it encloses, as in Planetiler.
+
+A relation's member ways are joined into rings. A ring inside an odd number of others is a hole, whatever its role. A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.
 
 Each key in `tags` is a string property, `null` where the object does not have the tag or its value is empty. `osm_type` is always one. An expression reading a key not in `tags` fails the run. A tag such as `name:en` is read with `feature['name:en']`.
 
@@ -3338,6 +3369,7 @@ The `where` and `geometry` of every layer are checked while the file is read, as
 1. An object type no layer can take is not decoded. Without layers that take lines or polygons, the node locations are not even loaded.
 2. A block of the file whose strings cannot hold a match, such as one without the string `highway` for `highway == 'primary'`, is skipped before it is decompressed in full.
 3. Each object's tags are checked before the locations of a way's nodes are looked up.
+4. A closed way is read as a line only if a layer with `geometry: line` may take it.
 
 This needs the same equivalent of `where` as [table sources](<https://maplibre.org/martin/sources-pg-layers/index.md#features>) do. Without one, Martin reads every tagged object and checks `where` itself, with the same result.
 
@@ -3707,7 +3739,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 >
 > Martin picks up the credential-discovery variables these runtimes inject (`AWS_CONTAINER_CREDENTIALS_RELATIVE_URI`, `AWS_CONTAINER_CREDENTIALS_FULL_URI`, `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_ROLE_ARN`, `AWS_ROLE_SESSION_NAME`, `AWS_ENDPOINT_URL_STS`) automatically, so task roles, IRSA and Pod Identity work without any of the settings below. Explicit configuration and `profile` override them. On EC2, the instance metadata service is used when nothing else is configured.
 
-#### AWS specific Authentication &amp; Credentials
+#### AWS specific Authentication & Credentials
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -3719,7 +3751,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 | `role_session_name` | Session name for web identity assumption | `my-session` |
 | `endpoint_url_sts` | Custom STS endpoint for web identity token exchange | `https://sts.amazonaws.com` |
 
-#### AWS specific Connection &amp; Endpoint Configuration
+#### AWS specific Connection & Endpoint Configuration
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -3731,7 +3763,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 | `container_credentials_full_uri` | EKS container credentials full URI | `http://169.254.170.2/v2/credentials/abc123` |
 | `container_authorization_token_file` | Authorization token file for EKS container creds | `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` |
 
-#### AWS specific Request Behavior &amp; Fallbacks
+#### AWS specific Request Behavior & Fallbacks
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -3743,7 +3775,7 @@ A directly configured object requires `s3:GetObject`. Discovering a prefix addit
 | `s3_express` | Enable S3 Express One Zone | `true` |
 | `request_payer` | Enable S3 Requester Pays | `true` |
 
-#### AWS Specific Object Integrity &amp; Encryption
+#### AWS Specific Object Integrity & Encryption
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -3800,7 +3832,7 @@ Public or presigned individual objects can also use Azure HTTPS endpoints:
 
 #### Available Microsoft Azure settings
 
-#### Azure specific Authentication &amp; Credentials
+#### Azure specific Authentication & Credentials
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -3818,7 +3850,7 @@ Public or presigned individual objects can also use Azure HTTPS endpoints:
 | `federated_token_file` | File containing token for Azure AD workload identity federation | `/var/run/secrets/azure/federated-token` |
 | `use_azure_cli` | Use Azure CLI for acquiring access token | `true` |
 
-#### Azure specific Connection &amp; Endpoint Configuration
+#### Azure specific Connection & Endpoint Configuration
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -3827,7 +3859,7 @@ Public or presigned individual objects can also use Azure HTTPS endpoints:
 | `use_fabric_endpoint` | Use Azure Fabric endpoint (account.dfs.fabric.microsoft.com) | `true` |
 | `container_name` | Container name in the storage account | `mycontainer` |
 
-#### Azure specific Request Behavior &amp; Security Options
+#### Azure specific Request Behavior & Security Options
 
 | configuration | description | example |
 | --- | --- | --- |
@@ -6712,9 +6744,6 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
 > These are known missing features currently, but are planned:
 >
 > - `ocean` is omitted since Shortbread takes it from shapefile based coastline data outside OpenStreetMap.
-> - `way_area` is left out of `water_polygons`, `water_polygons_labels` and `boundary_labels`, and every `boundary_label` starts at zoom 5. This is because expressions cannot currently read a feature's area.
-> - A closed way is a line or a polygon, as its tags make it an [area](<https://maplibre.org/martin/sources-osm/index.md#supported-features-and-handling>). Planetiler reads it as both unless it has `area=yes` or `area=no`, so its `street_polygons` also have closed `highway=pedestrian` ways, and `area:aeroway` ways, which Martin doesn't currently read as lines.
-> - `boundary_labels` and `streets_polygons_labels` are points at each polygon's centroid. `pois`, `public_transport` and `addresses` at the centroid of each point, line or polygon. Planetiler takes points and a point on the surface of polygons, or for `addresses` the centroid of convex ones while omitting lines.
 
 1. Download an extract, for example Berlin from [Geofabrik](<https://download.geofabrik.de/>):
 
@@ -6799,6 +6828,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             kind: >-
    >               natural in ['glacier', 'water'] ? natural : waterway in ['riverbank', 'dock', 'canal'] ? waterway :
    >               landuse
+   >             way_area: "area('m2')"
    >         water_polygons_labels:
    >           geometry: polygon_centroid
    >           minzoom: "waterway in ['dock', 'canal'] ? 10 : 14"
@@ -6812,6 +6842,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             name: name
    >             name_en: "feature['name:en']"
    >             name_de: "feature['name:de']"
+   >             way_area: "area('m2')"
    >         water_lines:
    >           geometry: line
    >           minzoom: "waterway in ['stream', 'ditch'] ? 14 : 9"
@@ -6873,14 +6904,16 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             admin_level: "int(admin_level)"
    >             disputed: "disputed == 'yes'"
    >         boundary_labels:
-   >           geometry: polygon_centroid
-   >           minzoom: 5
+   >           geometry: polygon_point_on_surface
+   >           minzoom: >-
+   >             admin_level == '2' && area('km2') >= 2e6 ? 2 : area('km2') >= 7e5 ? 3 : area('km2') >= 1e5 ? 4 : 5
    >           where: "boundary == 'administrative' && admin_level in ['2', '4']"
    >           attributes:
    >             admin_level: "int(admin_level)"
    >             name: name
    >             name_en: "feature['name:en']"
    >             name_de: "feature['name:de']"
+   >             way_area: "area('ha')"
    >         place_labels:
    >           geometry: point
    >           minzoom: >-
@@ -6938,7 +6971,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >           where: "building != null && building != 'no'"
    >           attributes: []
    >         addresses:
-   >           geometry: centroid
+   >           geometry: [polygon_centroid_if_convex, point]
    >           minzoom: 14
    >           where: >-
    >             (feature['addr:housenumber'] != null || feature['addr:housename'] != null) && !(amenity in ['arts_centre',
@@ -7061,7 +7094,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             ref_rows: "ref != null ? size(ref.split(';')) : null"
    >             tunnel: "tunnel in ['yes', 'building_passage'] || covered == 'yes'"
    >         streets_polygons_labels:
-   >           geometry: polygon_centroid
+   >           geometry: polygon_point_on_surface
    >           minzoom: 14
    >           where: "name != null && (aeroway in ['runway', 'taxiway'] || highway in ['pedestrian', 'service'])"
    >           attributes:
@@ -7103,7 +7136,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             name_en: "feature['name:en']"
    >             name_de: "feature['name:de']"
    >         public_transport:
-   >           geometry: centroid
+   >           geometry: [point, polygon_point_on_surface]
    >           minzoom: >-
    >             aeroway == 'aerodrome' ? 11 : amenity == 'ferry_terminal' ? 12 : railway in ['station', 'halt'] ||
    >             aerialway == 'station' || aeroway == 'helipad' || amenity == 'bus_station' ? 13 : 14
@@ -7120,7 +7153,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             name_de: "feature['name:de']"
    >             iata: iata
    >         pois:
-   >           geometry: centroid
+   >           geometry: [point, polygon_point_on_surface]
    >           minzoom: 14
    >           where: >-
    >             amenity in ['arts_centre', 'atm', 'bank', 'bar', 'bench', 'bicycle_rental', 'biergarten', 'cafe',
@@ -7205,8 +7238,8 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
 
 | Extract | PBF | Features | Tiles | Time | Memory |
 | --- | --- | --- | --- | --- | --- |
-| Berlin, 2026-11-11 | 100 MB | 1,631,630 | 914 | 3.1 s | 2.7 GB |
-| Germany, 2026-11-11 | 4.9 GB | 75,134,826 | 228,018 | 3m 9s | 18.2 GB |
+| Berlin, 2026-11-11 | 100 MB | 1,632,485 | 914 | 3.0 s | 2.7 GB |
+| Germany, 2026-11-11 | 4.9 GB | 75,160,842 | 228,018 | 3m 8s | 17.7 GB |
 
 Measured on 24 threads, with the extract in the page cache.
 
@@ -7676,8 +7709,8 @@ See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.E
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) as sources
 > - [ ] Shapefile, GeoPackage and CSV files as sources
-> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
-> - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
+> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid`, `centroid`, `polygon_point_on_surface` and `polygon_centroid_if_convex`
+> - [ ] `geometry` with Planetiler's `line_midpoint`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 A long-requested Martin feature is generating tiles on the fly from a feature source (raw data) inside Martin itself, when serving tiles. Until now, a source had to either already contain tiles (MBTiles, PMTiles) or generate them itself, like PostgreSQL does with `ST_AsMVT`.
@@ -9382,8 +9415,8 @@ Each kind has at least one Reload Driver instance. Adding reload support for a n
 > - [x] Layers with CEL expressions, `rules` and `sort_by`
 > - [x] [OSM PBF files](<https://maplibre.org/martin/sources-osm/index.md>) as sources
 > - [ ] Shapefile, GeoPackage and CSV files as sources
-> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid` and `centroid`
-> - [ ] `geometry` with Planetiler's `line_midpoint`, `polygon_centroid_if_convex`, `polygon_point_on_surface`, `point_on_line` and `innermost_point`
+> - [x] `geometry` with Planetiler's `polygon_centroid`, `line_centroid`, `centroid`, `polygon_point_on_surface` and `polygon_centroid_if_convex`
+> - [ ] `geometry` with Planetiler's `line_midpoint`, `point_on_line` and `innermost_point`
 > - [x] [Per-tile operations](<https://maplibre.org/martin/sources-pg-layers/index.md#per-tile-operations>) (`merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit`)
 
 The [bulk mode](<https://maplibre.org/martin/martin-generate/index.md>) of `martin cp` turns whole sources into a tileset in two phases. First, every feature is read once and rendered into tile pieces, which are sorted on disk by tile. Then the sorted pieces are merged back into tiles, encoded, and written in the order the archive stores them. Every step hands its work to the next through a bounded queue, so the whole run needs a fixed amount of memory, whatever the input size.

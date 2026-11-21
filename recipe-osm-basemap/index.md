@@ -15,9 +15,6 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
 > These are known missing features currently, but are planned:
 >
 > - `ocean` is omitted since Shortbread takes it from shapefile based coastline data outside OpenStreetMap.
-> - `way_area` is left out of `water_polygons`, `water_polygons_labels` and `boundary_labels`, and every `boundary_label` starts at zoom 5. This is because expressions cannot currently read a feature's area.
-> - A closed way is a line or a polygon, as its tags make it an [area](<https://maplibre.org/martin/sources-osm/index.md#supported-features-and-handling>). Planetiler reads it as both unless it has `area=yes` or `area=no`, so its `street_polygons` also have closed `highway=pedestrian` ways, and `area:aeroway` ways, which Martin doesn't currently read as lines.
-> - `boundary_labels` and `streets_polygons_labels` are points at each polygon's centroid. `pois`, `public_transport` and `addresses` at the centroid of each point, line or polygon. Planetiler takes points and a point on the surface of polygons, or for `addresses` the centroid of convex ones while omitting lines.
 
 1. Download an extract, for example Berlin from [Geofabrik](<https://download.geofabrik.de/>):
 
@@ -102,6 +99,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             kind: >-
    >               natural in ['glacier', 'water'] ? natural : waterway in ['riverbank', 'dock', 'canal'] ? waterway :
    >               landuse
+   >             way_area: "area('m2')"
    >         water_polygons_labels:
    >           geometry: polygon_centroid
    >           minzoom: "waterway in ['dock', 'canal'] ? 10 : 14"
@@ -115,6 +113,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             name: name
    >             name_en: "feature['name:en']"
    >             name_de: "feature['name:de']"
+   >             way_area: "area('m2')"
    >         water_lines:
    >           geometry: line
    >           minzoom: "waterway in ['stream', 'ditch'] ? 14 : 9"
@@ -176,14 +175,16 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             admin_level: "int(admin_level)"
    >             disputed: "disputed == 'yes'"
    >         boundary_labels:
-   >           geometry: polygon_centroid
-   >           minzoom: 5
+   >           geometry: polygon_point_on_surface
+   >           minzoom: >-
+   >             admin_level == '2' && area('km2') >= 2e6 ? 2 : area('km2') >= 7e5 ? 3 : area('km2') >= 1e5 ? 4 : 5
    >           where: "boundary == 'administrative' && admin_level in ['2', '4']"
    >           attributes:
    >             admin_level: "int(admin_level)"
    >             name: name
    >             name_en: "feature['name:en']"
    >             name_de: "feature['name:de']"
+   >             way_area: "area('ha')"
    >         place_labels:
    >           geometry: point
    >           minzoom: >-
@@ -241,7 +242,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >           where: "building != null && building != 'no'"
    >           attributes: []
    >         addresses:
-   >           geometry: centroid
+   >           geometry: [polygon_centroid_if_convex, point]
    >           minzoom: 14
    >           where: >-
    >             (feature['addr:housenumber'] != null || feature['addr:housename'] != null) && !(amenity in ['arts_centre',
@@ -364,7 +365,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             ref_rows: "ref != null ? size(ref.split(';')) : null"
    >             tunnel: "tunnel in ['yes', 'building_passage'] || covered == 'yes'"
    >         streets_polygons_labels:
-   >           geometry: polygon_centroid
+   >           geometry: polygon_point_on_surface
    >           minzoom: 14
    >           where: "name != null && (aeroway in ['runway', 'taxiway'] || highway in ['pedestrian', 'service'])"
    >           attributes:
@@ -406,7 +407,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             name_en: "feature['name:en']"
    >             name_de: "feature['name:de']"
    >         public_transport:
-   >           geometry: centroid
+   >           geometry: [point, polygon_point_on_surface]
    >           minzoom: >-
    >             aeroway == 'aerodrome' ? 11 : amenity == 'ferry_terminal' ? 12 : railway in ['station', 'halt'] ||
    >             aerialway == 'station' || aeroway == 'helipad' || amenity == 'bus_station' ? 13 : 14
@@ -423,7 +424,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >             name_de: "feature['name:de']"
    >             iata: iata
    >         pois:
-   >           geometry: centroid
+   >           geometry: [point, polygon_point_on_surface]
    >           minzoom: 14
    >           where: >-
    >             amenity in ['arts_centre', 'atm', 'bank', 'bar', 'bench', 'bicycle_rental', 'biergarten', 'cafe',
@@ -508,7 +509,7 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
 
 | Extract | PBF | Features | Tiles | Time | Memory |
 | --- | --- | --- | --- | --- | --- |
-| Berlin, 2026-11-11 | 100 MB | 1,631,630 | 914 | 3.1 s | 2.7 GB |
-| Germany, 2026-11-11 | 4.9 GB | 75,134,826 | 228,018 | 3m 9s | 18.2 GB |
+| Berlin, 2026-11-11 | 100 MB | 1,632,485 | 914 | 3.0 s | 2.7 GB |
+| Germany, 2026-11-11 | 4.9 GB | 75,160,842 | 228,018 | 3m 8s | 17.7 GB |
 
 Measured on 24 threads, with the extract in the page cache.

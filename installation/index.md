@@ -47,7 +47,7 @@ cargo binstall martin
 martin --help
 ```
 
-#### Verify Release Integrity &amp; Provenance
+#### Verify Release Integrity & Provenance
 
 Starting with recent releases, binaries and packages are signed via GitHub Actions artifact attestations. You can verify that a downloaded asset was built by MapLibre's official CI workflow and has not been tampered with by a third party.
 

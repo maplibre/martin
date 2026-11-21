@@ -45,10 +45,23 @@ A run renders either `osm` sources or database sources, not both. [Building a ba
 | OSM object | Feature | `osm_type` | Feature id |
 | --- | --- | --- | --- |
 | Node with tags | point | `node` | id \* 10 + 1 |
-| Way with tags | line, or polygon if closed and its tags make it an area | `way` | id \* 10 + 2 |
+| Way with tags | line, polygon or both, below | `way` | id \* 10 + 2 |
 | Relation with `type=multipolygon` or `type=boundary` | polygon or multipolygon | `relation` | id \* 10 + 3 |
 
-Martin leaves out objects without tags, and other relations. Whether a closed way is an area follows [osmflow's `AreaRules`](<https://github.com/nyurik/osmflow/blob/main/crates/osmflow/src/area.rs>) (`building`, `landuse`, `natural` other than `coastline`, `area=yes` and so on). A relation's member ways are joined into rings. A ring inside an odd number of others is a hole, whatever its role. A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.
+Martin leaves out objects without tags, and other relations. Martin reads a way as Planetiler does, whatever its other tags:
+
+| Way | Polygon | Line |
+| --- | --- | --- |
+| Not closed | no | yes |
+| Closed, no `area` tag or another value | yes | yes |
+| Closed, `area=yes` | yes | no |
+| Closed, `area=no` | no | yes |
+| Closed, fewer than 4 nodes | no | yes |
+| Closed, fewer than 4 nodes, `area=yes` | no | no |
+
+Layers of polygons take the polygon and layers of lines the line, both with the way's feature id. A closed `highway=pedestrian` way can be both a street and a street area. Layers of any geometry, such as `geometry: centroid`, take the polygon only, as does a layer whose `geometry` list takes polygons and lines, so it draws the way once. For a closed way, `line_centroid` is the centroid of the polygon it encloses, as in Planetiler.
+
+A relation's member ways are joined into rings. A ring inside an odd number of others is a hole, whatever its role. A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.
 
 Each key in `tags` is a string property, `null` where the object does not have the tag or its value is empty. `osm_type` is always one. An expression reading a key not in `tags` fails the run. A tag such as `name:en` is read with `feature['name:en']`.
 
@@ -59,6 +72,7 @@ The `where` and `geometry` of every layer are checked while the file is read, as
 1. An object type no layer can take is not decoded. Without layers that take lines or polygons, the node locations are not even loaded.
 2. A block of the file whose strings cannot hold a match, such as one without the string `highway` for `highway == 'primary'`, is skipped before it is decompressed in full.
 3. Each object's tags are checked before the locations of a way's nodes are looked up.
+4. A closed way is read as a line only if a layer with `geometry: line` may take it.
 
 This needs the same equivalent of `where` as [table sources](<https://maplibre.org/martin/sources-pg-layers/index.md#features>) do. Without one, Martin reads every tagged object and checks `where` itself, with the same result.
 
