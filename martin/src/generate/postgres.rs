@@ -22,6 +22,8 @@ pub struct ScanTable {
     pub id: String,
     pub info: TableInfo,
     pub def: TableDef,
+    /// Whether a `jsonb` column is kept whole, which the MLT v2 wire format can.
+    pub keep_documents: bool,
 }
 
 /// Each table is split into partitions of consecutive heap blocks,
@@ -93,6 +95,7 @@ impl PgScanSource {
                 crs: sql.crs,
                 has_id: sql.has_id,
                 properties: sql.properties.len(),
+                keep_documents: scan.keep_documents,
             };
             let rows = estimated_rows(&conn, &sql.sql).await.map_err(SourceError::from)?;
             estimate = estimate.zip(rows).map(|(sum, rows)| sum.saturating_add(rows));

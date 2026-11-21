@@ -446,6 +446,122 @@ async fn spreads_jsonb_keys_over_properties_as_martin_serves_them() {
     assert_eq!(mlt_dump(&generated), mlt_dump(&served));
 }
 
+/// Tests that need a `martin` built with `unstable-mlt-v2`.
+#[cfg(feature = "test-mlt-v2")]
+mod mlt_v2 {
+    use std::fs;
+
+    use indoc::indoc;
+    use martin_e2e_tests::{MartinCp, mlt_dump, mlt_layers, temp_dir, tiles};
+
+    const CONFIG: &str = indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            array_props:
+              schema: public
+              table: array_props
+              srid: 4326
+              geometry_column: geom
+              id_column: feat_id
+              bounds: [-180.0, -90.0, 180.0, 90.0]
+              properties:
+                tags: int4
+                label: text
+                doc: jsonb
+    "};
+
+    /// A bulk `--format mlt2` tile keeps a `jsonb` document whole in a nested column, as the tile
+    /// mode copy of the same table does.
+    #[tokio::test]
+    async fn keeps_jsonb_documents_whole_as_tile_mode_does() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(&config, CONFIG).expect("failed to write the config");
+
+        let bulk = dir.path().join("bulk.mbtiles");
+        MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(&bulk)
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        let (_, _, _, data) = tiles(&bulk).await.into_iter().next().expect("the copy wrote no tiles");
+        let bulk_layers = mlt_layers(&data);
+
+        let tile_mode = dir.path().join("tile_mode.mbtiles");
+        MartinCp::new()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--source")
+            .arg("array_props")
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--encoding")
+            .arg("identity")
+            .arg("--output-file")
+            .arg(&tile_mode)
+            .arg("--mbtiles-type")
+            .arg("flat")
+            .arg("--min-zoom")
+            .arg("0")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        let (_, _, _, data) = tiles(&tile_mode)
+            .await
+            .into_iter()
+            .next()
+            .expect("the tile mode copy wrote no tiles");
+        let tile_mode_layers = mlt_layers(&data);
+
+        assert_eq!(bulk_layers[0].nested_names(), ["doc"]);
+        insta::assert_snapshot!(mlt_dump(&bulk_layers), @r#"
+        layer array_props extent 4096
+          id=Some(1) geom=POINT(2048 2048) props=[label=Str(Some("one")), tags=Str(Some("{1,2,3}"))] nested=[doc=Map(Some({"deep": Map(Some({"k": Leaf(I64(Some(1)))})), "kind": Leaf(Str(Some("a"))), "list": List(Some([Leaf(I64(Some(1))), Leaf(I64(Some(2)))])), "rank": Leaf(I64(Some(1))), "score": Leaf(F64(Some(1.5)))}))]
+          id=Some(2) geom=POINT(2059 2037) props=[label=Str(Some("two")), tags=Str(None)] nested=[doc=Map(Some({"label": Leaf(Str(Some("from the document"))), "rank": Leaf(I64(Some(-2))), "score": Leaf(F64(Some(3.0)))}))]
+        "#);
+        assert_eq!(mlt_dump(&bulk_layers), mlt_dump(&tile_mode_layers));
+    }
+
+    /// A key inside a `jsonb` column cannot be selected once the column is kept whole.
+    #[tokio::test]
+    async fn refuses_to_select_a_key_inside_a_jsonb_column() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(
+            &config,
+            format!("{CONFIG}      layers:\n        props:\n          attributes: [label, rank]\n"),
+        )
+        .expect("failed to write the config");
+
+        let log = MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(dir.path().join("refused.mbtiles"))
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--max-zoom")
+            .arg("0")
+            .run_expecting_failure()
+            .await;
+        assert!(log.contains("selects `rank`, which is not a column"), "{log}");
+    }
+}
+
 #[tokio::test]
 #[expect(clippy::too_many_lines, reason = "inline snapshot of the tile")]
 async fn martin_serves_mvt_output_in_every_compression() {

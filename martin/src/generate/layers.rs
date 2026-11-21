@@ -42,6 +42,25 @@ pub struct LowerOptions {
     pub order_by: Option<OrderByType>,
 }
 
+impl LowerOptions {
+    /// Whether the tiles take the MLT v2 wire format, which keeps a `jsonb` column whole.
+    #[cfg_attr(
+        not(feature = "unstable-mlt-v2"),
+        expect(clippy::unused_self, reason = "only v2 keeps documents")
+    )]
+    fn keeps_documents(&self) -> bool {
+        #[cfg(feature = "unstable-mlt-v2")]
+        {
+            self.encoder
+                .is_some_and(|encoder| encoder.wire_version() != mlt_core::encoder::WireVersion::V01)
+        }
+        #[cfg(not(feature = "unstable-mlt-v2"))]
+        {
+            false
+        }
+    }
+}
+
 /// The table's layers, or one layer named by `layer_id` or `id` without `layers`, as the only source of a run.
 /// `None` when the table, or every layer with fixed zooms, has no zoom within the options' zooms.
 ///
@@ -82,6 +101,7 @@ pub fn lower_table_with(
         id: id.to_owned(),
         info,
         def,
+        keep_documents: options.keeps_documents(),
     }))
 }
 
@@ -572,7 +592,23 @@ pub fn lower_source(
         Some(layers) => {
             let mut lowered = Vec::new();
             for (name, layer) in layers.iter() {
-                if let Some(def) = lower_layer(id, name, layer, source, &defaults, &static_columns, outputs)? {
+                let documents = options.keeps_documents().then(|| {
+                    columns
+                        .iter()
+                        .filter(|column| matches!(column, ColumnDef::Keys(_)))
+                        .map(ColumnDef::name)
+                        .collect::<Vec<_>>()
+                });
+                if let Some(def) = lower_layer(
+                    id,
+                    name,
+                    layer,
+                    source,
+                    &defaults,
+                    &static_columns,
+                    outputs,
+                    documents.as_deref(),
+                )? {
                     lowered.push(def);
                 }
             }
@@ -585,6 +621,10 @@ pub fn lower_source(
     Ok(Some(TableDef { columns, layers }))
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the documents a v2 layer keeps come on top of the source settings"
+)]
 fn lower_layer(
     id: &str,
     name: &str,
@@ -593,7 +633,16 @@ fn lower_layer(
     defaults: &LayerDef,
     static_columns: &[&str],
     outputs: &OutputLayers,
+    #[cfg_attr(
+        not(feature = "unstable-mlt-v2"),
+        expect(unused_variables, reason = "only v2 keeps documents")
+    )]
+    documents: Option<&[&str]>,
 ) -> GenerateResult<Option<LayerDef>> {
+    #[cfg(feature = "unstable-mlt-v2")]
+    if let (Attributes::Properties(selectors), Some(documents @ [_, ..])) = (&layer.attributes, documents) {
+        refuse_keys_inside_documents(id, name, selectors.as_slice(), static_columns, documents)?;
+    }
     let geometry = lower_geometry(name, layer.geometry.as_ref())?;
     let output = geometry.first().and_then(|entry| entry.draws());
     let Some(zooms) = layer_zooms(layer, &defaults.zooms) else {
@@ -1025,6 +1074,32 @@ fn clip_mode(clip_geom: bool) -> ClipMode {
     }
 }
 
+/// An error for the first named key that is neither a column nor a `jsonb` column of `documents`, which is kept
+/// whole, so no key lives inside it to select.
+#[cfg(feature = "unstable-mlt-v2")]
+fn refuse_keys_inside_documents(
+    source_id: &str,
+    layer: &str,
+    selectors: &[PropertySelector],
+    static_columns: &[&str],
+    documents: &[&str],
+) -> GenerateResult<()> {
+    for selector in selectors {
+        if let PropertySelector::Named(key) = selector
+            && !static_columns.contains(&key.as_str())
+            && !documents.contains(&key.as_str())
+        {
+            return Err(GenerateError::KeyInsideDocument {
+                source_id: source_id.to_owned(),
+                layer: layer.to_owned(),
+                key: key.clone(),
+                documents: documents.join(", "),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Named keys in their order, each prefix as the matching table columns in table order; keys inside
 /// a `jsonb` column are only selected by name.
 fn expand(selectors: &[PropertySelector], static_columns: &[&str]) -> Vec<String> {
@@ -1385,6 +1460,71 @@ mod tests {
             ],
         }
         "#);
+    }
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    mod documents {
+        use mlt_core::encoder::{Network, Profile, WireVersion};
+
+        use super::*;
+
+        fn lower_with(wire: Option<WireVersion>, attributes: &str) -> GenerateResult<Option<ScanTable>> {
+            let yaml = format!(
+                indoc! {"
+                    schema: public
+                    table: roads
+                    srid: 4326
+                    geometry_column: geom
+                    properties:
+                      class: text
+                      links: jsonb
+                    layers:
+                      roads:
+                        attributes: {}
+                "},
+                attributes
+            );
+            let info: TableInfo = serde_saphyr::from_str(&yaml).expect("valid table");
+            lower_table(
+                "roads_source",
+                info,
+                &LowerOptions {
+                    zooms: 0..=14,
+                    bounds: None,
+                    encoder: wire.map(|wire| {
+                        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(wire)
+                    }),
+                    order_by: None,
+                },
+            )
+        }
+
+        #[test]
+        fn v2_keeps_a_jsonb_column_whole_and_selects_it_by_its_name() {
+            let scan = lower_with(Some(WireVersion::V02), "[class, links]")
+                .expect("lowers")
+                .expect("has a layer");
+            assert!(scan.keep_documents);
+        }
+
+        #[test]
+        fn v2_refuses_to_select_a_key_inside_a_jsonb_column() {
+            let err = lower_with(Some(WireVersion::V02), "[class, surface]").unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                "layer `roads` of source `roads_source` selects `surface`, which is not a column: `--format mlt2` keeps a `jsonb` column (links) whole as one nested column, so a key inside it cannot be selected; select the column instead"
+            );
+        }
+
+        #[test]
+        fn v1_and_mvt_still_spread_a_jsonb_column_into_keys() {
+            for wire in [Some(WireVersion::V01), None] {
+                let scan = lower_with(wire, "[class, surface]")
+                    .expect("lowers")
+                    .expect("has a layer");
+                assert!(!scan.keep_documents);
+            }
+        }
     }
 
     #[test]

@@ -75,6 +75,7 @@ pub fn engine_info(
             crs: last.crs,
             has_id: last.has_id,
             properties: last.properties.len(),
+            keep_documents: false,
         },
         sql_queries: sql.into_iter().map(|sql| sql.sql).chain([last.sql]).collect(),
         plan: Arc::new(plan),
