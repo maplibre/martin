@@ -10,9 +10,21 @@ use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, Pr
 use super::columns::TileColumns;
 use super::per_tile::{LayerOpCounts, LayerTile, OpScratch, TileFeature, TileOps};
 use crate::props::{KeyId, KeyNames};
-use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
+use crate::sort::{LayerId, Seq};
 use crate::{LayerGrid, TileGenResult};
+
+/// Where a record of an output layer comes from: the layer definition that rendered it, which also sets the buffer
+/// its fill covers, and the feature it is a piece of.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RecordOrigin {
+    /// The layer byte of the definition's sort key.
+    pub layer: LayerId,
+    /// The feature's position in its source.
+    pub seq: Seq,
+    /// Tile units around the tile that a fill covers.
+    pub fill_buffer: u32,
+}
 
 /// Reusable per-worker scratch for [`LayerAssembler::assemble`].
 #[derive(Default)]
@@ -79,16 +91,17 @@ impl Rounded {
 }
 
 impl LayerAssembler {
-    /// `records` are one layer's records in one tile, in merge (seq) order. Consecutive records of the same
-    /// feature are its pieces in this tile (multi-part geometry, or a wrapped antimeridian twin) and become
-    /// one multi-geometry feature; their properties and sort keys are identical, so the first record's are
-    /// used. Features with a sort key are then stably sorted by it, and `ops` run on them in that order.
+    /// `records` are one output layer's records in one tile, by definition and in merge (seq) order within one.
+    /// Consecutive records of the same origin are the pieces of one feature in this tile (multi-part geometry, or
+    /// a wrapped antimeridian twin) and become one multi-geometry feature; their properties and sort keys are
+    /// identical, so the first record's are used. Features with a sort key are then stably sorted by it, and `ops`
+    /// run on them in that order.
     pub fn assemble<'a>(
         &'a mut self,
         name: &'a str,
         grid: LayerGrid,
         names: &'a KeyNames,
-        records: &[(Seq, &'a [u8])],
+        records: &[(RecordOrigin, &'a [u8])],
         ops: TileOps<'_>,
     ) -> TileGenResult<AssembledLayer<'a>> {
         let Self {
@@ -104,7 +117,7 @@ impl LayerAssembler {
         } = self;
         let decoded = records
             .iter()
-            .map(|&(seq, bytes)| Ok((seq, Record::decode(bytes)?)))
+            .map(|&(origin, bytes)| Ok((origin, Record::decode(bytes)?)))
             .collect::<TileGenResult<Vec<_>>>()?;
 
         let mut props = Vec::new();
@@ -194,16 +207,16 @@ impl LayerAssembler {
 /// Groups consecutive records of one feature and family into `features`, with their properties in
 /// `props`, then stably sorts the features by their sort key, if they have one.
 fn group_features<'a>(
-    decoded: &[(Seq, Record<'a>)],
+    decoded: &[(RecordOrigin, Record<'a>)],
     props: &mut Vec<(KeyId, PropValueRef<'a>)>,
     features: &mut Vec<TileFeature>,
 ) -> TileGenResult<()> {
     features.clear();
     let (mut start, mut sorted) = (0, false);
-    while let Some((seq, first)) = decoded.get(start) {
+    while let Some((origin, first)) = decoded.get(start) {
         let len = decoded[start..]
             .iter()
-            .take_while(|(s, r)| s == seq && r.kind.family() == first.kind.family())
+            .take_while(|(o, r)| o == origin && r.kind.family() == first.kind.family())
             .count();
         let from = props.len();
         for prop in first.props() {
@@ -399,7 +412,17 @@ mod tests {
             ),
         ];
         let names = interner.freeze();
-        let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
+        let records: Vec<_> = records
+            .iter()
+            .map(|(seq, b)| {
+                let origin = RecordOrigin {
+                    seq: *seq,
+                    fill_buffer: GRID.buffer,
+                    ..RecordOrigin::default()
+                };
+                (origin, b.as_slice())
+            })
+            .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
             .assemble("roads", GRID, &names, &records, TileOps::NONE)
@@ -458,7 +481,17 @@ mod tests {
             (seq(3), line(3, &[1], 30)),
             (seq(4), line(4, &[1, 5], 40)),
         ];
-        let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
+        let records: Vec<_> = records
+            .iter()
+            .map(|(seq, b)| {
+                let origin = RecordOrigin {
+                    seq: *seq,
+                    fill_buffer: GRID.buffer,
+                    ..RecordOrigin::default()
+                };
+                (origin, b.as_slice())
+            })
+            .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
             .assemble("roads", GRID, &names, &records, TileOps::NONE)
@@ -507,7 +540,19 @@ mod tests {
         let names = interner.freeze();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
-            .assemble("water", GRID, &names, &[(Seq::default(), &bytes)], TileOps::NONE)
+            .assemble(
+                "water",
+                GRID,
+                &names,
+                &[(
+                    RecordOrigin {
+                        fill_buffer: GRID.buffer,
+                        ..RecordOrigin::default()
+                    },
+                    &bytes,
+                )],
+                TileOps::NONE,
+            )
             .unwrap();
         let decoded = decode_mlt(
             &assembled
@@ -557,7 +602,17 @@ mod tests {
             ),
         ];
         let names = interner.freeze();
-        let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
+        let records: Vec<_> = records
+            .iter()
+            .map(|(seq, b)| {
+                let origin = RecordOrigin {
+                    seq: *seq,
+                    fill_buffer: GRID.buffer,
+                    ..RecordOrigin::default()
+                };
+                (origin, b.as_slice())
+            })
+            .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch.assemble("pois", GRID, &names, &records, TileOps::NONE).unwrap();
         let decoded = decode_mlt(

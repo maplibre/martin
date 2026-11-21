@@ -957,6 +957,111 @@ fn integers_a_float_column_rounds_are_counted() {
     "#);
 }
 
+#[test]
+fn a_key_of_a_later_definition_has_one_column_kind_in_every_tile_of_its_output_layer() {
+    let point = |id: u32, lon: f64, rank: Prop<ByteString>| SourceFeature {
+        id: Some(i64::from(id)),
+        geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+        props: vec![(KeyId::new(0), rank)],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![point(1, -90.0, Prop::I64(7)), point(2, 90.0, Prop::Str("high".into()))],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
+        layers: vec![
+            LayerDef {
+                attributes: AttributesDef::Columns(Vec::new()),
+                ..LayerDef::new("pois", 1..=1, GRID)
+            },
+            LayerDef {
+                output: Some("pois".to_owned()),
+                ..LayerDef::new("poi_ranks", 1..=1, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, rows, _) = run(&source, &plan, dir.path(), 1);
+    let tiles: Vec<_> = rows
+        .iter()
+        .map(|row| {
+            let layer = &decode(&row.3)[0];
+            let columns: Vec<_> = layer
+                .property_names()
+                .iter()
+                .zip(layer.property_kinds())
+                .map(|(name, kind)| format!("{name}:{kind:?}"))
+                .collect();
+            format!("z{}/{}/{} {}", row.0, row.1, row.2, columns.join(" "))
+        })
+        .collect();
+    insta::assert_snapshot!(tiles.join("\n"), @"
+    z1/0/1 rank:Str
+    z1/1/1 rank:Str
+    ");
+    insta::assert_debug_snapshot!(summary.mixed_kinds, @r#"
+    [
+        MixedKinds {
+            layer: "pois",
+            key: "rank",
+        },
+    ]
+    "#);
+}
+
+#[test]
+fn integers_a_float_column_of_a_later_definition_rounds_are_counted_by_output_layer() {
+    let point = |id: u32, lon: f64, size: Prop<ByteString>| SourceFeature {
+        id: Some(i64::from(id)),
+        geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
+        props: vec![(KeyId::new(0), size)],
+    };
+    let source = MemorySource {
+        batches: vec![FeatureBatch {
+            table: 0,
+            partition: 0,
+            first_row: 0,
+            crs: Crs::Wgs84,
+            features: vec![
+                point(1, -100.0, Prop::F64(0.5)),
+                point(2, -80.0, Prop::I64((1 << 53) + 1)),
+            ],
+        }],
+    };
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("size".to_owned(), None)],
+        layers: vec![
+            LayerDef {
+                attributes: AttributesDef::Columns(Vec::new()),
+                ..LayerDef::new("pois", 1..=1, GRID)
+            },
+            LayerDef {
+                output: Some("pois".to_owned()),
+                ..LayerDef::new("poi_sizes", 1..=1, GRID)
+            },
+        ],
+    }])
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (summary, _, _) = run(&source, &plan, dir.path(), 1);
+    insta::assert_debug_snapshot!(summary.rounded, @r#"
+    [
+        RoundedValues {
+            layer: "pois",
+            key: "size",
+            values: 1,
+        },
+    ]
+    "#);
+}
+
 struct Discard;
 
 impl TileSink for Discard {

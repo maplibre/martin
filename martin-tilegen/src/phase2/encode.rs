@@ -11,11 +11,11 @@ use mlt_core::encoder::EncoderConfig;
 use mlt_core::fast_mvt::MvtTileBuilder;
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::phase2::assemble::{AssembledLayer, LayerAssembler, Rounded};
+use crate::phase2::assemble::{AssembledLayer, LayerAssembler, RecordOrigin, Rounded};
 use crate::phase2::per_tile::{LayerOpCounts, OutputExprs, TileOps};
 use crate::plan::PlannedTileOp;
 use crate::props::KeyNames;
-use crate::sort::{LayerRecordRef, Seq, TileRecords};
+use crate::sort::{LayerId, TileRecords};
 use crate::{EncodedTile, LayerGrid, TileGenError, TileGenResult, TileId, TileOrder};
 
 #[derive(Clone, Copy, Debug)]
@@ -56,10 +56,21 @@ impl LayerInfo {
     }
 }
 
+/// A layer definition as encoding sees it.
+#[derive(Clone, Copy, Debug)]
+pub struct DefinitionInfo {
+    /// Index into [`EncodeSettings::layers`] of the output layer it writes into.
+    pub output: u8,
+    /// Tile units around the tile, which its fills cover.
+    pub buffer: u32,
+}
+
 /// Everything that is the same for every tile of a run.
 pub struct EncodeSettings<'a> {
-    /// Indexed by the layer byte of the sort key; `keys` is parallel to it.
+    /// By output layer; `keys` is parallel to it.
     pub layers: &'a [LayerInfo],
+    /// By the layer byte of the sort key.
+    pub definitions: &'a [DefinitionInfo],
     pub keys: &'a [KeyNames],
     pub format: TileFormat,
     pub encoding: Encoding,
@@ -315,13 +326,26 @@ impl TileEncoder {
         let zoom = coord.z();
         let mut mlt = Vec::new();
         let mut mvt = MvtTileBuilder::new();
-        let mut records: Vec<(Seq, &[u8])> = Vec::new();
-        let mut all = tile.records().peekable();
-        while let Some(&LayerRecordRef { layer, .. }) = all.peek() {
+        let mut all: Vec<(u8, RecordOrigin, &[u8])> = tile
+            .records()
+            .map(|record| {
+                let definition = settings.definitions[usize::from(record.layer)];
+                let origin = RecordOrigin {
+                    layer: LayerId::new(record.layer),
+                    seq: record.seq,
+                    fill_buffer: definition.buffer,
+                };
+                (definition.output, origin, record.bytes)
+            })
+            .collect();
+        if !all.is_sorted_by_key(|(output, ..)| *output) {
+            all.sort_by_key(|(output, ..)| *output);
+        }
+        let mut records: Vec<(RecordOrigin, &[u8])> = Vec::new();
+        for group in all.chunk_by(|a, b| a.0 == b.0) {
+            let layer = group[0].0;
             records.clear();
-            while let Some(record) = all.next_if(|record| record.layer == layer) {
-                records.push((record.seq, record.bytes));
-            }
+            records.extend(group.iter().map(|&(_, origin, bytes)| (origin, bytes)));
             let info = &settings.layers[usize::from(layer)];
             let names = &settings.keys[usize::from(layer)];
             let exprs = settings.exprs.map(|exprs| exprs.layer(usize::from(layer)));
@@ -384,7 +408,13 @@ mod tests {
     use super::*;
     use crate::plan::PlannedOp;
     use crate::props::KeyInterner;
+    use crate::sort::Seq;
     use crate::sort::record::{EncodedProps, Geom, encode};
+
+    const DEFINITIONS: [DefinitionInfo; 2] = [
+        DefinitionInfo { output: 0, buffer: 64 },
+        DefinitionInfo { output: 1, buffer: 64 },
+    ];
 
     fn layer(name: &str) -> LayerInfo {
         LayerInfo {
@@ -433,6 +463,7 @@ mod tests {
         let layers = [layer("parks"), layer("roads")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Gzip,
@@ -459,6 +490,7 @@ mod tests {
         let layers = [layer("parks")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mvt,
             encoding: Encoding::Uncompressed,
@@ -483,6 +515,7 @@ mod tests {
         let layers = [layer("parks")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mvt,
             encoding: Encoding::Uncompressed,
@@ -504,6 +537,7 @@ mod tests {
         let layers: [LayerInfo; 0] = [];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mvt,
             encoding: Encoding::Uncompressed,
@@ -530,6 +564,7 @@ mod tests {
         let layers = [layer("water")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Gzip,
@@ -568,6 +603,7 @@ mod tests {
         }];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
@@ -598,6 +634,7 @@ mod tests {
         let layers = [layer("water")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Gzip,
@@ -628,6 +665,7 @@ mod tests {
         let layers = [layer("water")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Gzip,
@@ -656,6 +694,7 @@ mod tests {
         let layers = [layer("roads")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mvt,
             encoding: Encoding::Gzip,
@@ -694,6 +733,7 @@ mod tests {
         let layers = [layer("roads")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mvt,
             encoding: Encoding::Uncompressed,
@@ -733,6 +773,7 @@ mod tests {
         let layers = [layer("parks")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
@@ -775,6 +816,7 @@ mod tests {
         let layers = [layer("parks")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
@@ -830,6 +872,7 @@ mod tests {
         let layers = [layer("parks")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
@@ -873,6 +916,7 @@ mod tests {
         let layers = [layer("parks"), layer("roads")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
@@ -910,6 +954,7 @@ mod tests {
         let layers = [layer("water")];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &DEFINITIONS,
             keys: &keys,
             format: TileFormat::Mlt,
             encoding: Encoding::Uncompressed,
