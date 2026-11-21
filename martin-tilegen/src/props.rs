@@ -51,6 +51,12 @@ pub enum Prop<S = String> {
     F32(f32),
     F64(f64),
     Str(S),
+    /// A `jsonb` document kept whole, as its JSON text.
+    ///
+    /// The text is parsed once the column's shape is known, so it is not typed before the sort.
+    /// Until then a reader that wants a scalar sees the text, as [`Str`](Self::Str) does.
+    #[cfg(feature = "unstable-mlt-v2")]
+    Nested(S),
 }
 
 impl<S: AsRef<str>> Prop<S> {
@@ -63,6 +69,8 @@ impl<S: AsRef<str>> Prop<S> {
             Self::F32(v) => PropValueRef::F32(*v),
             Self::F64(v) => PropValueRef::F64(*v),
             Self::Str(v) => PropValueRef::Str(v.as_ref()),
+            #[cfg(feature = "unstable-mlt-v2")]
+            Self::Nested(v) => PropValueRef::Str(v.as_ref()),
         }
     }
 
@@ -75,6 +83,8 @@ impl<S: AsRef<str>> Prop<S> {
             Self::F32(v) => Prop::F32(*v),
             Self::F64(v) => Prop::F64(*v),
             Self::Str(v) => Prop::Str(Cow::Borrowed(v.as_ref())),
+            #[cfg(feature = "unstable-mlt-v2")]
+            Self::Nested(v) => Prop::Nested(Cow::Borrowed(v.as_ref())),
         }
     }
 }
@@ -284,6 +294,15 @@ impl LayerKinds {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[test]
+    fn nested_reads_as_its_text() {
+        let prop = Prop::Nested("{\"a\":[]}".to_owned());
+        assert_eq!(prop.as_ref(), PropValueRef::Str("{\"a\":[]}"));
+        assert_eq!(prop.as_cow(), Prop::Nested(Cow::Borrowed("{\"a\":[]}")));
+        assert_ne!(prop.clone(), Prop::Str("{\"a\":[]}".to_owned()));
+    }
 
     #[test]
     fn interning_is_thread_safe() {

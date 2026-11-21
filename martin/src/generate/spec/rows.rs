@@ -494,7 +494,7 @@ fn read(plan: &Plan, table: &TestTable, key: RowKey, feature: &SourceFeature, pa
     ReadRow { key, paths, input }
 }
 
-/// A property as JSON.
+/// A property as JSON; a nested document is the JSON it holds, or its text if that does not parse.
 fn prop_value<S: AsRef<str>>(prop: &Prop<S>) -> Value {
     match prop {
         Prop::Bool(v) => Value::from(*v),
@@ -502,6 +502,8 @@ fn prop_value<S: AsRef<str>>(prop: &Prop<S>) -> Value {
         Prop::F32(v) => Value::from(f64::from(*v)),
         Prop::F64(v) => Value::from(*v),
         Prop::Str(v) => Value::from(v.as_ref()),
+        #[cfg(feature = "unstable-mlt-v2")]
+        Prop::Nested(v) => serde_json::from_str(v.as_ref()).unwrap_or_else(|_| Value::from(v.as_ref())),
     }
 }
 

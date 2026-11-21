@@ -87,7 +87,7 @@ pub enum Geom<'a> {
     },
 }
 
-#[derive(SchemaWrite, SchemaRead)]
+#[derive(Clone, Copy, SchemaWrite, SchemaRead)]
 enum Prop<'a> {
     Bool(bool),
     I64(i64),
@@ -95,6 +95,9 @@ enum Prop<'a> {
     F32(f32),
     F64(f64),
     Str(&'a str),
+    /// The JSON text of a `jsonb` document, last so the tags of the others do not move.
+    #[cfg(feature = "unstable-mlt-v2")]
+    Nested(&'a str),
 }
 
 #[derive(SchemaWrite, SchemaRead)]
@@ -135,6 +138,12 @@ impl EncodedProps {
             PropValueRef::Str(v) => Prop::Str(v),
         };
         put(&mut self.bytes, &(key.get(), value));
+    }
+
+    /// Stores `json`, the text of a `jsonb` document, apart from text values.
+    #[cfg(feature = "unstable-mlt-v2")]
+    pub fn push_nested(&mut self, key: KeyId, json: &str) {
+        put(&mut self.bytes, &(key.get(), Prop::Nested(json)));
     }
 
     pub(crate) fn decode(&self) -> Props<'_> {
@@ -260,6 +269,20 @@ pub struct Props<'a> {
     bytes: &'a [u8],
 }
 
+/// The value of a stored property; a nested document is its JSON text, as a plain reader sees it.
+fn scalar_ref(value: Prop<'_>) -> PropValueRef<'_> {
+    match value {
+        Prop::Bool(v) => PropValueRef::Bool(v),
+        Prop::I64(v) => PropValueRef::I64(v),
+        Prop::U64(v) => PropValueRef::U64(v),
+        Prop::F32(v) => PropValueRef::F32(v),
+        Prop::F64(v) => PropValueRef::F64(v),
+        Prop::Str(v) => PropValueRef::Str(v),
+        #[cfg(feature = "unstable-mlt-v2")]
+        Prop::Nested(v) => PropValueRef::Str(v),
+    }
+}
+
 impl<'a> Iterator for Props<'a> {
     type Item = TileGenResult<(KeyId, PropValueRef<'a>)>;
 
@@ -267,17 +290,7 @@ impl<'a> Iterator for Props<'a> {
         if self.bytes.is_empty() {
             return None;
         }
-        Some(take(&mut self.bytes).map(|(key, value)| {
-            let value = match value {
-                Prop::Bool(v) => PropValueRef::Bool(v),
-                Prop::I64(v) => PropValueRef::I64(v),
-                Prop::U64(v) => PropValueRef::U64(v),
-                Prop::F32(v) => PropValueRef::F32(v),
-                Prop::F64(v) => PropValueRef::F64(v),
-                Prop::Str(v) => PropValueRef::Str(v),
-            };
-            (KeyId::new(key), value)
-        }))
+        Some(take(&mut self.bytes).map(|(key, value): (u32, _)| (KeyId::new(key), scalar_ref(value))))
     }
 }
 
@@ -375,6 +388,44 @@ mod tests {
         assert_eq!(record.kind, GeomKind::FillRange { end: 1 << 40 });
         assert_eq!(record.sort, Some(&[3][..]));
         assert!(Record::is_fill(&bytes));
+    }
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[test]
+    fn nested_documents_round_trip_as_their_text_and_are_stored_apart_from_text() {
+        let documents = [
+            r#"{"tags":{"a":[1,2.5,null],"b":{}},"links":[],"name":"x"}"#,
+            "[]",
+            "{}",
+            "[[],[{}],[[null]]]",
+            "null",
+            r#""text""#,
+            "",
+        ];
+        let mut props = EncodedProps::default();
+        for (i, document) in documents.into_iter().enumerate() {
+            props.push_nested(KeyId::new(i.try_into().unwrap()), document);
+        }
+        props.push(KeyId::new(20), PropValueRef::Str(r#"{"a":1}"#));
+        props.push(KeyId::new(21), PropValueRef::I64(7));
+
+        let mut bytes = Vec::new();
+        encode(&mut bytes, Some(1), None, &props, Geom::Fill);
+        let record = Record::decode(&bytes).unwrap();
+
+        let mut expected: Vec<_> = documents
+            .into_iter()
+            .enumerate()
+            .map(|(i, d)| (KeyId::new(i.try_into().unwrap()), PropValueRef::Str(d)))
+            .collect();
+        expected.push((KeyId::new(20), PropValueRef::Str(r#"{"a":1}"#)));
+        expected.push((KeyId::new(21), PropValueRef::I64(7)));
+        assert_eq!(record.props().collect::<TileGenResult<Vec<_>>>().unwrap(), expected);
+
+        let (mut nested, mut text) = (EncodedProps::default(), EncodedProps::default());
+        nested.push_nested(KeyId::new(0), "[]");
+        text.push(KeyId::new(0), PropValueRef::Str("[]"));
+        assert_ne!(nested.bytes, text.bytes, "the sort keeps a document apart from text");
     }
 
     #[test]
