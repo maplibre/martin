@@ -575,9 +575,10 @@ pub fn lower_source(
     if let Some(encoder) = options.encoder {
         defaults.encoder = encoder;
     }
+    // A run that keeps `jsonb` documents whole makes each such column one property, which a prefix can select.
     let static_columns: Vec<&str> = columns
         .iter()
-        .filter(|column| !matches!(column, ColumnDef::Keys(_)))
+        .filter(|column| options.keeps_documents() || !matches!(column, ColumnDef::Keys(_)))
         .map(ColumnDef::name)
         .collect();
     let layers = match source.layers {
@@ -1101,7 +1102,7 @@ fn refuse_keys_inside_documents(
 }
 
 /// Named keys in their order, each prefix as the matching table columns in table order; keys inside
-/// a `jsonb` column are only selected by name.
+/// a `jsonb` column that is spread are only selected by name.
 fn expand(selectors: &[PropertySelector], static_columns: &[&str]) -> Vec<String> {
     let mut keys = IndexSet::new();
     for selector in selectors {
@@ -1505,6 +1506,17 @@ mod tests {
                 .expect("lowers")
                 .expect("has a layer");
             assert!(scan.keep_documents);
+        }
+
+        #[test]
+        fn v2_selects_a_kept_jsonb_column_by_a_prefix() {
+            let scan = lower_with(Some(WireVersion::V02), r#"["li*"]"#)
+                .expect("lowers")
+                .expect("has a layer");
+            assert_eq!(
+                scan.def.layers[0].attributes,
+                AttributesDef::Columns(vec!["links".to_owned()])
+            );
         }
 
         #[test]
