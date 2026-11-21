@@ -57,12 +57,24 @@ impl TileColumns {
     }
 
     pub(crate) fn add(&mut self, key: KeyId, value: PropValueRef<'_>) {
+        let idx = self.add_kind(key, value.kind());
+        self.columns[idx].has_negative |= matches!(value, PropValueRef::I64(v) if v < 0);
+    }
+
+    /// Adds a column of `kind` for the scalar documents of `key`, whatever the tile's values are.
+    #[cfg(feature = "unstable-mlt-v2")]
+    pub(crate) fn add_document(&mut self, key: KeyId, kind: PropKind) {
+        let idx = self.add_kind(key, kind);
+        self.columns[idx].has_negative = true;
+    }
+
+    fn add_kind(&mut self, key: KeyId, kind: PropKind) -> usize {
         let idx = if let Some(idx) = self.column_index_mut(key).get() {
             idx
         } else {
             self.columns.push(Column {
                 key,
-                kind: value.kind(),
+                kind,
                 has_negative: false,
             });
             let idx = self.columns.len() - 1;
@@ -70,8 +82,8 @@ impl TileColumns {
             idx
         };
         let column = &mut self.columns[idx];
-        column.kind = column.kind.merge(value.kind());
-        column.has_negative |= matches!(value, PropValueRef::I64(v) if v < 0);
+        column.kind = column.kind.merge(kind);
+        idx
     }
 
     /// Fills `schema` with the final `(key, kind)` per column in column order; the index maps keys to
@@ -84,6 +96,8 @@ impl TileColumns {
         schema.clear();
         schema.extend(self.columns.iter().map(|c| {
             let (kind, has_negative) = match names.kind(c.key) {
+                #[cfg(feature = "unstable-mlt-v2")]
+                _ if names.document(c.key).is_some() => (c.kind, c.has_negative),
                 Some(tallied) => (c.kind.merge(tallied.merged()), c.has_negative || tallied.has_negative),
                 None => (c.kind, c.has_negative),
             };
@@ -98,7 +112,7 @@ impl TileColumns {
     }
 }
 
-fn column_order(names: &KeyNames, a: KeyId, b: KeyId) -> Ordering {
+pub(super) fn column_order(names: &KeyNames, a: KeyId, b: KeyId) -> Ordering {
     match (names.is_declared(a), names.is_declared(b)) {
         (true, true) => a.cmp(&b),
         (true, false) => Ordering::Less,

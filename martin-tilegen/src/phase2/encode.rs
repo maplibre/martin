@@ -1019,3 +1019,305 @@ mod tests {
         assert_ne!(index.key(b"other"), Some(key));
     }
 }
+
+#[cfg(test)]
+#[cfg(feature = "unstable-mlt-v2")]
+mod document_tests {
+    use std::collections::BTreeMap;
+
+    use martin_tile_utils::{Encoding, TileCoord};
+    use mlt_core::encoder::{EncoderConfig, Network, Profile, WireVersion};
+    use mlt_core::fast_mvt::{MvtReaderRef, MvtValueRef};
+    use mlt_core::{Decoder, NestedKind, NestedValue, Parser, PropKind, PropValue, PropValueRef, TileLayer};
+
+    use super::*;
+    use crate::props::{KeyInterner, LayerKinds, Prop};
+    use crate::sort::record::{EncodedProps, Geom, encode};
+
+    /// A property of a test feature.
+    enum Value<'a> {
+        Document(&'a str),
+        Plain(PropValueRef<'a>),
+    }
+
+    type Feature<'a> = Vec<(&'a str, Value<'a>)>;
+
+    fn config(wire: WireVersion) -> EncoderConfig {
+        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(wire)
+    }
+
+    /// Encodes each of `tiles` as the only layer, `roads`, of a tile, the way a render tallies the
+    /// layer's keys and the encoding then names them; `names_documents` is whether the layer's wire
+    /// format keeps documents whole.
+    fn encode_tiles(
+        tiles: &[Vec<Feature<'_>>],
+        format: TileFormat,
+        wire: WireVersion,
+        names_documents: bool,
+    ) -> Vec<EncodedTile> {
+        let interner = KeyInterner::new::<&str>([]);
+        let mut kinds = LayerKinds::default();
+        let mut records = Vec::new();
+        for (tile_id, features) in tiles.iter().enumerate() {
+            let mut tile = TileRecords::new(u64::try_from(tile_id).unwrap());
+            for (row, feature) in (1_u64..).zip(features) {
+                let mut props = EncodedProps::default();
+                for (name, value) in feature {
+                    let key = interner.intern(name);
+                    let prop = match value {
+                        Value::Document(json) => Prop::<&str>::Nested(json),
+                        Value::Plain(PropValueRef::Str(text)) => Prop::Str(*text),
+                        Value::Plain(PropValueRef::I64(number)) => Prop::I64(*number),
+                        Value::Plain(_) => unreachable!("the tests use strings and integers"),
+                    };
+                    props.push_prop(key, &prop);
+                    kinds.add_prop(0, key, &prop);
+                }
+                let mut bytes = Vec::new();
+                encode(&mut bytes, Some(row), None, &props, Geom::Points(&[[0, 0]]));
+                tile.push_record(0, Seq::new(0, row).unwrap(), &bytes);
+            }
+            records.push(tile);
+        }
+        let mut names = interner.freeze().with_kinds(kinds.layer(0));
+        if names_documents {
+            names = names.with_documents(kinds.documents(0).unwrap());
+        }
+        let keys = [names];
+        let layers = [LayerInfo::new(
+            "roads".to_owned(),
+            LayerGrid {
+                extent: 4096,
+                buffer: 64,
+            },
+            config(wire),
+        )];
+        let settings = EncodeSettings {
+            layers: &layers,
+            keys: &keys,
+            format,
+            encoding: Encoding::Uncompressed,
+            order: TileOrder::Tms,
+            mvt_keep_unused_keys: false,
+            exprs: None,
+        };
+        TileEncoder::default()
+            .encode_batch(&settings, &DedupIndex::default(), records)
+            .unwrap()
+    }
+
+    fn v2_layers(tiles: &[Vec<Feature<'_>>]) -> Vec<TileLayer> {
+        encode_tiles(tiles, TileFormat::Mlt, WireVersion::V02, true)
+            .iter()
+            .map(|tile| {
+                let mut layers = Parser::default().parse_layers(&tile.data).unwrap();
+                layers.remove(0).into_tile(&mut Decoder::default()).unwrap().unwrap()
+            })
+            .collect()
+    }
+
+    fn doc(json: &str) -> Value<'_> {
+        Value::Document(json)
+    }
+
+    fn leaf(value: PropValue) -> NestedValue {
+        NestedValue::Leaf(value)
+    }
+
+    fn link(id: i64, at: f64) -> NestedValue {
+        NestedValue::map([
+            ("at", leaf(PropValue::F64(Some(at)))),
+            ("id", leaf(PropValue::I64(Some(id)))),
+        ])
+    }
+
+    fn link_kind() -> NestedKind {
+        NestedKind::list(NestedKind::map([
+            ("at", NestedKind::Leaf(PropKind::F64)),
+            ("id", NestedKind::Leaf(PropKind::I64)),
+        ]))
+    }
+
+    #[test]
+    fn a_document_is_a_nested_column_and_a_feature_without_one_is_null() {
+        let layers = v2_layers(&[vec![
+            vec![("links", doc(r#"[{"id": 1, "at": 0.5}, {"id": 2, "at": 1.5}]"#))],
+            vec![],
+            vec![("links", doc("null"))],
+        ]]);
+
+        assert_eq!(layers[0].nested_names(), ["links"]);
+        assert_eq!(layers[0].nested_kinds(), [link_kind()]);
+        assert_eq!(layers[0].property_names(), [] as [String; 0]);
+        let values: Vec<_> = layers[0].features().iter().map(|f| f.nested().to_vec()).collect();
+        assert_eq!(
+            values,
+            [
+                vec![NestedValue::list([link(1, 0.5), link(2, 1.5)])],
+                vec![NestedValue::List(None)],
+                vec![NestedValue::List(None)],
+            ]
+        );
+    }
+
+    #[test]
+    fn every_tile_of_a_layer_has_the_kind_every_document_of_it_gives() {
+        let layers = v2_layers(&[
+            vec![vec![("links", doc(r#"[{"id": 1}]"#))]],
+            vec![vec![("links", doc(r#"[{"at": 0.5}]"#))]],
+            vec![vec![("links", doc(r#"[{"id": 3, "at": 2}]"#))]],
+        ]);
+
+        assert_eq!(layers.len(), 3);
+        for layer in &layers {
+            assert_eq!(layer.nested_names(), ["links"]);
+            assert_eq!(layer.nested_kinds(), [link_kind()]);
+        }
+        assert_eq!(
+            layers[2].features()[0].nested(),
+            [NestedValue::list([link(3, 2.0)])],
+            "an integer is a float in a column that has floats"
+        );
+    }
+
+    #[test]
+    fn values_that_share_no_shape_are_kept_as_json_text_in_every_tile() {
+        let layers = v2_layers(&[
+            vec![vec![("doc", doc(r#"{"v": {"k": 1}}"#))]],
+            vec![vec![("doc", doc(r#"{"v": 7}"#))]],
+        ]);
+
+        for layer in &layers {
+            assert_eq!(
+                layer.nested_kinds(),
+                [NestedKind::map([("v", NestedKind::Leaf(PropKind::Str))])]
+            );
+        }
+        let text = |layer: &TileLayer| layer.features()[0].nested().to_vec();
+        assert_eq!(
+            text(&layers[0]),
+            [NestedValue::map([(
+                "v",
+                leaf(PropValue::Str(Some(r#"{"k":1}"#.into())))
+            )])]
+        );
+        assert_eq!(
+            text(&layers[1]),
+            [NestedValue::map([("v", leaf(PropValue::Str(Some("7".into()))))])]
+        );
+    }
+
+    #[test]
+    fn documents_that_are_all_scalars_are_a_property_column_of_one_kind() {
+        let layers = v2_layers(&[
+            vec![vec![("depth", doc("3")), ("name", doc(r#""a""#))]],
+            vec![vec![("depth", doc("-2.5")), ("name", doc("7"))]],
+        ]);
+
+        for layer in &layers {
+            assert_eq!(layer.nested_names(), [] as [String; 0]);
+            assert_eq!(layer.property_names(), ["depth", "name"]);
+        }
+        assert_eq!(
+            layers[0].features()[0].properties(),
+            [PropValue::F64(Some(3.0)), PropValue::Str(Some("a".into()))]
+        );
+        assert_eq!(
+            layers[1].features()[0].properties(),
+            [PropValue::F64(Some(-2.5)), PropValue::Str(Some("7".into()))]
+        );
+    }
+
+    #[test]
+    fn negative_integer_documents_keep_their_sign() {
+        let layers = v2_layers(&[vec![vec![("rank", doc("-4"))], vec![("rank", doc("9"))]]]);
+
+        let ranks: Vec<_> = layers[0].features().iter().map(|f| f.properties()[0].clone()).collect();
+        assert_eq!(ranks, [PropValue::I32(Some(-4)), PropValue::I32(Some(9))]);
+    }
+
+    #[test]
+    fn documents_with_nothing_to_keep_leave_the_column_out() {
+        let layers = v2_layers(&[vec![
+            vec![("empty", doc(r#"{"a": {}, "b": null}"#))],
+            vec![("empty", doc("null"))],
+            vec![],
+        ]]);
+
+        assert_eq!(layers[0].nested_names(), [] as [String; 0]);
+        assert_eq!(layers[0].property_names(), [] as [String; 0]);
+        assert_eq!(layers[0].features().len(), 3);
+    }
+
+    #[test]
+    fn a_key_with_documents_and_plain_values_is_a_string_column() {
+        let layers = v2_layers(&[
+            vec![vec![("links", doc(r#"[{"id": 1}]"#))]],
+            vec![vec![("links", Value::Plain(PropValueRef::Str("none")))]],
+        ]);
+
+        for layer in &layers {
+            assert_eq!(layer.nested_names(), [] as [String; 0]);
+            assert_eq!(layer.property_names(), ["links"]);
+        }
+        assert_eq!(
+            layers[0].features()[0].properties(),
+            [PropValue::Str(Some(r#"[{"id": 1}]"#.into()))]
+        );
+        assert_eq!(
+            layers[1].features()[0].properties(),
+            [PropValue::Str(Some("none".into()))]
+        );
+    }
+
+    #[test]
+    fn a_nested_column_sits_next_to_property_columns() {
+        let layers = v2_layers(&[vec![vec![
+            ("name", Value::Plain(PropValueRef::Str("main"))),
+            ("links", doc(r#"[{"id": 1, "at": 0.5}]"#)),
+            ("lanes", Value::Plain(PropValueRef::I64(2))),
+        ]]]);
+
+        assert_eq!(layers[0].property_names(), ["lanes", "name"]);
+        assert_eq!(layers[0].nested_names(), ["links"]);
+        assert_eq!(layers[0].features()[0].nested(), [NestedValue::list([link(1, 0.5)])]);
+    }
+
+    #[test]
+    fn a_v1_tile_holds_a_document_as_its_json_text() {
+        let tiles = [vec![vec![("links", doc(r#"[{"id":1,"at":0.5}]"#))]]];
+
+        let encoded = encode_tiles(&tiles, TileFormat::Mlt, WireVersion::V01, false);
+
+        let mut layers = Parser::default().parse_layers(&encoded[0].data).unwrap();
+        let layer = layers.remove(0).into_tile(&mut Decoder::default()).unwrap().unwrap();
+        assert_eq!(layer.property_names(), ["links"]);
+        assert_eq!(
+            layer.features()[0].properties(),
+            [PropValue::Str(Some(r#"[{"id":1,"at":0.5}]"#.into()))]
+        );
+    }
+
+    #[test]
+    fn an_mvt_tile_holds_a_document_as_its_json_text() {
+        let tiles = [vec![vec![("links", doc(r#"[{"id":1,"at":0.5}]"#))]]];
+
+        let encoded = encode_tiles(&tiles, TileFormat::Mvt, WireVersion::V01, false);
+
+        let mvt = MvtReaderRef::new(&encoded[0].data).unwrap();
+        let layer = mvt.layers().next().unwrap();
+        let properties: BTreeMap<_, _> = layer
+            .features()
+            .next()
+            .unwrap()
+            .properties_vec()
+            .unwrap()
+            .into_iter()
+            .collect();
+        assert_eq!(
+            properties,
+            BTreeMap::from([("links", MvtValueRef::String(r#"[{"id":1,"at":0.5}]"#))])
+        );
+        assert_eq!(encoded[0].coord, TileCoord::new_unchecked(0, 0, 0));
+    }
+}

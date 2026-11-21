@@ -2,10 +2,17 @@
 //! Every property is dynamic: a tile's columns are whatever keys its features carry.
 
 use std::borrow::Cow;
+#[cfg(feature = "unstable-mlt-v2")]
+use std::collections::BTreeMap;
 
 pub use bytestring::ByteString;
 use lasso::{Capacity, Key as _, Rodeo, RodeoResolver, Spur, ThreadedRodeo};
+#[cfg(feature = "unstable-mlt-v2")]
+use mlt_core::NestedKind;
 use mlt_core::{PropKind, PropValueRef};
+
+#[cfg(feature = "unstable-mlt-v2")]
+use crate::nested::Shape;
 
 /// A source's text value, a slice of a buffer shared with the rest of its batch.
 pub type SourceStr = ByteString;
@@ -140,6 +147,8 @@ impl KeyInterner {
             known: self.known,
             names: self.keys.into_resolver(),
             kinds: Vec::new(),
+            #[cfg(feature = "unstable-mlt-v2")]
+            documents: BTreeMap::new(),
         }
     }
 
@@ -154,6 +163,8 @@ impl KeyInterner {
             known: self.known,
             names: names.into_resolver(),
             kinds: Vec::new(),
+            #[cfg(feature = "unstable-mlt-v2")]
+            documents: BTreeMap::new(),
         }
     }
 }
@@ -165,6 +176,21 @@ pub struct KeyNames {
     names: RodeoResolver,
     /// By key; empty when no render tallied them.
     kinds: Vec<KeyKind>,
+    /// The keys whose values are all `jsonb` documents, which the v2 wire format keeps whole.
+    #[cfg(feature = "unstable-mlt-v2")]
+    documents: BTreeMap<KeyId, DocumentColumn>,
+}
+
+/// Where the documents of one key go in every tile of its layer.
+#[cfg(feature = "unstable-mlt-v2")]
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum DocumentColumn {
+    /// Every document is a scalar of this kind: an ordinary property column.
+    Scalar(PropKind),
+    /// A nested column of this shape.
+    Nested(NestedKind),
+    /// The documents hold nothing a tile can keep, so the key is left out.
+    Dropped,
 }
 
 impl KeyNames {
@@ -174,6 +200,32 @@ impl KeyNames {
     pub(crate) fn with_kinds(mut self, kinds: &[KeyKind]) -> Self {
         kinds.clone_into(&mut self.kinds);
         self
+    }
+
+    /// These names with the column every key of `documents` takes in every tile. Call after
+    /// [`with_kinds`](Self::with_kinds). A key that also held a plain value is not a document key:
+    /// its documents stay their JSON text in a string column.
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[must_use]
+    pub(crate) fn with_documents(mut self, documents: &BTreeMap<KeyId, Shape>) -> Self {
+        for (&key, shape) in documents {
+            if self.kinds.get(key.index()).is_some_and(|kind| kind.seen.plain) {
+                continue;
+            }
+            let column = match shape.clone().kind() {
+                None => DocumentColumn::Dropped,
+                Some(NestedKind::Leaf(kind)) => DocumentColumn::Scalar(kind),
+                Some(kind) => DocumentColumn::Nested(kind),
+            };
+            self.documents.insert(key, column);
+        }
+        self
+    }
+
+    /// Where the documents of `id` go, if it is a document key.
+    #[cfg(feature = "unstable-mlt-v2")]
+    pub(crate) fn document(&self, id: KeyId) -> Option<&DocumentColumn> {
+        self.documents.get(&id)
     }
 
     /// The kind every value of `id` took, if any were tallied.
@@ -213,6 +265,18 @@ pub(crate) struct KeyKind {
     pub(crate) has_negative: bool,
     /// Whether values of kinds no single column holds made the kind `Str`.
     pub(crate) mixed: bool,
+    #[cfg(feature = "unstable-mlt-v2")]
+    seen: Seen,
+}
+
+/// What kinds of value a key held.
+#[cfg(feature = "unstable-mlt-v2")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Seen {
+    /// A `jsonb` document, tallied as a string.
+    document: bool,
+    /// A value that is not a document.
+    plain: bool,
 }
 
 impl KeyKind {
@@ -243,6 +307,17 @@ impl KeyKind {
             PropValueRef::Str(_) => (PropKind::Str, false),
         };
         self.add_kind(kind, negative);
+        #[cfg(feature = "unstable-mlt-v2")]
+        {
+            self.seen.plain = true;
+        }
+    }
+
+    /// Tallies a `jsonb` document, which a plain reader sees as a string.
+    #[cfg(feature = "unstable-mlt-v2")]
+    fn add_document(&mut self) {
+        self.add_kind(PropKind::Str, false);
+        self.seen.document = true;
     }
 
     fn merge(&mut self, other: Self) {
@@ -250,32 +325,78 @@ impl KeyKind {
             self.add_kind(kind, other.has_negative);
         }
         self.mixed |= other.mixed;
+        #[cfg(feature = "unstable-mlt-v2")]
+        {
+            self.seen.document |= other.seen.document;
+            self.seen.plain |= other.seen.plain;
+        }
     }
 }
 
 /// The [`KeyKind`] of every key of every layer, tallied while rendering.
 #[derive(Debug, Default)]
-pub(crate) struct LayerKinds(Vec<Vec<KeyKind>>);
+pub(crate) struct LayerKinds {
+    layers: Vec<Vec<KeyKind>>,
+    /// The merged shape of every document of each key, by layer.
+    #[cfg(feature = "unstable-mlt-v2")]
+    documents: Vec<BTreeMap<KeyId, Shape>>,
+}
 
 impl LayerKinds {
-    /// Tallies `value` of `key` in layer `layer`.
-    pub(crate) fn add(&mut self, layer: usize, key: KeyId, value: PropValueRef<'_>) {
-        if layer >= self.0.len() {
-            self.0.resize_with(layer + 1, Vec::new);
+    /// Tallies `value` of `key` in layer `layer`; a `jsonb` document adds to the key's shape.
+    pub(crate) fn add_prop<S: AsRef<str>>(&mut self, layer: usize, key: KeyId, value: &Prop<S>) {
+        #[cfg(feature = "unstable-mlt-v2")]
+        if let Prop::Nested(json) = value {
+            self.add_document(layer, key, json.as_ref());
+            return;
         }
-        let keys = &mut self.0[layer];
+        self.add(layer, key, value.as_ref());
+    }
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    fn add_document(&mut self, layer: usize, key: KeyId, json: &str) {
+        self.kind_mut(layer, key).add_document();
+        if layer >= self.documents.len() {
+            self.documents.resize_with(layer + 1, BTreeMap::new);
+        }
+        let shape = self.documents[layer].entry(key).or_default();
+        *shape = std::mem::take(shape).merge(Shape::of(&crate::nested::parse(json)));
+    }
+
+    fn kind_mut(&mut self, layer: usize, key: KeyId) -> &mut KeyKind {
+        if layer >= self.layers.len() {
+            self.layers.resize_with(layer + 1, Vec::new);
+        }
+        let keys = &mut self.layers[layer];
         if key.index() >= keys.len() {
             keys.resize(key.index() + 1, KeyKind::default());
         }
-        keys[key.index()].add(value);
+        &mut keys[key.index()]
+    }
+
+    /// Tallies `value` of `key` in layer `layer`.
+    pub(crate) fn add(&mut self, layer: usize, key: KeyId, value: PropValueRef<'_>) {
+        self.kind_mut(layer, key).add(value);
     }
 
     /// Adds another tally to this one.
     pub(crate) fn merge(&mut self, other: Self) {
-        if self.0.len() < other.0.len() {
-            self.0.resize_with(other.0.len(), Vec::new);
+        if self.layers.len() < other.layers.len() {
+            self.layers.resize_with(other.layers.len(), Vec::new);
         }
-        for (keys, others) in self.0.iter_mut().zip(other.0) {
+        #[cfg(feature = "unstable-mlt-v2")]
+        {
+            if self.documents.len() < other.documents.len() {
+                self.documents.resize_with(other.documents.len(), BTreeMap::new);
+            }
+            for (shapes, others) in self.documents.iter_mut().zip(other.documents) {
+                for (key, other) in others {
+                    let shape = shapes.entry(key).or_default();
+                    *shape = std::mem::take(shape).merge(other);
+                }
+            }
+        }
+        for (keys, others) in self.layers.iter_mut().zip(other.layers) {
             if keys.len() < others.len() {
                 keys.resize(others.len(), KeyKind::default());
             }
@@ -287,7 +408,13 @@ impl LayerKinds {
 
     /// The kinds of layer `layer`'s keys, by key.
     pub(crate) fn layer(&self, layer: usize) -> &[KeyKind] {
-        self.0.get(layer).map_or(&[], Vec::as_slice)
+        self.layers.get(layer).map_or(&[], Vec::as_slice)
+    }
+
+    /// The merged shape of the documents of each key of layer `layer`.
+    #[cfg(feature = "unstable-mlt-v2")]
+    pub(crate) fn documents(&self, layer: usize) -> Option<&BTreeMap<KeyId, Shape>> {
+        self.documents.get(layer)
     }
 }
 
@@ -302,6 +429,39 @@ mod tests {
         assert_eq!(prop.as_ref(), PropValueRef::Str("{\"a\":[]}"));
         assert_eq!(prop.as_cow(), Prop::Nested(Cow::Borrowed("{\"a\":[]}")));
         assert_ne!(prop.clone(), Prop::Str("{\"a\":[]}".to_owned()));
+    }
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[test]
+    fn the_shapes_of_documents_merge_across_workers_into_one_column_per_key() {
+        let (links, name) = (KeyId::new(0), KeyId::new(1));
+        let mut first = LayerKinds::default();
+        first.add_prop(0, links, &Prop::<&str>::Nested(r#"[{"id": 1}]"#));
+        first.add_prop(0, name, &Prop::<&str>::Nested("3"));
+        let mut second = LayerKinds::default();
+        second.add_prop(0, links, &Prop::<&str>::Nested(r#"[{"at": 0.5}]"#));
+        second.add_prop(0, name, &Prop::<&str>::Str("x"));
+        first.merge(second);
+
+        let interner = KeyInterner::new(["links", "name"]);
+        let names = interner
+            .freeze()
+            .with_kinds(first.layer(0))
+            .with_documents(first.documents(0).unwrap());
+
+        assert_eq!(
+            names.document(links),
+            Some(&DocumentColumn::Nested(NestedKind::list(NestedKind::map([
+                ("at", NestedKind::Leaf(PropKind::F64)),
+                ("id", NestedKind::Leaf(PropKind::I64)),
+            ]))))
+        );
+        assert_eq!(
+            names.document(name),
+            None,
+            "a plain value makes the key a string column"
+        );
+        assert_eq!(names.kind(name).map(KeyKind::merged), Some(PropKind::Str));
     }
 
     #[test]

@@ -2,6 +2,8 @@
 
 mod assemble;
 mod columns;
+#[cfg(feature = "unstable-mlt-v2")]
+mod documents;
 mod encode;
 mod per_tile;
 
@@ -48,7 +50,8 @@ pub(crate) struct TileEncoding<'p> {
 impl<'p> TileEncoding<'p> {
     /// The encoding of `plan`'s tiles, handing `batches` back. Taking the batches means their sorter
     /// was consumed, so every render worker is done and every property key has a name. MLT columns
-    /// take the `kinds` the render tallied, so a key's column has one kind in every tile.
+    /// take the `kinds` the render tallied, so a key's column has one kind in every tile; in the v2 wire
+    /// format that includes the shape of a nested column.
     pub(crate) fn start(
         plan: &'p Plan,
         kinds: &LayerKinds,
@@ -63,7 +66,16 @@ impl<'p> TileEncoding<'p> {
             names = names
                 .into_iter()
                 .enumerate()
-                .map(|(layer, names)| names.with_kinds(kinds.layer(layer)))
+                .map(|(layer, names)| {
+                    let names = names.with_kinds(kinds.layer(layer));
+                    #[cfg(feature = "unstable-mlt-v2")]
+                    if plan.layers[layer].info.encoder.wire_version() != mlt_core::encoder::WireVersion::V01
+                        && let Some(documents) = kinds.documents(layer)
+                    {
+                        return names.with_documents(documents);
+                    }
+                    names
+                })
                 .collect();
         }
         let encoding = Self {
