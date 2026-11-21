@@ -193,7 +193,7 @@ async fn an_mlt_accept_header_converts_the_tile_and_suffixes_its_etag() {
 
     assert_eq!(mlt.status(), 200);
     insta::assert_snapshot!(mlt.headers_snapshot(), @r#"
-    content-length: 927
+    content-length: 987
     content-type: application/vnd.maplibre-tile
     etag: "lDkxk7p2r2HsWFzhXDsD5A+mlt"
     vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
