@@ -43,6 +43,8 @@ internals = []
 osm = ["dep:osmflow"]
 # Reading ESRI shapefiles, plain or zipped, as a feature source
 shapefile = ["dep:shapefile", "dep:zip"]
+# Nested columns of the MLT v2 wire format, which is not stable yet
+unstable-mlt-v2 = ["mlt-core/unstable-v2", "dep:serde_json"]
 
 [dependencies]
 bytes.workspace = true
