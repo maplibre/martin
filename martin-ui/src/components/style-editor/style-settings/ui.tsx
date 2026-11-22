@@ -126,7 +126,9 @@ export function StatusLine({ tone, children }: { tone: StatusTone; children: str
       )}
       role="status"
     >
-      <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', DOT[tone])} />
+      {tone === 'ok' ? null : (
+        <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', DOT[tone])} />
+      )}
       <span className="min-w-0 truncate" title={children}>
         {children}
       </span>
@@ -134,11 +136,11 @@ export function StatusLine({ tone, children }: { tone: StatusTone; children: str
   );
 }
 
-/** A neutral bordered box with an amber warning icon, for warnings that need explaining. */
+/** An inline warning: a small amber icon beside muted text, with no box around it. */
 export function WarningBox({ children }: { children: ReactNode }) {
   return (
-    <div className="flex gap-2 rounded-md border bg-muted/30 p-2">
-      <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-amber-500" />
+    <div className="flex gap-1.5">
+      <TriangleAlert className="mt-px size-3 shrink-0 text-amber-500" />
       <div className="min-w-0 flex-1 space-y-1.5 break-words text-[11px] text-muted-foreground">
         {children}
       </div>
