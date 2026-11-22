@@ -1,119 +1,173 @@
-import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StyleEditor } from '@/components/style-editor';
-import type { ButtonProps } from '@/components/ui/button';
-import { cleanup, render } from '../test-utils';
-
-// Mock component interfaces
-interface MockComponentProps {
-  children?: ReactNode;
-  [key: string]: unknown;
-}
-
-// Mock the UI components
-vi.mock('@/components/ui/button', () => ({
-  Button: ({ children, onClick, ...props }: ButtonProps & { onClick?: () => void }) => (
-    <button onClick={onClick} {...props}>
-      {children}
-    </button>
-  ),
-}));
-
-vi.mock('@/components/ui/card', () => ({
-  Card: ({ children, ...props }: MockComponentProps) => <div {...props}>{children}</div>,
-  CardContent: ({ children, ...props }: MockComponentProps) => <div {...props}>{children}</div>,
-  CardHeader: ({ children, ...props }: MockComponentProps) => <div {...props}>{children}</div>,
-  CardTitle: ({ children, ...props }: MockComponentProps) => <h3 {...props}>{children}</h3>,
-}));
 
 vi.mock('@/lib/api', () => ({
   buildMartinUrl: vi.fn((path: string) => `http://localhost:3000${path}`),
 }));
 
+vi.mock('lucide-react', async (importOriginal) => importOriginal());
+
+vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}));
+
+vi.mock('maplibre-gl', () => {
+  class FakeMap {
+    on = vi.fn();
+    off = vi.fn();
+    remove = vi.fn();
+    setStyle = vi.fn();
+    getZoom = vi.fn(() => 3);
+    getCanvas = vi.fn(() => ({ style: {} }));
+    addControl = vi.fn();
+    getCenter = vi.fn(() => ({ lat: 0, lng: 0 }));
+    queryRenderedFeatures = vi.fn(() => []);
+    querySourceFeatures = vi.fn(() => []);
+    getSource = vi.fn(() => undefined);
+  }
+  class NavigationControl {}
+  return { Map: FakeMap, NavigationControl };
+});
+
 describe('StyleEditor', () => {
-  const mockStyle = {
-    colors: ['#ff0000', '#00ff00', '#0000ff'],
-    last_modified_at: '2023-01-01',
-    layer_count: 5,
-    path: '/styles/test-style.json',
-    type: 'vector' as const,
-    version_hash: 'abc123',
-  };
-
-  const defaultProps = {
-    onClose: vi.fn(),
-    style: mockStyle,
-    styleName: 'test-style',
-  };
-
   afterEach(() => {
     cleanup();
-    vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
-  it('renders the style editor with correct title', () => {
-    const { container } = render(<StyleEditor {...defaultProps} />);
-
-    expect(container.textContent).toContain('test-style');
-    expect(container.textContent).toContain('/styles/test-style.json');
-  });
-
-  it('renders navigation buttons', () => {
-    const { container } = render(<StyleEditor {...defaultProps} />);
-
-    const backButton = container.querySelector('button');
-    expect(backButton).toBeTruthy();
-    expect(backButton?.textContent).toContain('Back to Catalog');
-  });
-
-  it('renders iframe with correct src', () => {
-    const { container } = render(<StyleEditor {...defaultProps} />);
-
-    const iframe = container.querySelector('iframe');
-    expect(iframe).toBeTruthy();
-    expect(iframe?.getAttribute('src')).toBeDefined();
-
-    const src = iframe?.getAttribute('src');
-    expect(src).toContain('https://maplibre.org/maputnik/');
-    expect(src).toContain('style=http%3A%2F%2Flocalhost%3A3000%2Fstyle%2Ftest-style');
-  });
-
-  it('renders iframe without loading state', () => {
-    const { container } = render(<StyleEditor {...defaultProps} />);
-
-    const iframe = container.querySelector('iframe');
-    expect(iframe).toBeTruthy();
-    expect(iframe?.getAttribute('title')).toBe('Maputnik Style Editor - test-style');
-  });
-
-  it('calls onClose when back button is clicked', () => {
-    const onClose = vi.fn();
-    const { container } = render(<StyleEditor {...defaultProps} onClose={onClose} />);
-
-    const backButton = container.querySelector('button');
-    expect(backButton).toBeTruthy();
-    backButton?.click();
-
-    expect(onClose).toHaveBeenCalled();
-  });
-
-  it('renders with proper iframe sandbox attributes', () => {
-    const { container } = render(<StyleEditor {...defaultProps} />);
-
-    const iframe = container.querySelector('iframe');
-    expect(iframe?.getAttribute('sandbox')).toBe(
-      'allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals',
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => {})),
     );
   });
 
-  it('constructs proper Maputnik URL with encoded style parameter', () => {
-    const { container } = render(<StyleEditor {...defaultProps} />);
+  it('shows the style name and file name in the header with the full path as title', () => {
+    render(
+      <StyleEditor
+        onClose={vi.fn()}
+        style={{
+          colors: [],
+          last_modified_at: '2023-01-01',
+          layer_count: 5,
+          path: '/styles/test-style.json',
+          type: 'vector',
+          version_hash: 'abc123',
+        }}
+        styleName="test-style"
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'test-style' }).textContent).toBe('test-style');
+    expect(screen.getByText('test-style.json').getAttribute('title')).toBe(
+      '/styles/test-style.json',
+    );
+  });
 
-    const iframe = container.querySelector('iframe');
-    const src = iframe?.getAttribute('src');
+  it('shows the loading state while the style is fetched', () => {
+    render(
+      <StyleEditor
+        onClose={vi.fn()}
+        style={{
+          colors: [],
+          last_modified_at: '2023-01-01',
+          layer_count: 5,
+          path: '/s.json',
+          type: 'vector',
+          version_hash: 'h',
+        }}
+        styleName="test-style"
+      />,
+    );
+    expect(screen.getByRole('status').textContent).toBe(' Loading style…');
+  });
 
-    expect(src).toContain('https://maplibre.org/maputnik/');
-    expect(src).toContain('style=');
-    expect(src).toContain('test-style');
+  it('requests the style from the Martin style endpoint', () => {
+    const fetchMock = vi.fn((_url: string) => new Promise(() => {}));
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <StyleEditor
+        onClose={vi.fn()}
+        style={{
+          colors: [],
+          last_modified_at: '2023-01-01',
+          layer_count: 5,
+          path: '/s.json',
+          type: 'vector',
+          version_hash: 'h',
+        }}
+        styleName="test-style"
+      />,
+    );
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      'http://localhost:3000/style/test-style',
+    ]);
+  });
+
+  it('shows the error when the fetch fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: false, status: 404, statusText: 'Not Found' })),
+    );
+    render(
+      <StyleEditor
+        onClose={vi.fn()}
+        style={{
+          colors: [],
+          last_modified_at: '2023-01-01',
+          layer_count: 5,
+          path: '/s.json',
+          type: 'vector',
+          version_hash: 'h',
+        }}
+        styleName="test-style"
+      />,
+    );
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Could not load test-style: 404 Not Found',
+    );
+  });
+
+  it('shows the error when the network request rejects', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('network down'))),
+    );
+    render(
+      <StyleEditor
+        onClose={vi.fn()}
+        style={{
+          colors: [],
+          last_modified_at: '2023-01-01',
+          layer_count: 5,
+          path: '/s.json',
+          type: 'vector',
+          version_hash: 'h',
+        }}
+        styleName="test-style"
+      />,
+    );
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Could not load test-style: network down',
+    );
+  });
+
+  it('calls onClose when the back button is clicked', async () => {
+    const onClose = vi.fn();
+    render(
+      <StyleEditor
+        onClose={onClose}
+        style={{
+          colors: [],
+          last_modified_at: '2023-01-01',
+          layer_count: 5,
+          path: '/s.json',
+          type: 'vector',
+          version_hash: 'h',
+        }}
+        styleName="test-style"
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Catalog' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

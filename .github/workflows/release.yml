@@ -162,7 +162,7 @@ jobs:
       # A GitHub App token, so that the tags, releases and PRs release-plz creates
       # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
       - name: Generate GitHub token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: generate-token
         with:
           app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
@@ -213,7 +213,7 @@ jobs:
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Install uv
         continue-on-error: true
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Check out main's head for the release PR
