@@ -5,7 +5,7 @@ A web interface for previewing tiles served by Martin with integrated style edit
 ## Features
 
 - **Tile Catalog**: Browse and preview all available tile sources
-- **Style Editor**: Visual style editing with integrated Maputnik editor
+- **Style Editor**: Built-in visual editor for layers, spec-driven property values, palette colors, and style checks
 - **Font Catalog**: View and manage font collections
 - **Sprite Catalog**: Browse and download sprite collections
 - **Analytics**: Real-time performance metrics and usage statistics

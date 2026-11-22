@@ -1,44 +1,10 @@
 import { useTheme } from 'next-themes';
-import { PbfReader } from 'pbf';
 import { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { buildMartinUrl } from '@/lib/api';
+import { BORDER, type Glyph, parseGlyphs } from '@/lib/glyphs';
 
 const PREVIEW = 'The quick brown fox jumps over the lazy dog';
-const BORDER = 3; // SDF glyph PBF border size
-
-type Glyph = {
-  bitmap: Uint8Array;
-  width: number;
-  height: number;
-  left: number;
-  top: number;
-  advance: number;
-};
-
-function parseGlyphs(data: ArrayBuffer) {
-  const glyphs = new Map<number, Glyph>();
-  new PbfReader(data).readFields((tag, _, pbf) => {
-    if (tag === 1)
-      pbf.readMessage((tag, _, pbf) => {
-        if (tag === 3) {
-          const g: Record<string, unknown> = {};
-          pbf.readMessage((tag, _, pbf) => {
-            if (tag === 1) g.id = pbf.readVarint();
-            else if (tag === 2) g.bitmap = pbf.readBytes();
-            else if (tag === 3) g.width = pbf.readVarint();
-            else if (tag === 4) g.height = pbf.readVarint();
-            else if (tag === 5) g.left = pbf.readSVarint();
-            else if (tag === 6) g.top = pbf.readSVarint();
-            else if (tag === 7) g.advance = pbf.readVarint();
-          }, null);
-          if (g.id != null && g.bitmap) glyphs.set(g.id as number, g as unknown as Glyph);
-        }
-      }, null);
-  }, null);
-  return glyphs;
-}
-
 function render(canvas: HTMLCanvasElement, glyphs: Map<number, Glyph>) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;

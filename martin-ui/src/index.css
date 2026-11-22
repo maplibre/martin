@@ -25,6 +25,8 @@
   --color-card-foreground: var(--card-foreground);
 
   --color-brand: var(--brand);
+  --color-editor-accent: var(--editor-accent);
+  --color-editor-accent-soft: var(--editor-accent-soft);
   --color-brand-soft: var(--brand-soft);
   --color-brand-soft-foreground: var(--brand-soft-foreground);
 
@@ -107,6 +109,9 @@
     --primary-hover: #4f27b8;
     --primary-foreground: #ffffff;
     --brand: #5b2fcf;
+    /* Martin pink: the style editor's accent for selection and highlights */
+    --editor-accent: #e6005c;
+    --editor-accent-soft: #fde6ef;
     --brand-soft: #ece7fc;
     --brand-soft-foreground: #3d1fa0;
     --accent: #eae6fa;
@@ -153,6 +158,8 @@
     --primary-hover: #6a3de0;
     --primary-foreground: #ffffff;
     --brand: #b6a0ff;
+    --editor-accent: #ff4d8d;
+    --editor-accent-soft: #3a1426;
     --brand-soft: #251f52;
     --brand-soft-foreground: #d5c9ff;
     --accent: #24254a;
