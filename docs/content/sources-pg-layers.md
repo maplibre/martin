@@ -444,14 +444,16 @@ postgres:
               thinning: { maxzoom: 9, method: grid, size: 128, limit: 1 }
 ```
 
-| Option               | Default                             | Meaning                                                    |
-|----------------------|-------------------------------------|------------------------------------------------------------|
-| `method`             | required                            | `grid`, `distance` or `tile`                               |
-| `size`               | required by `grid`                  | Side of a square above 0, in pixels of a 256-pixel tile    |
-| `limit`              | required by `grid`                  | Points kept per square and key in each tile, 1 or more     |
-| `distance`           | required by `distance`              | Pixels within which a feature with the same key is dropped |
-| `keys`               | one key for all; required by `tile` | CEL expressions forming the key                            |
-| `minzoom`, `maxzoom` | the layer's zooms                   | Where it runs                                              |
+| Option               | Default                                | Meaning                                                    |
+|----------------------|----------------------------------------|------------------------------------------------------------|
+| `method`             | required                               | `grid`, `distance` or `tile`                               |
+| `size`               | required by `grid`                     | Side of a square above 0, in pixels of a 256-pixel tile    |
+| `limit`              | every point; `grid` needs it or `rank` | Points kept per square and key in each tile, 1 or more     |
+| `rank`               | none                                   | `grid`: attribute each kept point's position is written to |
+| `rank_offset`        | `0`                                    | `grid`: added to the position `rank` writes                |
+| `distance`           | required by `distance`                 | Pixels within which a feature with the same key is dropped |
+| `keys`               | one key for all; required by `tile`    | CEL expressions forming the key                            |
+| `minzoom`, `maxzoom` | the layer's zooms                      | Where it runs                                              |
 
 `grid` thins out points, such as labels, the way Planetiler's point label grid does. At each zoom it
 covers, the world is cut into squares of `size` pixels, aligned to the world rather than to tiles. Each
@@ -464,8 +466,26 @@ same way in both tiles only when each sees all of its points, so set the layer's
 
 --8<-- "images/generate/per-tile-thinning-grid.svg"
 
-A rule may set its own grid `thinning` for the features it takes, without `keys`, replacing the layer's
-grid, or `null` to turn the grid off for them. `distance` and `tile` thinning see every feature of the
+With `rank`, each point the grid keeps gets its position among the kept points of its square and key in
+the tile, in draw order and counting from 1, plus `rank_offset`, as Planetiler's OpenMapTiles `place` layer
+writes `rank` from its `gridrank`. A point that already has the attribute keeps its value, but still takes
+a position. Without `limit`, the grid keeps every point and only ranks them.
+
+```yaml
+place:
+  geometry: point
+  sort_by: [{ expr: "rank" }]
+  thinning: { maxzoom: 12, method: grid, size: 128, rank: rank, rank_offset: 10 }
+  rules:
+    - where: "rank == null"   # unranked towns and villages are thinned as well as ranked
+      thinning:
+        - { maxzoom: 8, method: grid, size: 128, limit: 4 }
+        - { minzoom: 9, maxzoom: 12, method: grid, size: 128, limit: 8 }
+```
+
+A rule may set its own grid `thinning` for the features it takes, with a `limit` and without `keys` or
+`rank`, replacing the layer's grid, or `null` to turn the grid off for them. The layer's `rank` still
+ranks the points a rule's grid keeps. `distance` and `tile` thinning see every feature of the
 layer; to spare some features, give them a key of only `null`s.
 
 `distance` places each feature at a representative point of what the tile holds of it, in the tile and its
