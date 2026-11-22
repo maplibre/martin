@@ -593,7 +593,7 @@ pub fn lower_source(
             .into_iter()
             .map(|column| match column {
                 ColumnDef::Keys(name) => ColumnDef::Document(name),
-                other @ (ColumnDef::Value(..) | ColumnDef::Document(_)) => other,
+                other @ (ColumnDef::Value(..) | ColumnDef::Document(_) | ColumnDef::Relations(_)) => other,
             })
             .collect()
     } else {
