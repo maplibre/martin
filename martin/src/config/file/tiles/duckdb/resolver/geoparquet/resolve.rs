@@ -11,7 +11,7 @@ use crate::config::file::tiles::duckdb::resolver::errors::DuckDbSourceResult;
 use crate::config::file::tiles::duckdb::resolver::introspect::introspect;
 use crate::config::file::tiles::duckdb::resolver::metadata::build_tilejson;
 use crate::config::file::tiles::duckdb::resolver::sql::{build_mvt_sql, parse_cql2_filter};
-use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
+use crate::config::file::tiles::duckdb::sources::{GeoParquetEntry, GeoParquetLocation};
 use crate::config::file::tiles::duckdb::sql_utils::escape_sql_string;
 
 /// The finalized location as a `DuckDB` string literal, for functions that take a path.
@@ -27,10 +27,14 @@ fn geoparquet_source_literal(entry: &GeoParquetEntry) -> String {
 
 /// Builds the `DuckDB` `FROM` expression from the finalized location.
 pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> (String, String) {
-    (
-        format!("read_parquet({})", geoparquet_source_literal(entry)),
-        entry.geoparquet.clone(),
-    )
+    let literal = geoparquet_source_literal(entry);
+    let from_expr = match entry.location {
+        // Without whole row groups, DuckDB 2.0 re-downloads large column chunks on every
+        // tile instead of serving them from its file cache (duckdb/duckdb#27680).
+        Some(GeoParquetLocation::Remote(_)) => format!("read_parquet({literal}, prefetch_strategy = 'whole_group')"),
+        Some(GeoParquetLocation::Local(_)) | None => format!("read_parquet({literal})"),
+    };
+    (from_expr, entry.geoparquet.clone())
 }
 
 /// Introspects geometry metadata, resolves SRID, and builds a tile-ready `DuckDBSource`.
