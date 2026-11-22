@@ -316,9 +316,13 @@ impl OutputLayers {
                 let definition = Definition { source: id, key };
                 let output = layer.layer.as_deref().unwrap_or(key);
                 let grid = source.grid(layer);
-                let geometry = lower_geometry(key, layer.geometry.as_ref())?;
-                let draws = geometry.first().and_then(|entry| entry.draws());
                 let layer_zooms = source_zooms.as_ref().and_then(|zooms| layer_zooms(layer, zooms));
+                let draws = if layer_zooms.is_some() {
+                    let geometry = lower_geometry(key, layer.geometry.as_ref())?;
+                    geometry.first().and_then(|entry| entry.draws())
+                } else {
+                    None
+                };
                 let entry = gathered
                     .entry(output)
                     .or_insert_with(|| Gathered::new(definition, grid.extent));
@@ -654,8 +658,6 @@ fn lower_layer(
     )]
     documents: Option<&[&str]>,
 ) -> GenerateResult<Option<LayerDef>> {
-    let geometry = lower_geometry(name, layer.geometry.as_ref())?;
-    let output = geometry.first().and_then(|entry| entry.draws());
     let Some(zooms) = layer_zooms(layer, &defaults.zooms) else {
         warn!(
             "Skipping layer `{name}` of source `{id}`: it has no zoom between {} and {}",
@@ -664,6 +666,8 @@ fn lower_layer(
         );
         return Ok(None);
     };
+    let geometry = lower_geometry(name, layer.geometry.as_ref())?;
+    let output = geometry.first().and_then(|entry| entry.draws());
     #[cfg(feature = "unstable-mlt-v2")]
     if let (Attributes::Properties(selectors), Some(documents @ [_, ..])) = (&layer.attributes, documents) {
         refuse_keys_inside_documents(id, name, selectors.as_slice(), static_columns, documents)?;
@@ -2275,6 +2279,25 @@ mod tests {
         .map(|_| ())
         .expect_err("point is never reached");
         insta::assert_snapshot!(err, @"layer `pois`: `point` in `geometry: [centroid, point]` takes no feature, as the entries before it take all of its types");
+    }
+
+    #[test]
+    fn a_layer_outside_the_run_zooms_is_skipped_even_when_its_geometry_list_is_refused() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    minzoom: 10
+                    geometry: [line, polygon_centroid]
+            "},
+            0..=5,
+        )
+        .expect("lowers");
+        assert!(scan.is_none());
     }
 
     #[test]
