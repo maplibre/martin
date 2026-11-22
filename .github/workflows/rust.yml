@@ -61,9 +61,12 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Free disk space for the restored build cache plus the coverage builds
+      - name: Free disk space in the background for the restored build cache plus the coverage builds
         if: matrix.os == 'ubuntu-26.04'
-        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
+        run: |
+          df -h /
+          # Deleting these takes 1-2 minutes, so it runs alongside the next steps.
+          sudo nohup rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup > /dev/null 2>&1 &
       - uses: $/.github/actions/setup-rust
         with:
           tools: 'just,nextest'
@@ -858,8 +861,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Free disk space for the restored build cache plus the PR's rebuilt crates
-        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
+      - name: Free disk space in the background for the restored build cache plus the PR's rebuilt crates
+        run: |
+          df -h /
+          # Deleting these takes 1-2 minutes, so it runs alongside the next steps.
+          sudo nohup rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup > /dev/null 2>&1 &
       - name: Set up sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: $/.github/actions/setup-rust
