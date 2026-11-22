@@ -192,8 +192,10 @@ zune-jpegxl = { workspace = true, optional = true }
 
 [dev-dependencies]
 actix-web.workspace = true
+anyhow.workspace = true
 approx.workspace = true
 backon.workspace = true
+clap.workspace = true
 criterion = { workspace = true }
 env_logger.workspace = true
 futures.workspace = true
@@ -210,6 +212,10 @@ testcontainers-modules.workspace = true
 tokio.workspace = true
 url.workspace = true
 wiremock.workspace = true
+
+[[example]]
+name = "render-tileserver"
+required-features = ["rendering"]
 
 [[example]]
 name = "pmtiles-tileserver"
