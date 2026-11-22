@@ -11,6 +11,7 @@ members = [
     "martin-tile-utils",
     "martin-tilegen",
     "martin-ui",
+    "martin-vendored-cql2",
     "mbtiles",
 ]
 
@@ -111,7 +112,7 @@ clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] 
 cog-tiles = { path = "cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
-cql2 = "0.6.0"
+cql2 = { package = "martin-vendored-cql2", version = "0.6.1", path = "martin-vendored-cql2" }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 crossterm = "0.29.0"
 csscolorparser = "0.9"
@@ -124,7 +125,8 @@ flate2 = { version = "1", default-features = false, features = ["zlib-rs", "runt
 flume = "0.12"
 fnv = "1"
 futures = "0.3"
-geo = "0.33.1"
+# no `earcut`: geo 0.33.1 pins it to =0.4.5, mlt-core needs ^0.4.10
+geo = { version = "0.33.1", default-features = false, features = ["multithreading"] }
 geo-index = { version = "0.4.0", features = ["rayon"] }
 geo-traits = "0.3"
 geo-types = "0.7.19"
@@ -158,7 +160,7 @@ mbtiles = { path = "./mbtiles", version = "0.23.0" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.22.2", default-features = false }
+mlt-core = { version = "0.23.0", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "9.0.0"
 num_cpus = "1"
@@ -262,10 +264,3 @@ unicode-ident.debug = false
 # Make release binaries a bit smaller
 lto = true
 codegen-units = 1
-
-[patch.crates-io]
-# maplibre/maplibre-tile-spec#2092: nested columns in `LayerWriter`
-mlt-core = { git = "https://github.com/CommanderStorm/maplibre-tile-spec", rev = "0530605f02a05979b41a7964e6cf08f051258c86" }
-# georust/geo#1533: unpin `earcut`, which the mlt-core above needs at ^0.4.10
-geo = { git = "https://github.com/georust/geo", rev = "f34ee562db2a843037fb865d354b82a521cd9796" }
-geo-types = { git = "https://github.com/georust/geo", rev = "f34ee562db2a843037fb865d354b82a521cd9796" }
