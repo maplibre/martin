@@ -47,8 +47,8 @@ jobs:
       contents: read
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
-    needs:
-      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
+    # Unlike the other test jobs, this one does not wait for lint-rust: it is the
+    # longest of them, so waiting would make it the last job of a pull request's run.
     strategy:
       fail-fast: false
       matrix:
