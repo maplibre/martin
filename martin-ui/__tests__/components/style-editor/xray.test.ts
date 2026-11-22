@@ -143,10 +143,34 @@ describe('xrayStyle', () => {
                 "geometry-type",
               ],
               [
-                "LineString",
-                "MultiLineString",
                 "Polygon",
                 "MultiPolygon",
+              ],
+              true,
+              false,
+            ],
+            "id": "xray:omt/water:outline",
+            "layout": {
+              "visibility": "visible",
+            },
+            "paint": {
+              "line-color": "hsl(20 80% 62%)",
+              "line-opacity": 0.85,
+              "line-width": 1,
+            },
+            "source": "omt",
+            "source-layer": "water",
+            "type": "line",
+          },
+          {
+            "filter": [
+              "match",
+              [
+                "geometry-type",
+              ],
+              [
+                "LineString",
+                "MultiLineString",
               ],
               true,
               false,
@@ -217,6 +241,8 @@ describe('xrayStyle', () => {
       ['xray:background', undefined],
       ['xray:omt/poi:fill', 'none'],
       ['xray:omt/water:fill', 'visible'],
+      ['xray:omt/poi:outline', 'none'],
+      ['xray:omt/water:outline', 'visible'],
       ['xray:omt/poi:line', 'none'],
       ['xray:omt/water:line', 'visible'],
       ['xray:omt/poi:point', 'none'],
@@ -279,6 +305,8 @@ describe('xrayStyle', () => {
         .filter((l) => l.type === 'line')
         .map((l) => [l.id, l.type === 'line' ? l.paint?.['line-opacity'] : undefined]),
     ).toEqual([
+      ['xray:omt/poi:outline', 0.15],
+      ['xray:omt/water:outline', 0.85],
       ['xray:omt/poi:line', 0.15],
       ['xray:omt/water:line', 0.85],
     ]);
@@ -320,13 +348,22 @@ describe('entryKeyOfXrayLayer', () => {
     expect(
       [
         'xray:omt/water:fill',
+        'xray:omt/water:outline',
         'xray:omt/water:point',
         'xray:hillshade',
         'xray:background',
         'xray:focus:line',
         'water',
       ].map(entryKeyOfXrayLayer),
-    ).toEqual(['omt/water', 'omt/water', 'hillshade', undefined, undefined, undefined]);
+    ).toEqual([
+      'omt/water',
+      'omt/water',
+      'omt/water',
+      'hillshade',
+      undefined,
+      undefined,
+      undefined,
+    ]);
   });
 });
 
@@ -334,10 +371,9 @@ describe('countXrayFeatures', () => {
   it('counts a feature with an id once across tiles and layers', () => {
     const counts = countXrayFeatures([
       { id: 1, layerId: 'xray:omt/water:fill' },
-      { id: 1, layerId: 'xray:omt/water:line' },
-      { id: 1, layerId: 'xray:omt/water:line' },
+      { id: 1, layerId: 'xray:omt/water:outline' },
+      { id: 1, layerId: 'xray:omt/water:fill' },
       { id: 2, layerId: 'xray:omt/water:fill' },
-      { id: 2, layerId: 'xray:omt/water:line' },
       { id: 3, layerId: 'xray:omt/water:line' },
       { id: 9, layerId: 'xray:background' },
       { id: 9, layerId: 'xray:focus:line' },
@@ -351,9 +387,16 @@ describe('countXrayFeatures', () => {
       { layerId: 'xray:omt/poi:point' },
       { layerId: 'xray:omt/poi:point' },
       { layerId: 'xray:omt/park:fill' },
-      { layerId: 'xray:omt/park:line' },
+      { layerId: 'xray:omt/park:outline' },
+      { layerId: 'xray:omt/road:line' },
     ]);
 
-    expect(Object.fromEntries(counts)).toEqual({ 'omt/park': 1, 'omt/poi': 2 });
+    expect(Object.fromEntries(counts)).toEqual({ 'omt/park': 1, 'omt/poi': 2, 'omt/road': 1 });
+  });
+
+  it('counts a polygon whose outline is outside the view from its fill alone', () => {
+    const counts = countXrayFeatures([{ id: 7, layerId: 'xray:omt/landuse:fill' }]);
+
+    expect(Object.fromEntries(counts)).toEqual({ 'omt/landuse': 1 });
   });
 });

@@ -36,10 +36,10 @@ const POLYGON: ExpressionSpecification = [
   true,
   false,
 ];
-const LINE_OR_POLYGON: ExpressionSpecification = [
+const LINE: ExpressionSpecification = [
   'match',
   ['geometry-type'],
-  ['LineString', 'MultiLineString', 'Polygon', 'MultiPolygon'],
+  ['LineString', 'MultiLineString'],
   true,
   false,
 ];
@@ -95,7 +95,7 @@ export function xrayEntries(
   }));
 }
 
-type Part = 'raster' | 'fill' | 'line' | 'point';
+type Part = 'raster' | 'fill' | 'outline' | 'line' | 'point';
 
 function entryLayer(
   entry: XrayEntry,
@@ -149,11 +149,12 @@ function entryLayer(
         paint: { 'fill-color': entry.color, 'fill-opacity': dimmed ? 0.02 : 0.06 },
         type: 'fill',
       };
+    case 'outline':
     case 'line':
       return {
         ...from,
-        filter: LINE_OR_POLYGON,
-        id: `${id}:line`,
+        filter: part === 'line' ? LINE : POLYGON,
+        id: `${id}:${part}`,
         layout,
         paint: { 'line-color': entry.color, 'line-opacity': dimmed ? 0.15 : 0.85, 'line-width': 1 },
         type: 'line',
@@ -246,7 +247,7 @@ export interface XrayOptions {
 }
 
 /** Draw order: areas under lines under points, so no geometry hides another kind. */
-const PARTS: readonly Part[] = ['raster', 'fill', 'line', 'point'];
+const PARTS: readonly Part[] = ['raster', 'fill', 'outline', 'line', 'point'];
 
 /** Replaces the style's layers with an unstyled drawing of every entry, keeping sources, sprite and glyphs. */
 export function xrayStyle(
@@ -284,7 +285,7 @@ export function entryKeyOfXrayLayer(layerId: string): string | undefined {
   if (!layerId.startsWith(XRAY_PREFIX)) return undefined;
   const rest = layerId.slice(XRAY_PREFIX.length);
   if (rest === 'background' || rest.startsWith('focus')) return undefined;
-  return rest.replace(/:(fill|line|point)$/, '');
+  return rest.replace(/:(fill|outline|line|point)$/, '');
 }
 
 /** A rendered feature as far as {@link countXrayFeatures} needs it. */
@@ -296,16 +297,16 @@ export interface RenderedFeature {
 }
 
 /**
- * Counts features per entry among those X-ray drew. The line and point layers between them draw every feature
- * exactly once, so the fill layers are skipped. A feature with an id counts once across tiles; one without an id
- * counts once per tile it is drawn in, since features may share all their properties.
+ * Counts features per entry among those X-ray drew. The fill, line and point layers between them draw every
+ * feature exactly once, so polygon outlines are skipped. A feature with an id counts once across tiles; one without
+ * an id counts once per tile it is drawn in, since features may share all their properties.
  */
 export function countXrayFeatures(features: Iterable<RenderedFeature>): Map<string, number> {
   const ids = new Map<string, Set<string | number>>();
   const anonymous = new Map<string, number>();
   for (const f of features) {
     const key = entryKeyOfXrayLayer(f.layerId);
-    if (!key || f.layerId.endsWith(':fill')) continue;
+    if (!key || f.layerId.endsWith(':outline')) continue;
     if (f.id === undefined) anonymous.set(key, (anonymous.get(key) ?? 0) + 1);
     else ids.set(key, (ids.get(key) ?? new Set()).add(f.id));
   }
