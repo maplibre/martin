@@ -63,6 +63,29 @@ export type FilterModel =
       expression: unknown;
     };
 
+/** How each operator reads in a sentence. */
+export const OPERATOR_LABEL: Record<FilterOperator, string> = {
+  exists: 'exists',
+  gt: '>',
+  gte: '>=',
+  is: 'is',
+  isNot: 'is not',
+  lt: '<',
+  lte: '<=',
+  notExists: 'does not exist',
+  notOneOf: 'is not one of',
+  oneOf: 'is one of',
+};
+
+/** One condition as a short sentence, e.g. `class is one of minor, service`. */
+export function describeCondition(c: FilterCondition): string {
+  const attr = c.attribute === GEOMETRY_TYPE ? 'geometry' : c.attribute || '?';
+  if ('values' in c)
+    return `${attr} ${OPERATOR_LABEL[c.operator]} ${c.values.map(String).join(', ')}`;
+  if ('value' in c) return `${attr} ${OPERATOR_LABEL[c.operator]} ${String(c.value)}`;
+  return `${attr} ${OPERATOR_LABEL[c.operator]}`;
+}
+
 /** Operators in the order the menu lists them. */
 export const OPERATORS: readonly FilterOperator[] = [
   'is',

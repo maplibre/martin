@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 /** One entry of a row menu. */
@@ -15,12 +16,13 @@ export interface MenuItem {
   destructive?: boolean;
 }
 
-/** A small popover menu at a fixed screen position that closes on outside click, scroll and Escape. */
+/** A small popover menu at a fixed screen position, rendered into `document.body`, that closes on outside click, scroll and Escape. */
 export function PopoverMenu({
   x,
   y,
   items,
   onClose,
+  label = 'Layer actions',
 }: {
   /** Right edge of the menu in viewport pixels. */
   x: number;
@@ -30,6 +32,8 @@ export function PopoverMenu({
   items: MenuItem[];
   /** Called when the menu should close. */
   onClose: () => void;
+  /** Accessible name of the menu. */
+  label?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -63,9 +67,10 @@ export function PopoverMenu({
     buttons[(at + dir + buttons.length) % buttons.length]?.focus();
   };
 
-  return (
+  // Portalled so an ancestor with a filter or backdrop-filter cannot become the containing block of `position: fixed`.
+  return createPortal(
     <div
-      aria-label="Layer actions"
+      aria-label={label}
       className="fixed z-50 w-36 -translate-x-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
       onKeyDown={(e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -96,6 +101,7 @@ export function PopoverMenu({
           {item.label}
         </button>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }

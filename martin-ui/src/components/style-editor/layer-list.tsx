@@ -49,14 +49,22 @@ export interface AddLayerRequest {
   source?: { id: string; spec: SourceSpecification };
 }
 
+/** A set of layers to mark in the list, with the reason shown on hover. */
+export interface LayerHighlight {
+  /** Layer ids to mark. */
+  layers: ReadonlySet<string>;
+  /** Tooltip on each mark. */
+  reason: string;
+}
+
 /** Props of the left-hand layer list. */
 export interface LayerListProps {
   /** Style being edited. */
   style: StyleSpecification;
   /** Selected layer id. */
   selected: string | null;
-  /** Layers to mark, e.g. those using the color selected in the palette. */
-  highlighted: ReadonlySet<string>;
+  /** Layers to mark with a dot, and why, e.g. those using the color selected in the palette. */
+  highlight: LayerHighlight;
   /** Selects a layer. */
   onSelect: (id: string) => void;
   /** Shows or hides layers. */
@@ -155,7 +163,7 @@ function Row({
   colors,
   indented,
   selected,
-  highlighted,
+  highlight,
   menuOpen,
   drop,
   onSelect,
@@ -169,7 +177,7 @@ function Row({
   colors: string[];
   indented: boolean;
   selected: boolean;
-  highlighted: boolean;
+  highlight: string | undefined;
   menuOpen: boolean;
   drop: DropSide | null;
   onSelect: (id: string) => void;
@@ -234,11 +242,8 @@ function Row({
       >
         {layer.id}
       </span>
-      {highlighted ? (
-        <span
-          className="size-1.5 shrink-0 rounded-full bg-editor-accent"
-          title="Uses the selected color"
-        />
+      {highlight ? (
+        <span className="size-1.5 shrink-0 rounded-full bg-editor-accent" title={highlight} />
       ) : null}
       {hidden ? (
         <EyeOff
@@ -367,7 +372,7 @@ function RunHeader({
 export function LayerList({
   style,
   selected,
-  highlighted,
+  highlight,
   onSelect,
   onVisibility,
   onMove,
@@ -501,7 +506,7 @@ export function LayerList({
     <Row
       colors={swatches.get(layer.id) ?? []}
       drop={drop?.id === layer.id ? drop.side : null}
-      highlighted={highlighted.has(layer.id)}
+      highlight={highlight.layers.has(layer.id) ? highlight.reason : undefined}
       indented={indented}
       key={layer.id}
       layer={layer}

@@ -10,8 +10,8 @@ import {
   RotateCcw,
   Undo2,
 } from 'lucide-react';
-import type { Map as MapLibre } from 'maplibre-gl';
-import { type ComponentProps, useEffect, useState } from 'react';
+import type { MapGeoJSONFeature, Map as MapLibre } from 'maplibre-gl';
+import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import { LoadingSpinner } from '@/components/loading/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,8 +22,37 @@ import type { Catalog } from '@/lib/types.gen';
 import { cn } from '@/lib/utils';
 import { Color, colorKey, writeColorSites } from './colors';
 import { LayerInspector } from './inspector/layer-inspector';
-import { LayerList } from './layer-list';
+import { type LayerHighlight, LayerList } from './layer-list';
 import { MapCanvas } from './map-canvas';
+import {
+  baseStyle,
+  type CompareBase,
+  CompareMap,
+  CurrentLabel,
+  VersionPicker,
+} from './map-modes/compare';
+import {
+  dedupeFeatures,
+  geometryKind,
+  type InspectedFeature,
+  OUTLINE_PREFIX,
+  type PropertyValue,
+  withOutline,
+} from './map-modes/inspect';
+import { InspectPanel } from './map-modes/inspect-panel';
+import { diffStyles } from './map-modes/style-diff';
+import {
+  INSPECT_KEY,
+  type MapMode,
+  MapToolbar,
+  MODE_KEYS,
+  type Vision,
+  VisionFilters,
+  visionFilter,
+} from './map-modes/toolbar';
+import { useMapEvent } from './map-modes/use-map-event';
+import { countXrayFeatures, entryKeyOf, xrayEntries, xrayStyle } from './map-modes/xray';
+import { XrayLegend } from './map-modes/xray-legend';
 import {
   addLayer,
   deleteLayer,
@@ -61,14 +90,6 @@ interface StyleEditorProps {
   /** Leaves the editor. */
   onClose: () => void;
 }
-
-const VISION = {
-  deuteranopia: '0.625 0.375 0 0 0 0.7 0.3 0 0 0 0 0.3 0.7 0 0 0 0 0 1 0',
-  protanopia: '0.567 0.433 0 0 0 0.558 0.442 0 0 0 0 0.242 0.758 0 0 0 0 0 1 0',
-  tritanopia: '0.95 0.05 0 0 0 0 0.433 0.567 0 0 0 0.475 0.525 0 0 0 0 0 1 0',
-} as const;
-type Vision = keyof typeof VISION | 'normal' | 'grayscale';
-const VISIONS: Vision[] = ['normal', 'protanopia', 'deuteranopia', 'tritanopia', 'grayscale'];
 
 type Tab = 'style' | 'layer' | 'palette' | 'checks';
 
@@ -125,8 +146,17 @@ function Workspace({ doc, style }: { doc: StyleDocument; style: StyleSpecificati
   const [highlight, setHighlight] = useState(false);
   const [vision, setVision] = useState<Vision>('normal');
   const [pick, setPick] = useState<{ x: number; y: number; layers: string[] } | null>(null);
+  const [mode, setMode] = useState<MapMode>('styled');
+  const [inspectOn, setInspectOn] = useState(false);
+  const [inspected, setInspected] = useState<InspectedFeature[] | null>(null);
+  const [activeFeature, setActiveFeature] = useState<string | null>(null);
+  const [xrayHidden, setXrayHidden] = useState<ReadonlySet<string>>(new Set());
+  const [xrayHover, setXrayHover] = useState<string | null>(null);
+  const [xrayCounts, setXrayCounts] = useState<ReadonlyMap<string, number>>(new Map());
+  const [compareBase, setCompareBase] = useState<CompareBase>({ kind: 'original' });
   const schema = useSourceSchema(style, map);
   const martin = useMartinCatalog();
+  const inspecting = mode === 'xray' || (mode === 'styled' && inspectOn);
 
   const tokens = paletteTokens(style);
   const token = tokens.find((t) => t.key === tokenKey);
@@ -137,16 +167,55 @@ function Workspace({ doc, style }: { doc: StyleDocument; style: StyleSpecificati
       ? schema.attributes(layer.source, 'source-layer' in layer ? layer['source-layer'] : undefined)
       : [];
 
-  const mapStyle = (() => {
+  const accent = readAccent();
+  const paletteStyle = (() => {
     if (!highlight || !token || tab !== 'palette') return style;
-    const accent =
-      Color.parse(
-        getComputedStyle(document.documentElement).getPropertyValue('--editor-accent').trim(),
-      ) ?? Color.red;
+    const color = Color.parse(accent) ?? Color.red;
     const preview = structuredClone(style);
-    writeColorSites(preview, token.sites, () => accent);
+    writeColorSites(preview, token.sites, () => color);
     return preview;
   })();
+
+  // schema.version changes whenever schema.sourceLayers would return something new.
+  const entries = useMemo(() => xrayEntries(style, schema.sourceLayers), [style, schema.version]);
+  const focus = layer && entryKeyOf(layer) ? layer : undefined;
+  const emphasis = xrayHover ?? (focus && entryKeyOf(focus));
+  const xray = useMemo(
+    () =>
+      mode === 'xray'
+        ? xrayStyle(style, entries, { accent, emphasis, focus, hidden: xrayHidden })
+        : null,
+    [mode, style, entries, accent, emphasis, focus, xrayHidden],
+  );
+  const drawn = mode === 'compare' ? style : (xray ?? paletteStyle);
+  const outlined = inspected?.find((f) => f.key === activeFeature)?.geometry;
+  const mapStyle = useMemo(
+    () => (outlined ? withOutline(drawn, outlined, accent) : drawn),
+    [drawn, outlined, accent],
+  );
+
+  const compare =
+    mode === 'compare' && doc.original ? baseStyle(compareBase, doc.original, doc.versions) : null;
+  const diff = useMemo(
+    () => (compare ? diffStyles(compare.style, style) : null),
+    [compare?.style, style],
+  );
+  const listHighlight: LayerHighlight = diff
+    ? { layers: diff.changed, reason: 'Changed since the compared version' }
+    : {
+        layers: token && tab === 'palette' ? token.layers : new Set(),
+        reason: 'Uses the selected color',
+      };
+
+  const changeMode = (next: MapMode) => {
+    setMode(next);
+    setPick(null);
+    if (next === 'compare') setInspected(null);
+  };
+  const toggleInspect = (on: boolean) => {
+    setInspectOn(on);
+    if (!on) setInspected(null);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -160,7 +229,15 @@ function Workspace({ doc, style }: { doc: StyleDocument; style: StyleSpecificati
       } else if (mod && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         doc.redo();
-      } else if (e.key === 'Escape') setPick(null);
+      } else if (e.key === 'Escape') {
+        setPick(null);
+        setInspected(null);
+      } else if (!mod && !e.altKey && !e.shiftKey) {
+        const key = e.key.toLowerCase();
+        const next = MODE_KEYS[key];
+        if (next) changeMode(next);
+        else if (key === INSPECT_KEY && mode === 'styled') toggleInspect(!inspectOn);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -179,27 +256,47 @@ function Workspace({ doc, style }: { doc: StyleDocument; style: StyleSpecificati
   const onReady = (m: MapLibre) => {
     setMap(m);
     setZoom(m.getZoom());
-    m.on('zoom', () => setZoom(m.getZoom()));
-    m.on('movestart', () => setPick(null));
-    m.on('click', (e) => {
-      const { x, y } = e.point;
-      const ids = [
-        ...new Set(
-          m
-            .queryRenderedFeatures([
-              [x - 4, y - 4],
-              [x + 4, y + 4],
-            ])
-            .map((f) => f.layer.id),
-        ),
-      ];
-      if (ids.length === 1) selectLayer(ids[0]);
-      else setPick(ids.length ? { layers: ids, x, y } : null);
-    });
-    m.on('mousemove', (e) => {
-      m.getCanvas().style.cursor = m.queryRenderedFeatures(e.point).length ? 'pointer' : '';
-    });
   };
+  useMapEvent(map, 'zoom', (e) => setZoom(e.target.getZoom()));
+  useMapEvent(map, 'movestart', () => setPick(null));
+  useMapEvent(map, 'click', (e) => {
+    const { x, y } = e.point;
+    const hits = e.target
+      .queryRenderedFeatures([
+        [x - 4, y - 4],
+        [x + 4, y + 4],
+      ])
+      .filter((f) => !f.layer.id.startsWith(OUTLINE_PREFIX));
+    if (inspecting) {
+      const features = dedupeFeatures(
+        hits
+          .filter((f) => f.layer.type !== 'background' && f.layer.type !== 'raster')
+          .map(toInspected),
+      );
+      setInspected(features);
+      setActiveFeature(features[0]?.key ?? null);
+      return;
+    }
+    const ids = [...new Set(hits.map((f) => f.layer.id))];
+    if (ids.length === 1) selectLayer(ids[0]);
+    else setPick(ids.length ? { layers: ids, x, y } : null);
+  });
+  useMapEvent(map, 'mousemove', (e) => {
+    const hit = e.target.queryRenderedFeatures(e.point).length > 0;
+    e.target.getCanvas().style.cursor = hit ? 'pointer' : inspecting ? 'crosshair' : '';
+  });
+  useMapEvent(map, 'idle', (e) => {
+    if (mode !== 'xray') return;
+    setXrayCounts(
+      countXrayFeatures(
+        e.target.queryRenderedFeatures().map((f) => ({
+          id: f.id,
+          layerId: f.layer.id,
+          properties: f.properties,
+        })),
+      ),
+    );
+  });
 
   const recolor = (t: Token, next: Color, coalesce?: string) => {
     const sites = t.sites.map((x) => `${x.layer}/${x.name}/${x.path.join('.')}`).join('|');
@@ -218,12 +315,7 @@ function Workspace({ doc, style }: { doc: StyleDocument; style: StyleSpecificati
       }
     });
 
-  const filter =
-    vision === 'normal'
-      ? undefined
-      : vision === 'grayscale'
-        ? 'grayscale(1)'
-        : `url(#se-vision-${vision})`;
+  const filter = visionFilter(vision);
 
   return (
     <StylePaletteProvider
@@ -241,16 +333,10 @@ function Workspace({ doc, style }: { doc: StyleDocument; style: StyleSpecificati
           sprite: style.sprite,
         }}
       >
-        <svg aria-hidden="true" className="absolute size-0">
-          {Object.entries(VISION).map(([k, m]) => (
-            <filter id={`se-vision-${k}`} key={k}>
-              <feColorMatrix type="matrix" values={m} />
-            </filter>
-          ))}
-        </svg>
+        <VisionFilters />
 
         <LayerList
-          highlighted={token && tab === 'palette' ? token.layers : new Set()}
+          highlight={listHighlight}
           onAddLayer={({ layer: added, source }) => {
             const at = layerId
               ? style.layers.findIndex((l) => l.id === layerId) + 1
@@ -284,39 +370,87 @@ function Workspace({ doc, style }: { doc: StyleDocument; style: StyleSpecificati
           style={style}
         />
 
-        <main className="relative min-w-0 flex-1 overflow-hidden">
-          <MapCanvas filter={filter} onReady={onReady} style={mapStyle} />
-          <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-3">
-            <fieldset className="pointer-events-auto flex flex-wrap items-center gap-0.5 rounded-lg border bg-card/95 p-0.5 text-[11px] shadow-sm backdrop-blur">
-              <legend className="sr-only">Color vision simulation</legend>
-              {VISIONS.map((v) => (
-                <button
-                  aria-pressed={vision === v}
-                  className={cn(
-                    'h-6 rounded-md px-2 capitalize transition-colors',
-                    vision === v
-                      ? 'bg-editor-accent text-white'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                  key={v}
-                  onClick={() => setVision(v)}
-                  type="button"
-                >
-                  {v}
-                </button>
-              ))}
-            </fieldset>
-            <span className="rounded-md border bg-card/95 px-2 py-1 font-mono text-[11px] text-muted-foreground tabular-nums shadow-sm">
-              z{zoom.toFixed(1)}
-            </span>
+        <main className="relative flex min-w-0 flex-1 overflow-hidden">
+          {compare && diff ? (
+            <div className="relative z-10 w-1/2 shrink-0 border-r-2 border-foreground/70">
+              <CompareMap
+                filter={filter}
+                main={map}
+                picker={
+                  <VersionPicker
+                    base={compare.base}
+                    diff={diff}
+                    onBase={setCompareBase}
+                    onSelectLayer={selectLayer}
+                    versions={doc.versions}
+                  />
+                }
+                style={compare.style}
+              />
+            </div>
+          ) : null}
+          <div className="relative min-w-0 flex-1">
+            <MapCanvas filter={filter} onReady={onReady} style={mapStyle} />
+            {compare ? <CurrentLabel edits={doc.versions.length} /> : null}
+            {pick ? (
+              <PickMenu layers={pick.layers} onSelect={selectLayer} x={pick.x} y={pick.y} />
+            ) : null}
           </div>
-          {highlight && token && tab === 'palette' && (
+          <div className="pointer-events-none absolute inset-x-3 top-3 bottom-36 z-20 flex flex-col gap-2">
+            <div className="flex items-start justify-between gap-3">
+              <MapToolbar
+                inspect={inspecting}
+                mode={mode}
+                onInspect={mode === 'styled' ? toggleInspect : undefined}
+                onMode={changeMode}
+                onVision={setVision}
+                vision={vision}
+              />
+              <span className="rounded-md border bg-card/95 px-2 py-1 font-mono text-[11px] text-muted-foreground tabular-nums shadow-sm">
+                z{zoom.toFixed(1)}
+              </span>
+            </div>
+            <div className="flex min-h-0 flex-1 items-start justify-between gap-3">
+              {mode === 'xray' ? (
+                <XrayLegend
+                  counts={xrayCounts}
+                  entries={entries}
+                  focusKey={focus && entryKeyOf(focus)}
+                  focusLayer={focus?.id}
+                  hidden={xrayHidden}
+                  onHover={setXrayHover}
+                  onToggle={(keys, visible) =>
+                    setXrayHidden((prev) => {
+                      const next = new Set(prev);
+                      for (const k of keys) {
+                        if (visible) next.delete(k);
+                        else next.add(k);
+                      }
+                      return next;
+                    })
+                  }
+                />
+              ) : (
+                <span />
+              )}
+              {inspected && inspecting ? (
+                <InspectPanel
+                  active={activeFeature}
+                  features={inspected}
+                  onActive={(key) => setActiveFeature((k) => (k === key ? null : key))}
+                  onClose={() => setInspected(null)}
+                  onSelectLayer={selectLayer}
+                  selectedLayer={layerId}
+                  style={style}
+                  zoom={zoom}
+                />
+              ) : null}
+            </div>
+          </div>
+          {highlight && token && tab === 'palette' && mode === 'styled' ? (
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-editor-accent px-3 py-1 text-[11px] font-medium text-white shadow">
               Showing {token.sites.length} uses of {token.key}
             </div>
-          )}
-          {pick ? (
-            <PickMenu layers={pick.layers} onSelect={selectLayer} x={pick.x} y={pick.y} />
           ) : null}
         </main>
 
@@ -438,6 +572,29 @@ function Workspace({ doc, style }: { doc: StyleDocument; style: StyleSpecificati
       </StyleResourcesProvider>
     </StylePaletteProvider>
   );
+}
+
+function readAccent(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue('--editor-accent').trim();
+}
+
+function isScalar(value: unknown): value is PropertyValue {
+  return value === null || ['string', 'number', 'boolean'].includes(typeof value);
+}
+
+function toInspected(f: MapGeoJSONFeature): Omit<InspectedFeature, 'key'> {
+  const properties: Record<string, PropertyValue> = {};
+  for (const [k, v] of Object.entries(f.properties ?? {})) {
+    properties[k] = isScalar(v) ? v : JSON.stringify(v);
+  }
+  return {
+    geometry: f.geometry,
+    id: f.id,
+    kind: geometryKind(f.geometry.type),
+    properties,
+    source: f.source,
+    sourceLayer: f.sourceLayer || undefined,
+  };
 }
 
 function Badge({ n, alert }: { n: number; alert?: boolean }) {

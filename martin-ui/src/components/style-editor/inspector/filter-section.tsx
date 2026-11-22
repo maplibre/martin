@@ -6,12 +6,13 @@ import { ExpressionEditor } from '../value-editors/expression-editor';
 import {
   changeOperator,
   coerceValue,
+  describeCondition,
   FILTER_SPEC,
   type FilterCondition,
-  type FilterOperator,
   type FilterScalar,
   GEOMETRY_TYPE,
   GEOMETRY_TYPES,
+  OPERATOR_LABEL,
   OPERATORS,
   operatorAllowed,
   parseFilter,
@@ -28,19 +29,6 @@ export interface FilterSectionProps {
   /** Sets the layer filter; `undefined` removes it. */
   onFilter: (filter: unknown) => void;
 }
-
-const OPERATOR_LABEL: Record<FilterOperator, string> = {
-  exists: 'exists',
-  gt: '>',
-  gte: '>=',
-  is: 'is',
-  isNot: 'is not',
-  lt: '<',
-  lte: '<=',
-  notExists: 'does not exist',
-  notOneOf: 'is not one of',
-  oneOf: 'is one of',
-};
 
 const FIELD =
   'h-7 min-w-0 rounded-md border bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-editor-accent';
@@ -294,14 +282,6 @@ function ConditionRow({
 }
 
 const SECTION_HEADING = 'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground';
-
-function describeCondition(c: FilterCondition): string {
-  const attr = c.attribute === '$type' ? 'geometry' : c.attribute || '?';
-  if ('values' in c)
-    return `${attr} ${OPERATOR_LABEL[c.operator]} ${c.values.map(text).join(', ')}`;
-  if ('value' in c) return `${attr} ${OPERATOR_LABEL[c.operator]} ${text(c.value)}`;
-  return `${attr} ${OPERATOR_LABEL[c.operator]}`;
-}
 
 /** Layer filter as a list of conditions joined by "all", with a switch to the raw expression. */
 export function FilterSection({ filter, attributes, onFilter }: FilterSectionProps) {
