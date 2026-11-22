@@ -5,6 +5,8 @@ mod block;
 mod error;
 mod expr;
 mod generate;
+#[cfg(feature = "unstable-mlt-v2")]
+pub mod nested;
 #[cfg(feature = "osm")]
 pub mod osm;
 mod phase1;

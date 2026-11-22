@@ -72,7 +72,7 @@ postgres = [
     "dep:wkb",
     "_tiles",
 ]
-unstable-mlt-v2 = ["mlt-core?/unstable-v2"]
+unstable-mlt-v2 = ["mlt-core?/unstable-v2", "martin-tilegen?/unstable-mlt-v2"]
 cog = [
     "dep:cog-tiles",
     "cog-tiles/jpeg",

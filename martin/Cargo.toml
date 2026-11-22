@@ -161,7 +161,12 @@ resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
 shapefile = ["postgres", "martin-tilegen/shapefile"]
 webui = ["dep:actix-web-static-files", "dep:martin-ui"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
-unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
+unstable-mlt-v2 = [
+    "_tiles",
+    "mlt-core/unstable-v2",
+    "martin-core/unstable-mlt-v2",
+    "martin-tilegen?/unstable-mlt-v2",
+]
 _tiles = [
     "martin-core/_tiles",
     "_catalog",
