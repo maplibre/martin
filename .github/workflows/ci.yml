@@ -59,11 +59,14 @@ jobs:
         if: github.event_name == 'push'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Check whether a crate version on main has not been released yet
+      # Only crates that ship binaries: the release builds exist for them, and a crate
+      # whose current version was never tagged (martin-ui before its first release)
+      # would otherwise keep every push to main on the release builds.
+      - name: Check whether a binary crate's version on main has not been released yet
         id: release-pending
         if: github.event_name == 'push'
         run: |
-          tags=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.publish != []) | "\(.name)-v\(.version)"')
+          tags=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.publish != []) | select(any(.targets[]; .kind | index("bin"))) | "\(.name)-v\(.version)"')
           pending=false
           for tag in $tags; do
             if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
