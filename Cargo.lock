@@ -5867,7 +5867,6 @@ dependencies = [
  "base64 0.23.1",
  "bit-set 0.11.1",
  "bytes",
- "chrono",
  "clap",
  "cog-tiles",
  "compact_str 0.10.0",
@@ -5889,6 +5888,7 @@ dependencies = [
  "image",
  "insta",
  "itertools 0.15.0",
+ "jiff",
  "jxl-oxide",
  "maplibre-native-ffi",
  "martin-core",
@@ -10503,7 +10503,6 @@ version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb7f578e5945fb242538965c2d0b04418d38ec25c79d160cd279bf0731c8d319"
 dependencies = [
- "chrono",
  "matchers",
  "nu-ansi-term",
  "once_cell",

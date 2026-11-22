@@ -291,7 +291,6 @@ tracing-subscriber = { workspace = true, default-features = false, features = [
     "fmt",
     "std",
     "ansi",
-    "chrono",
 ] }
 url.workspace = true
 utoipa = { workspace = true, optional = true }
