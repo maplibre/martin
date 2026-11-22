@@ -1377,7 +1377,7 @@ dependencies = [
  "regex",
  "rustc-hash 2.1.3",
  "shlex",
- "syn 3.0.10",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -9245,9 +9245,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-compressions"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61f2ddcb891dd012a171afdc4f343d9782e1a22142717b837b5dee807262d712"
+checksum = "f54832dbee53699a5a81fdab5099624de8a27f1439ea28ec3555635fc571c262"
 dependencies = [
  "bsdiff",
  "flate2",
@@ -9256,9 +9256,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-hashes"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5789a68792d0e859a270bd9f92b76d33437338cdd81e9bb3aa71fea08db0941c"
+checksum = "ce11e456547bd68fd634aa55b7e050225d70feaae2717f63c1a28cf2e6484d2e"
 dependencies = [
  "digest 0.11.3",
  "hex",
