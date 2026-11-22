@@ -160,8 +160,67 @@ A list copies those properties as they are. A map names each output attribute:
 - a string is an expression, so `kind: class` writes the column `class` as `kind`,
 - `{ value: ... }`, a number or a boolean is a literal,
 - `{ expr: ..., minzoom: ..., maxzoom: ... }` is only written at those zooms.
+- `{ expr: ..., hidden: true }` is not written to tiles, see [Hidden attributes](<#hidden-attributes>).
 
 In both, `name:*` copies the columns starting with `name:`, written `"name:*": "name:*"` in a map. An expression that is `null` leaves the attribute out.
+
+### Hidden attributes
+
+[Per-tile operations](<#per-tile-operations>) read a feature's attributes, not the source's columns. When an operation needs a value that the tiles do not, add it as an attribute with `hidden: true`. The operation reads it, and Martin leaves it out of the tile. Planetiler's temporary tags do the same job.
+
+Use a hidden attribute to:
+
+- key a `thinning` by a value you do not publish,
+- keep features apart in `merge_lines`, or in `merge_polygons` without `group_by`. Both merge only features whose attributes are all equal, hidden attributes included.
+
+This layer keeps one point per street and house number in each tile, and writes only the house number:
+
+```yaml
+postgres:
+  tables:
+    addresses:
+      schema: public
+      table: addresses
+      geometry_column: geom
+      properties:
+        street: text
+        housenumber: text
+      layers:
+        housenumber:
+          geometry: point
+          attributes:
+            housenumber: housenumber
+            _street: { expr: street, hidden: true }
+          thinning: { method: tile, keys: [_street, housenumber] }
+```
+
+`merge_lines` can reverse a joined line, which breaks one-way roads. This layer gives each one-way road its own `_unmerged` value, so it never merges. Two-way roads have no `_unmerged`, since a `null` expression leaves the attribute out, and merge as before:
+
+```yaml
+postgres:
+  tables:
+    roads:
+      schema: public
+      table: roads
+      geometry_column: geom
+      properties:
+        osm_id: int8
+        highway: text
+        oneway: text
+      layers:
+        transportation:
+          geometry: line
+          attributes:
+            class: highway
+            _unmerged: { expr: "oneway == 'yes' ? osm_id : null", hidden: true }
+          merge_lines: {}
+```
+
+A hidden attribute is:
+
+- left out of every tile and of the `vector_layers` metadata,
+- left out of the MVT key table, also with `--mvt-quirk keep-unused-keys`,
+- hidden for the whole output layer. When a layer or one of its rules hides an attribute, Martin also hides it in the features of other layers that [write into the same output layer](<#combining-layers>).
 
 ## Feature ids
 
@@ -278,7 +337,7 @@ The output does not depend on `--threads`. Tiles served with or without `prefetc
 
 ### `merge_lines`
 
-Joins lines whose attributes are all equal into longer lines, so a road cut into many segments becomes one, which lets clients place labels along it. Where exactly two line ends meet, at the same tile coordinates, the lines are joined; where three or more meet, as at a junction, they are not. The joined lines are simplified by `tolerance`, the same way `simplify` does it, clipped to the tile and `buffer`, and dropped when their length inside is below `min_length`. The lines of equal attributes become one line or multi-line feature, or nothing if no line is left. Joining may reverse a line's direction. To join lines that differ in some attribute, leave it out of `attributes` at those zooms.
+Joins lines whose attributes are all equal into longer lines, so a road cut into many segments becomes one, which lets clients place labels along it. Where exactly two line ends meet, at the same tile coordinates, the lines are joined; where three or more meet, as at a junction, they are not. The joined lines are simplified by `tolerance`, the same way `simplify` does it, clipped to the tile and `buffer`, and dropped when their length inside is below `min_length`. The lines of equal attributes become one line or multi-line feature, or nothing if no line is left. Joining may reverse a line's direction. To join lines that differ in some attribute, leave it out of `attributes` at those zooms. To keep lines apart by a value you do not publish, use a [hidden attribute](<#hidden-attributes>).
 
 ```yaml
 merge_lines:
