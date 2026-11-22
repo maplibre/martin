@@ -163,7 +163,7 @@ function LegendRow({
           </span>
         ) : null}
         <span className="w-9 shrink-0 text-right font-mono text-[10px] text-muted-foreground tabular-nums">
-          {entry.kind === 'raster' ? '' : (count ?? '')}
+          {entry.kind === 'vector' ? (count ?? '') : ''}
         </span>
         {visible ? (
           <Eye

@@ -25,7 +25,7 @@ const motorway: InspectedFeature = {
 };
 
 describe('layerMatches', () => {
-  it('says for every layer on the feature's source layer whether it draws it, topmost first', () => {
+  it('says for every layer on the source layer of the feature whether it draws it, topmost first', () => {
     const style: StyleSpecification = {
       layers: [
         { id: 'water', source: 'omt', 'source-layer': 'water', type: 'fill' },
@@ -235,21 +235,30 @@ describe('filterKeys', () => {
 });
 
 describe('dedupeFeatures', () => {
-  it('merges copies of a feature by id, and by properties when there is no id', () => {
+  it('merges copies of a feature by id, and by properties and geometry when there is no id', () => {
     const { key: _, ...base } = motorway;
+    const elsewhere = {
+      coordinates: [
+        [4.91, 52.39],
+        [4.92, 52.4],
+      ],
+      type: 'LineString' as const,
+    };
 
     const features = dedupeFeatures([
       base,
       { ...base, properties: { class: 'motorway' } },
       { ...base, id: undefined, properties: { class: 'path' } },
       { ...base, id: undefined, properties: { class: 'path' } },
+      { ...base, geometry: elsewhere, id: undefined, properties: { class: 'path' } },
       { ...base, sourceLayer: 'transportation_name' },
     ]);
 
-    expect(features.map((f) => f.key)).toEqual([
-      'omt/transportation/LineString/42',
-      'omt/transportation/LineString/{"class":"path"}',
-      'omt/transportation_name/LineString/42',
+    expect(features.map((f) => [f.sourceLayer, f.id, f.properties, f.geometry])).toEqual([
+      ['transportation', 42, base.properties, base.geometry],
+      ['transportation', undefined, { class: 'path' }, base.geometry],
+      ['transportation', undefined, { class: 'path' }, elsewhere],
+      ['transportation_name', 42, base.properties, base.geometry],
     ]);
   });
 });

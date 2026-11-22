@@ -102,13 +102,13 @@ export function geometryKind(type: Geometry['type']): GeometryKind {
   }
 }
 
-/** Collapses the features MapLibre returns per layer and per tile into one entry per source feature. */
+/** Collapses the copies MapLibre returns per layer into one entry per feature; features without an id are only merged when their properties and geometry are equal. */
 export function dedupeFeatures(
   features: readonly Omit<InspectedFeature, 'key'>[],
 ): InspectedFeature[] {
   const seen = new Map<string, InspectedFeature>();
   for (const f of features) {
-    const identity = f.id === undefined ? JSON.stringify(f.properties) : String(f.id);
+    const identity = f.id === undefined ? JSON.stringify([f.properties, f.geometry]) : String(f.id);
     const key = `${f.source}/${f.sourceLayer ?? ''}/${f.kind}/${identity}`;
     if (!seen.has(key)) seen.set(key, { ...f, key });
   }

@@ -289,11 +289,7 @@ function Workspace({ doc, style }: { doc: StyleDocument; style: StyleSpecificati
     if (mode !== 'xray') return;
     setXrayCounts(
       countXrayFeatures(
-        e.target.queryRenderedFeatures().map((f) => ({
-          id: f.id,
-          layerId: f.layer.id,
-          properties: f.properties,
-        })),
+        e.target.queryRenderedFeatures().map((f) => ({ id: f.id, layerId: f.layer.id })),
       ),
     );
   });

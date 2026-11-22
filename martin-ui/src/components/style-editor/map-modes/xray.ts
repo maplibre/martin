@@ -12,8 +12,8 @@ export interface XrayEntry {
   source: string;
   /** Source layer inside a vector source. */
   sourceLayer?: string;
-  /** How the data is drawn. */
-  kind: 'vector' | 'raster';
+  /** How the data is drawn: as features, as an image, or as shaded relief of elevation tiles. */
+  kind: 'vector' | 'raster' | 'elevation';
   /** Color the entry is drawn in. */
   color: string;
   /** Style layers that read this data. */
@@ -64,20 +64,28 @@ export function xrayEntries(
   sourceLayers: (source: string) => readonly string[],
 ): XrayEntry[] {
   const usedBy = new Map<string, string[]>();
+  const styled = new Map<string, Set<string>>();
   for (const layer of style.layers) {
     const key = entryKeyOf(layer);
     if (key) usedBy.set(key, [...(usedBy.get(key) ?? []), layer.id]);
+    if ('source' in layer && typeof layer.source === 'string' && 'source-layer' in layer) {
+      const sourceLayer = layer['source-layer'];
+      if (sourceLayer)
+        styled.set(layer.source, (styled.get(layer.source) ?? new Set()).add(sourceLayer));
+    }
   }
   const blocks: Omit<XrayEntry, 'color' | 'usedBy'>[] = [];
   for (const [source, spec] of Object.entries(style.sources)) {
     if (spec.type === 'vector') {
-      for (const sourceLayer of sourceLayers(source)) {
+      for (const sourceLayer of new Set([...sourceLayers(source), ...(styled.get(source) ?? [])])) {
         blocks.push({ key: `${source}/${sourceLayer}`, kind: 'vector', source, sourceLayer });
       }
     } else if (spec.type === 'geojson') {
       blocks.push({ key: source, kind: 'vector', source });
-    } else if (spec.type === 'raster' || spec.type === 'raster-dem') {
+    } else if (spec.type === 'raster') {
       blocks.push({ key: source, kind: 'raster', source });
+    } else if (spec.type === 'raster-dem') {
+      blocks.push({ key: source, kind: 'elevation', source });
     }
   }
   return blocks.map((block, i) => ({
@@ -109,6 +117,21 @@ function entryLayer(
       },
       source: entry.source,
       type: 'raster',
+    };
+  }
+  if (entry.kind === 'elevation') {
+    if (part !== 'raster') return undefined;
+    return {
+      id,
+      layout,
+      paint: {
+        'hillshade-accent-color': '#000',
+        'hillshade-exaggeration': dimmed ? 0.2 : 0.5,
+        'hillshade-highlight-color': '#fff',
+        'hillshade-shadow-color': '#000',
+      },
+      source: entry.source,
+      type: 'hillshade',
     };
   }
   const from = entry.sourceLayer
@@ -270,19 +293,23 @@ export interface RenderedFeature {
   layerId: string;
   /** Feature id, when the tile has one. */
   id?: string | number;
-  /** Feature properties, used to tell features apart when there is no id. */
-  properties: Readonly<Record<string, unknown>>;
 }
 
-/** Counts distinct features per entry among those X-ray drew, ignoring the copies tile edges and layers produce. */
+/**
+ * Counts features per entry among those X-ray drew. The line and point layers between them draw every feature
+ * exactly once, so the fill layers are skipped. A feature with an id counts once across tiles; one without an id
+ * counts once per tile it is drawn in, since features may share all their properties.
+ */
 export function countXrayFeatures(features: Iterable<RenderedFeature>): Map<string, number> {
-  const seen = new Map<string, Set<string>>();
+  const ids = new Map<string, Set<string | number>>();
+  const anonymous = new Map<string, number>();
   for (const f of features) {
     const key = entryKeyOfXrayLayer(f.layerId);
-    if (!key) continue;
-    const ids = seen.get(key) ?? new Set();
-    ids.add(f.id === undefined ? JSON.stringify(f.properties) : String(f.id));
-    seen.set(key, ids);
+    if (!key || f.layerId.endsWith(':fill')) continue;
+    if (f.id === undefined) anonymous.set(key, (anonymous.get(key) ?? 0) + 1);
+    else ids.set(key, (ids.get(key) ?? new Set()).add(f.id));
   }
-  return new Map([...seen].map(([key, ids]) => [key, ids.size]));
+  const counts = new Map(anonymous);
+  for (const [key, set] of ids) counts.set(key, (counts.get(key) ?? 0) + set.size);
+  return counts;
 }

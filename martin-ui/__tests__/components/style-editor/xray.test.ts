@@ -8,7 +8,7 @@ import {
 } from '@/components/style-editor/map-modes/xray';
 
 describe('xrayEntries', () => {
-  it('lists every source layer of vector sources plus whole geojson and raster sources', () => {
+  it('lists every source layer of vector sources plus whole geojson, raster and elevation sources', () => {
     const style: StyleSpecification = {
       layers: [
         { id: 'water', source: 'omt', 'source-layer': 'water', type: 'fill' },
@@ -16,6 +16,7 @@ describe('xrayEntries', () => {
         { id: 'pins', source: 'pins', type: 'circle' },
       ],
       sources: {
+        dem: { tiles: ['https://example.com/dem/{z}/{x}/{y}.png'], type: 'raster-dem' },
         hillshade: { tiles: ['https://example.com/{z}/{x}/{y}.png'], type: 'raster' },
         omt: { type: 'vector', url: 'https://example.com/omt' },
         pins: { data: { features: [], type: 'FeatureCollection' }, type: 'geojson' },
@@ -26,6 +27,7 @@ describe('xrayEntries', () => {
     const entries = xrayEntries(style, (source) => (source === 'omt' ? ['poi', 'water'] : []));
 
     expect(entries.map(({ color: _, ...rest }) => rest)).toEqual([
+      { key: 'dem', kind: 'elevation', source: 'dem', usedBy: [] },
       { key: 'hillshade', kind: 'raster', source: 'hillshade', usedBy: [] },
       { key: 'omt/poi', kind: 'vector', source: 'omt', sourceLayer: 'poi', usedBy: [] },
       {
@@ -36,6 +38,25 @@ describe('xrayEntries', () => {
         usedBy: ['water', 'water-outline'],
       },
       { key: 'pins', kind: 'vector', source: 'pins', usedBy: ['pins'] },
+    ]);
+  });
+
+  it('adds source layers the style reads even when the source does not list them', () => {
+    const style: StyleSpecification = {
+      layers: [
+        { id: 'boundary', source: 'omt', 'source-layer': 'boundary', type: 'line' },
+        { id: 'water', source: 'omt', 'source-layer': 'water', type: 'fill' },
+      ],
+      sources: { omt: { tiles: ['https://example.com/{z}/{x}/{y}.pbf'], type: 'vector' } },
+      version: 8,
+    };
+
+    const entries = xrayEntries(style, () => ['water', 'poi']);
+
+    expect(entries.map((e) => [e.key, e.usedBy])).toEqual([
+      ['omt/water', ['water']],
+      ['omt/poi', []],
+      ['omt/boundary', ['boundary']],
     ]);
   });
 
@@ -264,6 +285,36 @@ describe('xrayStyle', () => {
   });
 });
 
+describe('xrayStyle with elevation', () => {
+  it('draws elevation sources as grey hillshade', () => {
+    const style: StyleSpecification = {
+      layers: [],
+      sources: {
+        dem: { tiles: ['https://example.com/dem/{z}/{x}/{y}.png'], type: 'raster-dem' },
+      },
+      version: 8,
+    };
+    const entries = xrayEntries(style, () => []);
+
+    const xray = xrayStyle(style, entries, { accent: '#e6005c', hidden: new Set() });
+
+    expect(xray.layers.slice(1)).toEqual([
+      {
+        id: 'xray:dem',
+        layout: { visibility: 'visible' },
+        paint: {
+          'hillshade-accent-color': '#000',
+          'hillshade-exaggeration': 0.5,
+          'hillshade-highlight-color': '#fff',
+          'hillshade-shadow-color': '#000',
+        },
+        source: 'dem',
+        type: 'hillshade',
+      },
+    ]);
+  });
+});
+
 describe('entryKeyOfXrayLayer', () => {
   it('maps the layers of an entry back to its key and ignores background and focus layers', () => {
     expect(
@@ -280,17 +331,29 @@ describe('entryKeyOfXrayLayer', () => {
 });
 
 describe('countXrayFeatures', () => {
-  it('counts a feature once even when tiles and layers return it several times', () => {
+  it('counts a feature with an id once across tiles and layers', () => {
     const counts = countXrayFeatures([
-      { id: 1, layerId: 'xray:omt/water:fill', properties: {} },
-      { id: 1, layerId: 'xray:omt/water:line', properties: {} },
-      { id: 2, layerId: 'xray:omt/water:fill', properties: {} },
-      { layerId: 'xray:omt/poi:point', properties: { name: 'Dam' } },
-      { layerId: 'xray:omt/poi:point', properties: { name: 'Dam' } },
-      { layerId: 'xray:omt/poi:point', properties: { name: 'Rokin' } },
-      { id: 9, layerId: 'xray:background', properties: {} },
+      { id: 1, layerId: 'xray:omt/water:fill' },
+      { id: 1, layerId: 'xray:omt/water:line' },
+      { id: 1, layerId: 'xray:omt/water:line' },
+      { id: 2, layerId: 'xray:omt/water:fill' },
+      { id: 2, layerId: 'xray:omt/water:line' },
+      { id: 3, layerId: 'xray:omt/water:line' },
+      { id: 9, layerId: 'xray:background' },
+      { id: 9, layerId: 'xray:focus:line' },
     ]);
 
-    expect(Object.fromEntries(counts)).toEqual({ 'omt/poi': 2, 'omt/water': 2 });
+    expect(Object.fromEntries(counts)).toEqual({ 'omt/water': 3 });
+  });
+
+  it('counts every drawn feature without an id, even when two share their properties', () => {
+    const counts = countXrayFeatures([
+      { layerId: 'xray:omt/poi:point' },
+      { layerId: 'xray:omt/poi:point' },
+      { layerId: 'xray:omt/park:fill' },
+      { layerId: 'xray:omt/park:line' },
+    ]);
+
+    expect(Object.fromEntries(counts)).toEqual({ 'omt/park': 1, 'omt/poi': 2 });
   });
 });
