@@ -5861,12 +5861,14 @@ name = "martin-core"
 version = "0.17.0"
 dependencies = [
  "actix-web",
+ "anyhow",
  "approx",
  "backon",
  "base64 0.23.1",
  "bit-set 0.11.1",
  "bytes",
  "chrono",
+ "clap",
  "cog-tiles",
  "compact_str 0.10.0",
  "contour",
