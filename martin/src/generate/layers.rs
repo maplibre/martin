@@ -42,6 +42,25 @@ pub struct LowerOptions {
     pub order_by: Option<OrderByType>,
 }
 
+impl LowerOptions {
+    /// Whether the tiles take the MLT v2 wire format, which keeps a `jsonb` column whole.
+    #[cfg_attr(
+        not(feature = "unstable-mlt-v2"),
+        expect(clippy::unused_self, reason = "only v2 keeps documents")
+    )]
+    fn keeps_documents(&self) -> bool {
+        #[cfg(feature = "unstable-mlt-v2")]
+        {
+            self.encoder
+                .is_some_and(|encoder| encoder.wire_version() != mlt_core::encoder::WireVersion::V01)
+        }
+        #[cfg(not(feature = "unstable-mlt-v2"))]
+        {
+            false
+        }
+    }
+}
+
 /// The table's layers, or one layer named by `layer_id` or `id` without `layers`, as the only source of a run.
 /// `None` when the table, or every layer with fixed zooms, has no zoom within the options' zooms.
 ///
@@ -82,6 +101,7 @@ pub fn lower_table_with(
         id: id.to_owned(),
         info,
         def,
+        keep_documents: options.keeps_documents(),
     }))
 }
 
@@ -296,9 +316,13 @@ impl OutputLayers {
                 let definition = Definition { source: id, key };
                 let output = layer.layer.as_deref().unwrap_or(key);
                 let grid = source.grid(layer);
-                let geometry = lower_geometry(key, layer.geometry.as_ref())?;
-                let draws = geometry.first().and_then(|entry| entry.draws());
                 let layer_zooms = source_zooms.as_ref().and_then(|zooms| layer_zooms(layer, zooms));
+                let draws = if layer_zooms.is_some() {
+                    let geometry = lower_geometry(key, layer.geometry.as_ref())?;
+                    geometry.first().and_then(|entry| entry.draws())
+                } else {
+                    None
+                };
                 let entry = gathered
                     .entry(output)
                     .or_insert_with(|| Gathered::new(definition, grid.extent));
@@ -555,11 +579,33 @@ pub fn lower_source(
     if let Some(encoder) = options.encoder {
         defaults.encoder = encoder;
     }
+    // A run that keeps `jsonb` documents whole reads each such column as one document, named after the column.
+    let documents: Option<Vec<String>> = options.keeps_documents().then(|| {
+        columns
+            .iter()
+            .filter(|column| matches!(column, ColumnDef::Keys(_)))
+            .map(|column| column.name().to_owned())
+            .collect()
+    });
+    let columns: Vec<ColumnDef> = if documents.is_some() {
+        columns
+            .into_iter()
+            .map(|column| match column {
+                ColumnDef::Keys(name) => ColumnDef::Document(name),
+                other @ (ColumnDef::Value(..) | ColumnDef::Document(_)) => other,
+            })
+            .collect()
+    } else {
+        columns
+    };
     let static_columns: Vec<&str> = columns
         .iter()
         .filter(|column| !matches!(column, ColumnDef::Keys(_)))
         .map(ColumnDef::name)
         .collect();
+    let documents: Option<Vec<&str>> = documents
+        .as_ref()
+        .map(|names| names.iter().map(String::as_str).collect());
     let layers = match source.layers {
         None => vec![LayerDef {
             name: source.layer_id.unwrap_or(id).to_owned(),
@@ -572,7 +618,16 @@ pub fn lower_source(
         Some(layers) => {
             let mut lowered = Vec::new();
             for (name, layer) in layers.iter() {
-                if let Some(def) = lower_layer(id, name, layer, source, &defaults, &static_columns, outputs)? {
+                if let Some(def) = lower_layer(
+                    id,
+                    name,
+                    layer,
+                    source,
+                    &defaults,
+                    &static_columns,
+                    outputs,
+                    documents.as_deref(),
+                )? {
                     lowered.push(def);
                 }
             }
@@ -585,6 +640,10 @@ pub fn lower_source(
     Ok(Some(TableDef { columns, layers }))
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the documents a v2 layer keeps come on top of the source settings"
+)]
 fn lower_layer(
     id: &str,
     name: &str,
@@ -593,9 +652,12 @@ fn lower_layer(
     defaults: &LayerDef,
     static_columns: &[&str],
     outputs: &OutputLayers,
+    #[cfg_attr(
+        not(feature = "unstable-mlt-v2"),
+        expect(unused_variables, reason = "only v2 keeps documents")
+    )]
+    documents: Option<&[&str]>,
 ) -> GenerateResult<Option<LayerDef>> {
-    let geometry = lower_geometry(name, layer.geometry.as_ref())?;
-    let output = geometry.first().and_then(|entry| entry.draws());
     let Some(zooms) = layer_zooms(layer, &defaults.zooms) else {
         warn!(
             "Skipping layer `{name}` of source `{id}`: it has no zoom between {} and {}",
@@ -604,6 +666,12 @@ fn lower_layer(
         );
         return Ok(None);
     };
+    let geometry = lower_geometry(name, layer.geometry.as_ref())?;
+    let output = geometry.first().and_then(|entry| entry.draws());
+    #[cfg(feature = "unstable-mlt-v2")]
+    if let (Attributes::Properties(selectors), Some(documents @ [_, ..])) = (&layer.attributes, documents) {
+        refuse_keys_inside_documents(id, name, selectors.as_slice(), static_columns, documents)?;
+    }
     let threshold = |below: Option<Pixels>, at: Option<Pixels>, default: PixelThreshold| PixelThreshold {
         below_max_zoom: below.map_or(default.below_max_zoom, Pixels::get),
         at_max_zoom: at.map_or(default.at_max_zoom, Pixels::get),
@@ -1025,6 +1093,32 @@ fn clip_mode(clip_geom: bool) -> ClipMode {
     }
 }
 
+/// An error for the first named key that is neither a column nor a `jsonb` column of `documents`, which is kept
+/// whole, so no key lives inside it to select.
+#[cfg(feature = "unstable-mlt-v2")]
+fn refuse_keys_inside_documents(
+    source_id: &str,
+    layer: &str,
+    selectors: &[PropertySelector],
+    static_columns: &[&str],
+    documents: &[&str],
+) -> GenerateResult<()> {
+    for selector in selectors {
+        if let PropertySelector::Named(key) = selector
+            && !static_columns.contains(&key.as_str())
+            && !documents.contains(&key.as_str())
+        {
+            return Err(GenerateError::KeyInsideDocument {
+                source_id: source_id.to_owned(),
+                layer: layer.to_owned(),
+                key: key.clone(),
+                documents: documents.join(", "),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Named keys in their order, each prefix as the matching table columns in table order; keys inside
 /// a `jsonb` column are only selected by name.
 fn expand(selectors: &[PropertySelector], static_columns: &[&str]) -> Vec<String> {
@@ -1385,6 +1479,182 @@ mod tests {
             ],
         }
         "#);
+    }
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    mod documents {
+        use martin_tilegen::plan::{Plan, RowFilter, TranslateError, ValueKind};
+        use mlt_core::encoder::{Network, Profile, WireVersion};
+
+        use super::*;
+
+        fn lower_with(wire: Option<WireVersion>, attributes: &str) -> GenerateResult<Option<ScanTable>> {
+            let yaml = format!(
+                indoc! {"
+                    schema: public
+                    table: roads
+                    srid: 4326
+                    geometry_column: geom
+                    properties:
+                      class: text
+                      links: jsonb
+                    layers:
+                      roads:
+                        attributes: {}
+                "},
+                attributes
+            );
+            let info: TableInfo = serde_saphyr::from_str(&yaml).expect("valid table");
+            lower_table(
+                "roads_source",
+                info,
+                &LowerOptions {
+                    zooms: 0..=14,
+                    bounds: None,
+                    encoder: wire.map(|wire| {
+                        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(wire)
+                    }),
+                    order_by: None,
+                },
+            )
+        }
+
+        #[test]
+        fn v2_keeps_a_jsonb_column_whole_and_selects_it_by_its_name() {
+            let scan = lower_with(Some(WireVersion::V02), "[class, links]")
+                .expect("lowers")
+                .expect("has a layer");
+            assert!(scan.keep_documents);
+            assert_eq!(
+                scan.def.columns,
+                [
+                    ColumnDef::Value("class".to_owned(), Some(ValueKind::String)),
+                    ColumnDef::Document("links".to_owned()),
+                ]
+            );
+        }
+
+        #[test]
+        fn v2_selects_a_kept_jsonb_column_by_a_prefix() {
+            let scan = lower_with(Some(WireVersion::V02), r#"["li*"]"#)
+                .expect("lowers")
+                .expect("has a layer");
+            assert_eq!(
+                scan.def.layers[0].attributes,
+                AttributesDef::Columns(vec!["links".to_owned()])
+            );
+        }
+
+        fn v2_row_filter(filter: &str) -> RowFilter {
+            let yaml = format!(
+                indoc! {r#"
+                    schema: public
+                    table: roads
+                    srid: 4326
+                    geometry_column: geom
+                    properties:
+                      class: text
+                      links: jsonb
+                    layers:
+                      roads:
+                        where: "{}"
+                "#},
+                filter
+            );
+            let info: TableInfo = serde_saphyr::from_str(&yaml).expect("valid table");
+            let scan = lower_table(
+                "roads_source",
+                info,
+                &LowerOptions {
+                    zooms: 0..=14,
+                    bounds: None,
+                    encoder: Some(
+                        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(WireVersion::V02),
+                    ),
+                    order_by: None,
+                },
+            )
+            .expect("lowers")
+            .expect("has a layer");
+            Plan::new(vec![scan.def]).expect("plans").row_filter(0, 0..=14)
+        }
+
+        /// PostgreSQL's `IS NULL` misses a JSON `null`, which the scan reads as no document, so a source never
+        /// filters on a kept document.
+        #[test]
+        fn v2_leaves_a_filter_reading_a_kept_jsonb_column_to_the_features() {
+            let RowFilter::Untranslatable(untranslatable) = v2_row_filter("links == null") else {
+                panic!("a filter reading a kept document reached the source");
+            };
+            assert_eq!(untranslatable.reason, TranslateError::NotAColumn("links".to_owned()));
+        }
+
+        #[test]
+        fn v2_still_lets_a_source_filter_on_the_other_columns() {
+            let rows = v2_row_filter("class == 'primary'");
+            assert_eq!(
+                rows.condition().map(ToString::to_string).as_deref(),
+                Some("class = 'primary'")
+            );
+        }
+
+        #[test]
+        fn v2_refuses_to_select_a_key_inside_a_jsonb_column() {
+            let err = lower_with(Some(WireVersion::V02), "[class, surface]").unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                "layer `roads` of source `roads_source` selects `surface`, which is not a column: `--format mlt2` keeps a `jsonb` column (links) whole as one nested column, so a key inside it cannot be selected; select the column instead"
+            );
+        }
+
+        #[test]
+        fn v2_skips_a_layer_outside_the_run_zooms_even_when_it_selects_a_key_inside_a_jsonb_column() {
+            let info: TableInfo = serde_saphyr::from_str(indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                properties:
+                  class: text
+                  links: jsonb
+                layers:
+                  roads:
+                    minzoom: 10
+                    attributes: [class, surface]
+            "})
+            .expect("valid table");
+            let scan = lower_table(
+                "roads_source",
+                info,
+                &LowerOptions {
+                    zooms: 0..=5,
+                    bounds: None,
+                    encoder: Some(
+                        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(WireVersion::V02),
+                    ),
+                    order_by: None,
+                },
+            )
+            .expect("lowers");
+            assert!(scan.is_none());
+        }
+
+        #[test]
+        fn v1_and_mvt_still_spread_a_jsonb_column_into_keys() {
+            for wire in [Some(WireVersion::V01), None] {
+                let scan = lower_with(wire, "[class, surface]")
+                    .expect("lowers")
+                    .expect("has a layer");
+                assert!(!scan.keep_documents);
+                assert_eq!(
+                    scan.def.columns,
+                    [
+                        ColumnDef::Value("class".to_owned(), Some(ValueKind::String)),
+                        ColumnDef::Keys("links".to_owned()),
+                    ]
+                );
+            }
+        }
     }
 
     #[test]
@@ -2009,6 +2279,25 @@ mod tests {
         .map(|_| ())
         .expect_err("point is never reached");
         insta::assert_snapshot!(err, @"layer `pois`: `point` in `geometry: [centroid, point]` takes no feature, as the entries before it take all of its types");
+    }
+
+    #[test]
+    fn a_layer_outside_the_run_zooms_is_skipped_even_when_its_geometry_list_is_refused() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    minzoom: 10
+                    geometry: [line, polygon_centroid]
+            "},
+            0..=5,
+        )
+        .expect("lowers");
+        assert!(scan.is_none());
     }
 
     #[test]

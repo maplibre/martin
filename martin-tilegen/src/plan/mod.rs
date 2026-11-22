@@ -99,20 +99,23 @@ pub enum ColumnDef {
     /// Properties under keys of their own, e.g. those of a JSON column.
     /// Expressions do not see the column by its name, but a key with that name takes its [`KeyId`].
     Keys(String),
+    /// A JSON document kept whole as one property named after the column, which no source can filter on, since
+    /// a source's `null` is not the document's.
+    Document(String),
 }
 
 impl ColumnDef {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Value(name, _) | Self::Keys(name) => name,
+            Self::Value(name, _) | Self::Keys(name) | Self::Document(name) => name,
         }
     }
 
     /// The property name of a column that is not [`ColumnDef::Keys`].
     fn value(&self) -> Option<&str> {
         match self {
-            Self::Value(name, _) => Some(name),
+            Self::Value(name, _) | Self::Document(name) => Some(name),
             Self::Keys(_) => None,
         }
     }
@@ -974,7 +977,7 @@ impl Compiler<'_> {
             .transpose()
     }
 
-    /// The position of the [`ColumnDef::Value`] named `name`.
+    /// The position of the [`ColumnDef::Value`] or [`ColumnDef::Document`] named `name`.
     fn value_position(&self, name: &str) -> Option<usize> {
         self.columns.iter().position(|column| column.value() == Some(name))
     }

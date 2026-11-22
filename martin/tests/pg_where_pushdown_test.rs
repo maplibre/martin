@@ -75,6 +75,7 @@ async fn kept(pool: &PostgresPool, yaml: &str) -> Kept {
         crs: all.crs,
         has_id: true,
         properties: all.properties.len(),
+        keep_documents: false,
     };
     let mut features = Vec::new();
     scan_features(&client, &all.sql, &[], &layout, 0, &plan.table_keys()[0], |batch| {

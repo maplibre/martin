@@ -158,7 +158,16 @@ workers are `--threads`), `--save-config`, and `max_feature_count` in the config
 
 `--format mlt2` writes the same layers as `--format mlt` in the v2 wire format, and reads the v2-only
 `convert_to_mlt` keys `allow_delta2` and `allow_rans_vertices`, which `--format mlt` refuses.
-Unlike tile mode, it does not keep nested `jsonb` values or M ordinates yet.
+Unlike tile mode, it does not keep M ordinates yet.
+
+`--format mlt2` also keeps a `jsonb` column whole, as tile mode does: a document is a nested column named
+after the column, with lists, maps and typed values. Every tile of a layer gives the column the same shape,
+the union of the shapes of all its documents, and a column of documents that are all scalars is an ordinary
+property. `--format mlt` and `--format mvt` spread each document into one property per top-level key, as
+`ST_AsMVT` does.
+A kept document is one property named after its column, so a layer's `attributes` and its expressions see
+the column, and refuse a key inside it as they refuse any name that is not a column.
+An expression reads the document as its JSON text.
 
 `--bbox` picks tiles, as in tile mode, and each of them holds every feature it covers.
 Without `--bbox`, bulk mode picks the tiles touching the union of the `bounds` of every selected source

@@ -973,7 +973,8 @@ fn compared_as(columns: &[ColumnDef], column: &str, value: &Literal) -> Option<R
     };
     let read_as = columns.iter().find_map(|c| match c {
         ColumnDef::Value(name, read_as) if name == column => Some(*read_as),
-        ColumnDef::Value(..) | ColumnDef::Keys(_) => None,
+        ColumnDef::Document(name) if name == column => Some(None),
+        ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) => None,
     });
     match read_as {
         Some(Some(read_as)) => read_as.common(kind).map(Ok),

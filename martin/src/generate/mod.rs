@@ -240,6 +240,16 @@ pub enum GenerateError {
         "Source `{source_id}` sets `{key}` in `convert_to_mlt`, which changes only `--format mlt2` tiles; add `--format mlt2`"
     )]
     V2OnlyKey { source_id: String, key: &'static str },
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[error(
+        "layer `{layer}` of source `{source_id}` selects `{key}`, which is not a column: `--format mlt2` keeps a `jsonb` column ({documents}) whole as one nested column, so a key inside it cannot be selected; select the column instead"
+    )]
+    KeyInsideDocument {
+        source_id: String,
+        layer: String,
+        key: String,
+        documents: String,
+    },
     #[error("Source `{0}` uses tile grid `{1}`; `--mode bulk` supports Web Mercator only")]
     UnsupportedGrid(String, String),
     #[error(transparent)]

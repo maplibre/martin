@@ -191,6 +191,7 @@ impl TestBackend for Postgres {
             id: table.source.clone(),
             info,
             def: table.def.clone(),
+            keep_documents: false,
         }];
         let pool = self.pool().clone();
         let source = match rows {

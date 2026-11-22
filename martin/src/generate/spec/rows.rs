@@ -476,8 +476,10 @@ fn read(plan: &Plan, table: &TestTable, key: RowKey, feature: &SourceFeature, pa
         .columns
         .iter()
         .filter_map(|column| match column {
-            ColumnDef::Value(name, _) if plan.columns(0).contains(name) => Some((name.clone(), Value::Null)),
-            ColumnDef::Value(..) | ColumnDef::Keys(_) => None,
+            ColumnDef::Value(name, _) | ColumnDef::Document(name) if plan.columns(0).contains(name) => {
+                Some((name.clone(), Value::Null))
+            }
+            ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) => None,
         })
         .collect();
     let keys = &plan.table_keys()[0];

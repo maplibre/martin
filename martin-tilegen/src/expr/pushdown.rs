@@ -270,7 +270,7 @@ impl Translator<'_> {
             .iter()
             .find_map(|column| match column {
                 ColumnDef::Value(column, kind) if column == name => Some(*kind),
-                ColumnDef::Value(..) | ColumnDef::Keys(_) => None,
+                ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) => None,
             })
             .ok_or_else(|| TranslateError::NotAColumn(name.to_owned()))
     }
