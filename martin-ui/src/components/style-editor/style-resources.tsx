@@ -1,6 +1,7 @@
 import type { SourceSpecification, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import { buildMartinUrl } from '@/lib/api';
+import { isMltContentType } from '@/lib/mlt';
 import { isExpression } from './style-spec';
 
 /** Style-level resources the icon and font pickers browse. */
@@ -70,11 +71,12 @@ export function useMartinCatalog(): MartinCatalog {
       .then((c?: { tiles?: CatalogTiles; fonts?: object; sprites?: object }) => {
         const tiles = Object.entries(c?.tiles ?? {}).flatMap(([id, t]): MartinTileSource[] => {
           const url = buildMartinUrl(`/${id}`);
-          const vector = /protobuf|mvt|mlt/.test(t.content_type);
+          const mlt = isMltContentType(t.content_type);
+          const vector = mlt || /protobuf|mvt/.test(t.content_type);
           const raster = t.content_type.startsWith('image/');
           if (!vector && !raster) return [];
           const spec: SourceSpecification = vector
-            ? { type: 'vector', url }
+            ? { type: 'vector', url, ...(mlt && { encoding: 'mlt' }) }
             : { tileSize: 256, type: 'raster', url };
           return [{ description: t.description ?? undefined, id, name: t.name || id, spec }];
         });

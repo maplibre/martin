@@ -1,6 +1,11 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { describe, expect, it } from 'vitest';
-import { collectFonts } from '@/components/style-editor/style-resources';
+import { renderHook, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { collectFonts, useMartinCatalog } from '@/components/style-editor/style-resources';
+
+vi.mock('@/lib/api', () => ({
+  buildMartinUrl: vi.fn((path: string) => `http://localhost:3000${path}`),
+}));
 
 describe('collectFonts', () => {
   it('collects the font stacks text-font can produce, not the inputs that pick them', () => {
@@ -69,6 +74,41 @@ describe('collectFonts', () => {
       'Noto Sans Bold',
       'Noto Sans Italic',
       'Open Sans Regular',
+    ]);
+  });
+});
+
+describe('useMartinCatalog', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('offers MLT, MVT and raster sources and marks MLT ones with the mlt encoding', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              tiles: {
+                dem: { content_type: 'application/octet-stream', name: 'Other' },
+                mlt: { content_type: 'application/vnd.maplibre-tile', name: 'MLT' },
+                mlt_old: { content_type: 'application/vnd.maplibre-vector-tile', name: 'MLT old' },
+                mvt: { content_type: 'application/x-protobuf', name: 'MVT' },
+                png: { content_type: 'image/png', name: 'PNG' },
+              },
+            }),
+          ),
+        ),
+      ),
+    );
+
+    const { result } = renderHook(() => useMartinCatalog());
+
+    await waitFor(() => expect(result.current.tiles).toHaveLength(4));
+    expect(result.current.tiles.map((t) => [t.id, t.spec])).toEqual([
+      ['mlt', { encoding: 'mlt', type: 'vector', url: 'http://localhost:3000/mlt' }],
+      ['mlt_old', { encoding: 'mlt', type: 'vector', url: 'http://localhost:3000/mlt_old' }],
+      ['mvt', { type: 'vector', url: 'http://localhost:3000/mvt' }],
+      ['png', { tileSize: 256, type: 'raster', url: 'http://localhost:3000/png' }],
     ]);
   });
 });

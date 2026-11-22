@@ -2,6 +2,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { Map as MapLibre, NavigationControl } from 'maplibre-gl';
 import { type CSSProperties, useEffect, useRef } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { mltAcceptTransformRequest } from '@/lib/mlt';
 
 interface MapCanvasProps {
   /** Style to render; changes are applied as a diff. */
@@ -36,6 +37,7 @@ export function MapCanvas({ style, filter, onReady }: MapCanvasProps) {
       attributionControl: { compact: true },
       container: container.current,
       style,
+      transformRequest: mltAcceptTransformRequest(() => map.current ?? undefined),
       ...cameraFromHash(),
     });
     m.on('moveend', () => writeHash(m));

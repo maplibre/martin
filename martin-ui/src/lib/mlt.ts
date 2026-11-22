@@ -2,6 +2,11 @@ import type { Map as MapLibre, RequestTransformFunction, VectorTileSource } from
 
 const MLT_MIME = 'application/vnd.maplibre-tile';
 
+/** Whether a catalog `content_type` is MLT, under its current or its older MIME type. */
+export function isMltContentType(contentType: string): boolean {
+  return contentType === MLT_MIME || contentType === 'application/vnd.maplibre-vector-tile';
+}
+
 function servesMlt(map: MapLibre | undefined, url: string): boolean {
   if (!map?.isStyleLoaded()) return false;
   return Object.keys(map.getStyle().sources).some((id) => {

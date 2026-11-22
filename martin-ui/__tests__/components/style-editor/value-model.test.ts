@@ -585,6 +585,34 @@ describe('convertValue', () => {
     `);
   });
 
+  it('spreads a ramp over one unit when every sampled value is the same', () => {
+    expect(
+      convertValue({ mode: 'constant', value: 2 }, 'ramp', {
+        attribute: 'lanes',
+        sampleRange: [10, 10],
+        spec: lineWidth(),
+      }),
+    ).toMatchInlineSnapshot(`
+      {
+        "attribute": "lanes",
+        "interpolation": {
+          "kind": "linear",
+        },
+        "mode": "ramp",
+        "stops": [
+          {
+            "input": 10,
+            "output": 2,
+          },
+          {
+            "input": 11,
+            "output": 2,
+          },
+        ],
+      }
+    `);
+  });
+
   it('turns a constant into a ramp over 0 to 100 without a sampled range', () => {
     expect(
       convertValue({ mode: 'constant', value: 3 }, 'ramp', { attribute: 'h', spec: lineWidth() }),

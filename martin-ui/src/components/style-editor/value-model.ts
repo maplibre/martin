@@ -300,7 +300,8 @@ export function convertValue(
       return { interpolation, mode, stops };
     }
     case 'ramp': {
-      const [lo, hi] = ctx.sampleRange ?? [0, 100];
+      const [lo, sampledHi] = ctx.sampleRange ?? [0, 100];
+      const hi = sampledHi > lo ? sampledHi : lo + 1;
       const stops =
         interpolation.kind === 'step'
           ? [

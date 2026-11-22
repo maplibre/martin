@@ -152,7 +152,8 @@ export function PalettePanel(props: PalettePanelProps) {
       <ul className="flex flex-col">
         {shown.map((token) =>
           token.key === selected ? (
-            <TokenCard key={token.key} {...props} token={token} />
+            // A fixed key keeps the card and its focused input mounted while edits change the color key.
+            <TokenCard key="selected" {...props} token={token} />
           ) : (
             <li key={token.key}>
               <TokenHeader onClick={() => onSelect(token.key)} token={token} />
