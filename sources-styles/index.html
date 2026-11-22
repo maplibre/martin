@@ -2202,7 +2202,11 @@
 
 <h1 id="style-sources">Style Sources</h1>
 <p>Martin will serve your styles as needed by MapLibre rendering libraries.</p>
-<p>To edit these styles, we recommend using <a href="https://maputnik.github.io/editor/">https://maputnik.github.io/editor/</a>.</p>
+<p>To edit a style, open the Styles tab in the Martin web UI and select Edit; the editor shows the style's layers on the left, the live map in the middle, and an inspector on the right with Layer, Palette, and Checks tabs.
+Every property editor follows the MapLibre style spec (v8) and accepts fixed values, zoom-dependent values, values by category of a feature attribute (<code>match</code>), values by a numeric attribute, or raw expressions, with attribute names and example values taken from the tile source.
+The Palette tab lists every color the style uses, and changing one updates every layer that uses it; the Checks tab reports labels with low contrast and style spec errors.
+Edits stay in your browser until you click Download, which saves the style JSON; replace the file Martin serves with it to publish your changes, since Martin does not write style files.
+"Open in Maputnik" remains available from the editor header.</p>
 <h3 id="api">API</h3>
 <p>Martin can serve <a href="https://maplibre.org/maplibre-style-spec/">MapLibre Style Spec</a>.
 Currently, Martin will use any valid <a href="https://json.org"><code>JSON</code></a> file as a style,
