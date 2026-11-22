@@ -12,6 +12,7 @@ use clap::Parser;
 use image::ImageFormat;
 use martin_core::styles::render_pool::RenderPools;
 use martin_core::styles::{DEFAULT_RENDERERS_PER_WORKER, DEFAULT_STATIC_RENDERERS_PER_WORKER, RenderStyle, TileSize};
+use martin_tile_utils::TileCoord;
 
 /// Style rendered when `--style` is not given.
 const DEFAULT_STYLE: &str = concat!(
@@ -79,18 +80,25 @@ pub async fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Renders tile `z/x/y` and answers it as PNG.
+/// Renders tile `z/x/y` and answers it as PNG, or 400 if the tile does not exist.
 async fn tile(path: web::Path<(u8, u32, u32)>, state: web::Data<AppState>) -> actix_web::Result<HttpResponse> {
     let (z, x, y) = path.into_inner();
+    if TileCoord::new_checked(z, x, y).is_none() {
+        return Ok(HttpResponse::BadRequest().body(format!("tile {z}/{x}/{y} does not exist")));
+    }
     let image = state
         .pools
         .render_tile_with_pixel_ratio(state.style.clone(), z, x, y, RETINA)
         .await
         .map_err(ErrorInternalServerError)?;
-    let mut png = Vec::new();
-    image
-        .write_to(&mut Cursor::new(&mut png), ImageFormat::Png)
-        .map_err(ErrorInternalServerError)?;
+    let png = web::block(move || {
+        let mut png = Vec::new();
+        image
+            .write_to(&mut Cursor::new(&mut png), ImageFormat::Png)
+            .map(|()| png)
+    })
+    .await?
+    .map_err(ErrorInternalServerError)?;
     Ok(HttpResponse::Ok()
         .content_type("image/png")
         .insert_header((CACHE_CONTROL, "max-age=3600"))
