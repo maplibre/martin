@@ -146,6 +146,16 @@ impl EncodedProps {
         put(&mut self.bytes, &(key.get(), Prop::Nested(json)));
     }
 
+    /// Stores `value`, a `jsonb` document apart from text.
+    pub fn push_prop<S: AsRef<str>>(&mut self, key: KeyId, value: &crate::props::Prop<S>) {
+        #[cfg(feature = "unstable-mlt-v2")]
+        if let crate::props::Prop::Nested(json) = value {
+            self.push_nested(key, json.as_ref());
+            return;
+        }
+        self.push(key, value.as_ref());
+    }
+
     pub(crate) fn decode(&self) -> Props<'_> {
         Props { bytes: &self.bytes }
     }

@@ -273,8 +273,8 @@ impl Plan {
     ) {
         for attr in &attrs.computed {
             if let Some(value) = self.attr(attr, feature, view, errors) {
-                props.push(attr.key, value.as_ref());
-                kinds.add(output, attr.key, value.as_ref());
+                props.push_prop(attr.key, &value);
+                kinds.add_prop(output, attr.key, &value);
             }
         }
         if attrs.bands.is_empty() {
@@ -289,10 +289,10 @@ impl Plan {
             let Some(value) = self.attr(attr, feature, view, errors) else {
                 continue;
             };
-            kinds.add(output, attr.key, value.as_ref());
+            kinds.add_prop(output, attr.key, &value);
             for (from, band) in bands.iter_mut() {
                 if attr.zooms.contains(from) {
-                    band.push(attr.key, value.as_ref());
+                    band.push_prop(attr.key, &value);
                 }
             }
         }
@@ -426,8 +426,8 @@ impl Evaluator<'_> {
                 if let Some(key) = output_key(&mut dynamic[layer_index], layer, output, *key)
                     && (attrs.overrides.is_empty() || attrs.overrides.binary_search(&key).is_err())
                 {
-                    props.push(key, value.as_ref());
-                    kinds.add(layer.output, key, value.as_ref());
+                    props.push_prop(key, value);
+                    kinds.add_prop(layer.output, key, value);
                 }
             }
             plan.computed(layer.output, attrs, &feature.props, view, errors, props, bands, kinds);

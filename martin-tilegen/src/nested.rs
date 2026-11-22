@@ -6,6 +6,12 @@ use std::collections::BTreeMap;
 use mlt_core::{NestedKind, NestedValue, PropKind, PropValue};
 use serde_json::Value;
 
+/// A document read from its JSON text; text that is not JSON is a string.
+#[must_use]
+pub fn parse(json: &str) -> Value {
+    serde_json::from_str(json).unwrap_or_else(|_| Value::String(json.to_owned()))
+}
+
 /// How many levels a nested column may have, counting its root as the first.
 const MAX_DEPTH: usize = 8;
 

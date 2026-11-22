@@ -8,6 +8,8 @@ use mlt_core::geo_types::Coord;
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef, PropertyKey};
 
 use super::columns::TileColumns;
+#[cfg(feature = "unstable-mlt-v2")]
+use super::documents::Documents;
 use super::per_tile::{LayerOpCounts, LayerTile, OpScratch, TileFeature, TileOps};
 use crate::props::{KeyId, KeyNames};
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
@@ -39,6 +41,9 @@ pub struct LayerAssembler {
     texts: Vec<Range<usize>>,
     /// The integers of the last layer that float columns rounded.
     rounded: Rounded,
+    /// The `jsonb` document keys of the last layer.
+    #[cfg(feature = "unstable-mlt-v2")]
+    documents: Documents,
     /// Scratch of the per-tile operations, and their failed evaluations.
     pub(crate) ops: OpScratch,
 }
@@ -113,6 +118,8 @@ impl LayerAssembler {
             text,
             texts,
             rounded,
+            #[cfg(feature = "unstable-mlt-v2")]
+            documents,
             ops: op_scratch,
         } = self;
         let decoded = records
@@ -133,28 +140,12 @@ impl LayerAssembler {
         ops.apply(&tile, features, op_scratch)?;
         let props = tile.props.borrow();
 
-        columns.clear();
-        for feature in features.iter() {
-            for &(key, value) in &props[feature.props()] {
-                columns.add(key, value);
-            }
-        }
-        columns.finish(names, schema);
+        #[cfg(feature = "unstable-mlt-v2")]
+        tally_columns(features, &props, names, columns, schema, documents);
+        #[cfg(not(feature = "unstable-mlt-v2"))]
+        tally_columns(features, &props, names, columns, schema);
 
-        text.clear();
-        texts.clear();
-        for feature in features.iter() {
-            for &(key, value) in &props[feature.props()] {
-                if let Some(pos) = columns.position(key)
-                    && schema[pos].1 == PropKind::Str
-                    && !matches!(value, PropValueRef::Str(_))
-                {
-                    let from = text.len();
-                    write_text(text, value);
-                    texts.push(from..text.len());
-                }
-            }
-        }
+        collect_texts(features, &props, columns, schema, text, texts);
         let text = text.as_str();
         let mut texts = texts.iter();
 
@@ -164,6 +155,12 @@ impl LayerAssembler {
         for &(key, kind) in schema.iter() {
             keys.push(layer.add_property(names.name(key), kind)?);
         }
+        #[cfg(feature = "unstable-mlt-v2")]
+        documents.declare(names, &mut layer)?;
+        #[cfg(feature = "unstable-mlt-v2")]
+        let documents = &*documents;
+        #[cfg(feature = "unstable-mlt-v2")]
+        let mut document_writer = documents.writer();
 
         for tile_feature in features.iter() {
             let (kind, id) = tile.geometry(tile_feature, geom)?;
@@ -171,6 +168,12 @@ impl LayerAssembler {
             feature.id(id);
             write_geometry(&mut feature, kind, geom)?;
             for &(key, value) in &props[tile_feature.props()] {
+                #[cfg(feature = "unstable-mlt-v2")]
+                if names.document(key).is_some() {
+                    let property = columns.position(key).map(|pos| keys[pos]);
+                    document_writer.write(names, &mut feature, key, value, property)?;
+                    continue;
+                }
                 let Some(pos) = columns.position(key) else {
                     continue;
                 };
@@ -201,6 +204,63 @@ impl LayerAssembler {
             ops: op_scratch.counts,
             rounded,
         })
+    }
+}
+
+/// Fills `columns` and `schema` with the columns the tile's features need, and `documents` with the
+/// values of its scalar document keys.
+fn tally_columns(
+    features: &[TileFeature],
+    props: &[(KeyId, PropValueRef<'_>)],
+    names: &KeyNames,
+    columns: &mut TileColumns,
+    schema: &mut Vec<(KeyId, PropKind)>,
+    #[cfg(feature = "unstable-mlt-v2")] documents: &mut Documents,
+) {
+    columns.clear();
+    #[cfg(feature = "unstable-mlt-v2")]
+    documents.clear();
+    for feature in features {
+        for &(key, value) in &props[feature.props()] {
+            #[cfg(feature = "unstable-mlt-v2")]
+            if documents.note(names, columns, key) {
+                continue;
+            }
+            columns.add(key, value);
+        }
+    }
+    columns.finish(names, schema);
+    #[cfg(feature = "unstable-mlt-v2")]
+    for feature in features {
+        for &(key, value) in &props[feature.props()] {
+            documents.collect_leaf(names, key, value);
+        }
+    }
+}
+
+/// Writes into `text` the text of every value that a string column holds but is not a string, and into
+/// `texts` where each one is, in the order the features carry them.
+fn collect_texts(
+    features: &[TileFeature],
+    props: &[(KeyId, PropValueRef<'_>)],
+    columns: &TileColumns,
+    schema: &[(KeyId, PropKind)],
+    text: &mut String,
+    texts: &mut Vec<Range<usize>>,
+) {
+    text.clear();
+    texts.clear();
+    for feature in features {
+        for &(key, value) in &props[feature.props()] {
+            if let Some(pos) = columns.position(key)
+                && schema[pos].1 == PropKind::Str
+                && !matches!(value, PropValueRef::Str(_))
+            {
+                let from = text.len();
+                write_text(text, value);
+                texts.push(from..text.len());
+            }
+        }
     }
 }
 
