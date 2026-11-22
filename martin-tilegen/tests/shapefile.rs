@@ -384,7 +384,7 @@ fn a_shapefile_in_another_projection_is_refused() {
     )
     .unwrap();
     let err = Shapefile::open(&path, dir.path()).unwrap_err();
-    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/roads.shp is in `ETRS_1989_UTM_Zone_32N`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>").replace('\\', "/"), @"<dir>/roads.shp is in `ETRS_1989_UTM_Zone_32N`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
 }
 
 #[test]
@@ -402,7 +402,7 @@ fn a_shapefile_in_ellipsoidal_mercator_is_refused() {
     )
     .unwrap();
     let err = Shapefile::open(&path, dir.path()).unwrap_err();
-    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/roads.shp is in `WGS_1984_World_Mercator`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>").replace('\\', "/"), @"<dir>/roads.shp is in `WGS_1984_World_Mercator`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
 }
 
 #[test]
@@ -420,7 +420,7 @@ fn a_shapefile_in_wgs84_radians_is_refused() {
     )
     .unwrap();
     let err = Shapefile::open(&path, dir.path()).unwrap_err();
-    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/roads.shp is in `GCS_WGS_1984`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>").replace('\\', "/"), @"<dir>/roads.shp is in `GCS_WGS_1984`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
 }
 
 #[test]
@@ -438,7 +438,7 @@ fn a_prj_file_nested_too_deep_is_refused() {
     )
     .unwrap();
     let err = Shapefile::open(&path, dir.path()).unwrap_err();
-    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/roads.shp is in `A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>").replace('\\', "/"), @"<dir>/roads.shp is in `A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]`; Martin reads shapefiles in EPSG:4326 or EPSG:3857 only");
 }
 
 #[test]
@@ -451,7 +451,7 @@ fn a_shapefile_without_a_prj_file_is_refused() {
         .unwrap();
     drop(writer);
     let err = Shapefile::open(&path, dir.path()).unwrap_err();
-    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/roads.shp has no .prj file; Martin needs it to tell EPSG:4326 from EPSG:3857");
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>").replace('\\', "/"), @"<dir>/roads.shp has no .prj file; Martin needs it to tell EPSG:4326 from EPSG:3857");
 }
 
 #[test]
@@ -689,7 +689,7 @@ fn a_record_the_shx_places_past_the_end_of_the_shp_is_refused() {
     index[104..108].copy_from_slice(&0x7fff_ffff_u32.to_be_bytes());
     std::fs::write(&shx, index).unwrap();
     let err = Shapefile::open(&path, dir.path()).unwrap_err();
-    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/places.shp places record 1 up to byte 4294967402, past the end of the .shp file at byte 128");
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>").replace('\\', "/"), @"<dir>/places.shp places record 1 up to byte 4294967402, past the end of the .shp file at byte 128");
 }
 
 #[test]
@@ -703,7 +703,7 @@ fn a_zip_file_with_two_shapefiles_is_refused() {
     }
     zip.finish().unwrap();
     let err = Shapefile::open(&zipped, dir.path()).unwrap_err();
-    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>"), @"<dir>/two.zip holds 2 shapefiles; Martin reads a zip file that holds exactly one");
+    insta::assert_snapshot!(err.to_string().replace(&dir.path().display().to_string(), "<dir>").replace('\\', "/"), @"<dir>/two.zip holds 2 shapefiles; Martin reads a zip file that holds exactly one");
 }
 
 #[test]
