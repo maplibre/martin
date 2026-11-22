@@ -3,7 +3,7 @@
 use std::fs;
 
 use indoc::formatdoc;
-use martin_e2e_tests::{MartinCp, MbtilesCli, fixture, mvt_dump, temp_dir, tile_listing, tiles};
+use martin_e2e_tests::{MartinCp, MbtilesCli, fixture, metadata, mvt_dump, temp_dir, tile_listing, tiles};
 
 #[tokio::test]
 async fn monaco_renders_roads_buildings_cafes_and_water() {
@@ -60,6 +60,59 @@ async fn monaco_renders_roads_buildings_cafes_and_water() {
     insta::assert_snapshot!("tiles", tile_listing(&output).await);
     let tiles = tiles(&output).await;
     insta::assert_snapshot!("z10", mvt_dump(&tiles[0].3));
+}
+
+#[tokio::test]
+async fn a_hidden_attribute_keys_thinning_but_no_tile_or_metadata_carries_it() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        formatdoc! {"
+            osm:
+              sources:
+                monaco:
+                  path: {path}
+                  tags: [\"addr:housenumber\", \"addr:street\"]
+                  layers:
+                    housenumber:
+                      geometry: point
+                      where: \"feature['addr:housenumber'] != null\"
+                      attributes:
+                        housenumber: \"feature['addr:housenumber']\"
+                        _partition:
+                          expr: \"feature['addr:street'] != null ? feature['addr:street'] + ' ' + feature['addr:housenumber'] : null\"
+                          hidden: true
+                      thinning: {{ method: tile, keys: [_partition] }}
+        ", path = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("monaco.mbtiles");
+    MartinCp::bulk()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--format")
+        .arg("mvt")
+        .arg("--encoding")
+        .arg("none")
+        .arg("--mvt-quirk")
+        .arg("keep-unused-keys")
+        .arg("--min-zoom")
+        .arg("14")
+        .arg("--max-zoom")
+        .arg("14")
+        .run()
+        .await;
+    let carrying: Vec<_> = tiles(&output)
+        .await
+        .into_iter()
+        .filter(|tile| tile.3.windows(b"_partition".len()).any(|bytes| bytes == b"_partition"))
+        .map(|(z, x, y, _)| (z, x, y))
+        .collect();
+    assert_eq!(carrying, []);
+    insta::assert_snapshot!(metadata(&output).await["json"], @r#"{"vector_layers":[{"id":"housenumber","fields":{"housenumber":"String"},"maxzoom":14,"minzoom":14}]}"#);
 }
 
 #[tokio::test]

@@ -66,7 +66,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 26 }
       - name: Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
       # The second run fails only on what the hooks cannot fix.
       - name: Run pre-commit hooks
@@ -113,7 +113,7 @@ jobs:
       - if: needs.changes.outputs.cog-py == 'true'
         run: just sync-cog-py-stubs
       - name: Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with: { enable-cache: false }
       - run: uvx prek@0.5.5 run --files schemas/config.json martin/openapi.json martin-ui/src/lib/types.gen.ts
         continue-on-error: true
@@ -156,7 +156,7 @@ jobs:
       - name: Install rendering dependencies
         run: just install-dependencies
       - name: Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
 
       - run: just bless

@@ -1392,7 +1392,7 @@ dependencies = [
  "regex",
  "rustc-hash 2.1.3",
  "shlex",
- "syn 2.0.119",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -4107,6 +4107,15 @@ version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c512d9810e0836ad7aae1ecc363a727a20e7d56e1d497433150a354f6ddaccee"
 dependencies = [
+ "hotpath-macros 0.32.1",
+]
+
+[[package]]
+name = "hotpath"
+version = "0.33.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43bc32875cd2ac7904b2741b1bff0d39e5c3d7d335d5940b69f9ba07e463635b"
+dependencies = [
  "arc-swap",
  "axum",
  "cfg-if",
@@ -4122,7 +4131,7 @@ dependencies = [
  "futures-util",
  "hdrhistogram",
  "hotpath-drain",
- "hotpath-macros",
+ "hotpath-macros 0.33.0",
  "libc",
  "pin-project-lite",
  "quanta",
@@ -4142,15 +4151,21 @@ dependencies = [
 
 [[package]]
 name = "hotpath-drain"
-version = "0.32.1"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa3baccda92e8ec88e76475c59de2edfb1da8ba0ada8027acecc823142bdc8a4"
+checksum = "9b14e13a25026f1b7c41477e43fdc2182dd41d233212fba5e08bb595316134db"
 
 [[package]]
 name = "hotpath-macros"
 version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1afbcca1689d57e341a886622a751f0893add180871306b99e8061fbe4361be"
+
+[[package]]
+name = "hotpath-macros"
+version = "0.33.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44c4cc8b0a9c80dfec65e0f2f4fb5cdc0b8f1ddfd4c025d4ad39c318da7b1165"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5835,7 +5850,7 @@ dependencies = [
  "geo",
  "geo-types",
  "geojson 1.0.0",
- "hotpath",
+ "hotpath 0.33.0",
  "insta",
  "serde_json",
  "stats_alloc",
@@ -5882,7 +5897,7 @@ dependencies = [
  "fnv",
  "futures",
  "geojson 1.0.0",
- "hotpath",
+ "hotpath 0.33.0",
  "humantime-serde",
  "image",
  "indexmap 2.14.2",
@@ -5965,7 +5980,6 @@ dependencies = [
  "base64 0.23.1",
  "bit-set 0.11.1",
  "bytes",
- "chrono",
  "clap",
  "cog-tiles",
  "compact_str 0.10.0",
@@ -5982,11 +5996,12 @@ dependencies = [
  "geo-traits",
  "geo-types",
  "geojson 1.0.0",
- "hotpath",
+ "hotpath 0.33.0",
  "humantime",
  "image",
  "insta",
  "itertools 0.15.0",
+ "jiff",
  "jxl-oxide",
  "martin-core",
  "martin-tile-utils",
@@ -6083,7 +6098,7 @@ dependencies = [
  "brotli 9.1.3",
  "bytes",
  "flate2",
- "hotpath",
+ "hotpath 0.33.0",
  "rstest",
  "serde",
  "serde_json",
@@ -6105,7 +6120,7 @@ dependencies = [
  "geo",
  "geo-traits",
  "geo-types",
- "hotpath",
+ "hotpath 0.33.0",
  "indoc",
  "insta",
  "lasso",
@@ -6184,7 +6199,7 @@ dependencies = [
  "flume",
  "fnv",
  "futures",
- "hotpath",
+ "hotpath 0.33.0",
  "indicatif",
  "insta",
  "itertools 0.15.0",
@@ -7040,7 +7055,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath",
+ "hotpath 0.32.1",
  "integer-encoding",
  "num-traits",
  "num_enum",
@@ -7254,9 +7269,9 @@ dependencies = [
 
 [[package]]
 name = "notify"
-version = "8.2.2"
+version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c41a04a5f59df9322cc657286dd2d79f90816119b22c5f847607c850110205ab"
+checksum = "5482d5bd11b91a337521980e5d52fe115bdccfb4c217099daaf0abd69159dc4e"
 dependencies = [
  "bitflags 2.13.2",
  "inotify",
@@ -7269,6 +7284,7 @@ dependencies = [
  "objc2-core-services",
  "walkdir",
  "windows-sys 0.61.2",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -8599,9 +8615,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-stub-gen"
-version = "0.23.2"
+version = "0.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1ad39dbdf4d65a7b4f5cf5d02c0d6fb5d72a1110df4715ebb74634d379ef2ce"
+checksum = "111b01c874bd90a65b31412077467e52a8f2993a0aa5e06d885df93512463526"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8622,9 +8638,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-stub-gen-derive"
-version = "0.23.2"
+version = "0.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9d511131ec1f75fbaba63d70016de31e969273659e4e71ea8fadd339822eb71"
+checksum = "d82a32937b88ef0c95b794628f55a0a98d042ed0ecef92b7265687fb45c9a2ce"
 dependencies = [
  "heck",
  "indexmap 2.14.2",
@@ -9392,9 +9408,9 @@ dependencies = [
 
 [[package]]
 name = "rstest"
-version = "0.28.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b376e512f30a7686a8dbc6aeaace99b3ade1c26c1c63473473a817ade226dafc"
+checksum = "1493d41b35c0ca33433425bd25fc76f9595f2d6031727bc54a86317d73974f05"
 dependencies = [
  "futures-timer",
  "futures-util",
@@ -9403,9 +9419,9 @@ dependencies = [
 
 [[package]]
 name = "rstest_macros"
-version = "0.28.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88512dbfb5b73a0dfa38aef7bc73b5657035fce477b923faf12d332dd83051ea"
+checksum = "05c7b2f315394a42e73034681345115eaa5ee454617c3f7bf802dab2a5c02f6c"
 dependencies = [
  "cfg-if",
  "glob",
@@ -9415,7 +9431,7 @@ dependencies = [
  "regex",
  "relative-path",
  "rustc_version",
- "syn 2.0.119",
+ "syn 3.0.10",
  "unicode-ident",
 ]
 
@@ -11531,7 +11547,6 @@ version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb7f578e5945fb242538965c2d0b04418d38ec25c79d160cd279bf0731c8d319"
 dependencies = [
- "chrono",
  "matchers",
  "nu-ansi-term",
  "once_cell",

@@ -7,8 +7,9 @@ use std::ops::RangeInclusive;
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryDef, GeometryType, IdDef, IdOrder, LayerDef, RuleDef,
-    SortDef, TableDef, ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryDef, GeometryType, GridRank, IdDef, IdOrder,
+    LayerDef, RuleDef, SortDef, TableDef, ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef,
+    ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -728,7 +729,32 @@ fn lower_layer(
         sort_by: shared.sort_by.clone(),
         id_order: None,
         per_tile: shared.per_tile.clone(),
+        hidden: hidden_attributes(layer),
     }))
+}
+
+/// The names of the attributes the layer or any of its rules hides, each once.
+fn hidden_attributes(layer: &Layer) -> Vec<String> {
+    let layer_attrs = match &layer.attributes {
+        Attributes::Columns(columns) => Some(&columns.computed),
+        Attributes::None | Attributes::Properties(_) | Attributes::AllProperties => None,
+    };
+    let rule_attrs = layer.rules.iter().flat_map(|rules| {
+        rules
+            .cases
+            .iter()
+            .map(|rule| &rule.settings)
+            .chain(&rules.fallback)
+            .map(|settings| &settings.attributes)
+    });
+    let hidden: IndexSet<&String> = layer_attrs
+        .into_iter()
+        .chain(rule_attrs)
+        .flatten()
+        .filter(|(_, spec)| spec.hidden)
+        .map(|(name, _)| name)
+        .collect();
+    hidden.into_iter().cloned().collect()
 }
 
 /// What lowering a grid thinning needs to know about its layer, to clamp it and warn about it.
@@ -754,7 +780,7 @@ impl GridContext<'_> {
         } = self;
         let mut lowered = Vec::new();
         for entry in thinning {
-            let ThinningMethod::Grid { size, limit } = entry.method else {
+            let ThinningMethod::Grid { size, limit, .. } = entry.method else {
                 continue;
             };
             let range = entry.zooms;
@@ -772,7 +798,7 @@ impl GridContext<'_> {
             lowered.push(ThinningGrid {
                 zooms: lo..=hi,
                 size: size.get(),
-                limit,
+                limit: limit.unwrap_or(NonZeroU32::MAX),
             });
         }
         lowered
@@ -1040,11 +1066,15 @@ fn lower_per_tile(
 
 /// The plan's operation for `thinning`, and the side of its squares if it is a grid.
 fn lower_thinning(thinning: &Thinning) -> (TileOp, Option<f64>) {
-    let (method, grid_size) = match thinning.method {
-        ThinningMethod::Grid { size, limit } => (
+    let (method, grid_size) = match &thinning.method {
+        ThinningMethod::Grid { size, limit, rank } => (
             PlanThinning::Grid {
                 size: size.get(),
-                limit,
+                limit: limit.unwrap_or(NonZeroU32::MAX),
+                rank: rank.as_ref().map(|rank| GridRank {
+                    attribute: rank.attribute.clone(),
+                    offset: rank.offset,
+                }),
             },
             Some(size.get()),
         ),
@@ -1241,6 +1271,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
             ],
         }
@@ -1296,6 +1327,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
             ],
         }
@@ -1401,6 +1433,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
                 LayerDef {
                     name: "road_points",
@@ -1438,6 +1471,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
                 LayerDef {
                     name: "areas",
@@ -1475,6 +1509,7 @@ mod tests {
                     sort_by: [],
                     id_order: None,
                     per_tile: [],
+                    hidden: [],
                 },
             ],
         }
@@ -2391,6 +2426,63 @@ mod tests {
     }
 
     #[test]
+    fn a_grid_with_only_a_rank_keeps_every_point_and_lowers_its_rank() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: places
+                srid: 4326
+                geometry_column: geom
+                buffer: 128
+                layers:
+                  place:
+                    thinning: { method: grid, size: 128, rank: rank, rank_offset: 10 }
+                    rules:
+                      - where: \"rank == null\"
+                        thinning: { method: grid, size: 128, limit: 4, maxzoom: 8 }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        let layer = &scan.def.layers[0];
+        let rules: Vec<_> = layer.rules.iter().map(|rule| rule.thinning.clone()).collect();
+        insta::assert_debug_snapshot!((&layer.per_tile, rules), @r#"
+        (
+            [
+                TileOpDef {
+                    zooms: 0..=14,
+                    op: Thinning {
+                        method: Grid {
+                            size: 128.0,
+                            limit: 4294967295,
+                            rank: Some(
+                                GridRank {
+                                    attribute: "rank",
+                                    offset: 10,
+                                },
+                            ),
+                        },
+                        keys: [],
+                    },
+                },
+            ],
+            [
+                Some(
+                    [
+                        ThinningGrid {
+                            zooms: 0..=8,
+                            size: 128.0,
+                            limit: 4,
+                        },
+                    ],
+                ),
+            ],
+        )
+        "#);
+    }
+
+    #[test]
     fn grid_thinning_lowers_for_the_layer_and_its_rules() {
         let scan = lower(
             indoc! {"
@@ -2439,6 +2531,7 @@ mod tests {
                             method: Grid {
                                 size: 64.0,
                                 limit: 2,
+                                rank: None,
                             },
                             keys: [
                                 "kind",
@@ -2471,6 +2564,7 @@ mod tests {
                             method: Grid {
                                 size: 1.0,
                                 limit: 1,
+                                rank: None,
                             },
                             keys: [],
                         },

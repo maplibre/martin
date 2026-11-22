@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUnderlayPreference } from '@/hooks/use-underlay-preference';
 import { buildMartinUrl } from '@/lib/api';
 import { martinClient } from '@/lib/martin-client';
-import { mltAcceptTransformRequest } from '@/lib/mlt';
+import { isMltContentType, mltAcceptTransformRequest } from '@/lib/mlt';
 import type { Catalog } from '@/lib/types.gen';
 import { ErrorBoundary } from '../error/error-boundary';
 import { LoadingSpinner } from '../loading/loading-spinner';
@@ -233,8 +233,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     map.addSource(name, {
       type: 'vector',
       url: buildMartinUrl(`/${name}`),
-      ...((source.content_type === 'application/vnd.maplibre-tile' ||
-        source.content_type === 'application/vnd.maplibre-vector-tile') && { encoding: 'mlt' }),
+      ...(isMltContentType(source.content_type) && { encoding: 'mlt' }),
     } as VectorSourceSpecification);
     // Import and add the inspect control
     if (inspectControlRef.current) {

@@ -107,7 +107,6 @@ bytes = "1"
 bytesize = "2.7.0"
 bytestring = "1.5"
 cel = { version = "0.16", default-features = false, features = ["regex"] }
-chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 cog-tiles = { path = "cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
@@ -130,7 +129,7 @@ geo-index = { version = "0.4.0", features = ["rayon"] }
 geo-traits = "0.3"
 geo-types = "0.7.19"
 geojson = { version = "1", features = ["geo-types"] }
-hotpath = "0.32.0"
+hotpath = "0.33.0"
 humantime = "2.4.0"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
@@ -141,6 +140,7 @@ indicatif = "0.18.3"
 indoc = "2"
 insta = "1.46.3"
 itertools = "0.15"
+jiff = { version = "0.2.46", default-features = false, features = ["serde", "std"] }
 jpeg-decoder = "0.3.1"
 json-patch = "5"
 jxl-oxide = { version = "0.12.6", features = ["image"] }
@@ -160,7 +160,7 @@ miette = { version = "7.6", features = ["fancy"] }
 mln-rs = "0.0.15"
 mlt-core = { version = "0.22.2", default-features = false }
 moka = { version = "0.12", default-features = false }
-notify = "8.2.0"
+notify = "9.0.0"
 num_cpus = "1"
 numpy = "0.30"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
@@ -191,14 +191,14 @@ rcgen = "0.14"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
 roxmltree = "0.21"
-rstest = "0.28.0"
+rstest = "0.29.0"
 rustix = { version = "1.1.5", default-features = false }
 rustls = "0.23.38"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
 rustls-pemfile = "2"
-schemars = { version = "1.2", default-features = false, features = ["chrono04", "derive", "std"] }
+schemars = { version = "1.2", default-features = false, features = ["derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde-saphyr = { version = "2.0.0", features = ["miette", "properties"] }
@@ -231,7 +231,7 @@ tracing-log = { version = "0.2.0", features = ["interest-cache"] }
 tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
-utoipa = { version = "6.0", default-features = false, features = ["chrono", "macros", "actix_extras"] }
+utoipa = { version = "6.0", default-features = false, features = ["jiff_0_2", "macros", "actix_extras"] }
 vt100 = "0.18.0"
 walkdir = "2.5.0"
 webp = { version = "0.3.1", default-features = false }

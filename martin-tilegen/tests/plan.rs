@@ -1,10 +1,12 @@
 //! What `Plan::new` accepts and rejects, which columns it scans, and what each layer makes of a feature.
 #![expect(clippy::unwrap_used)]
 
+use std::num::NonZeroU32;
+
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryDef, GeometryType, IdDef, LayerDef, Plan, PlanError,
-    RowFilter, RuleDef, SortDef, TableDef, ThinningMethod, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryDef, GeometryType, GridRank, IdDef, LayerDef, Plan,
+    PlanError, RowFilter, RuleDef, SortDef, TableDef, ThinningMethod, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
 };
 use martin_tilegen::project::from_lonlat;
 use martin_tilegen::props::{KeyId, Prop};
@@ -154,6 +156,67 @@ fn rejects_zooms_above_the_max() {
 }
 
 #[test]
+fn takes_a_group_by_attribute_that_grid_thinning_ranks_into() {
+    Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Columns(vec![]),
+            per_tile: vec![
+                TileOpDef {
+                    zooms: 0..=14,
+                    op: TileOp::Thinning {
+                        method: ThinningMethod::Grid {
+                            size: 64.0,
+                            limit: NonZeroU32::new(4).unwrap(),
+                            rank: Some(GridRank {
+                                attribute: "gridrank".to_owned(),
+                                offset: 0,
+                            }),
+                        },
+                        keys: vec![],
+                    },
+                },
+                TileOpDef {
+                    zooms: 0..=14,
+                    op: TileOp::MergeMulti {
+                        geometry: vec![GeometryType::Point],
+                        group_by: vec!["gridrank".to_owned()],
+                    },
+                },
+            ],
+            ..LayerDef::new("pois", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+}
+
+#[test]
+fn rejects_a_rank_offset_whose_ranks_do_not_fit_an_i64() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=14,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Grid {
+                        size: 64.0,
+                        limit: NonZeroU32::new(4).unwrap(),
+                        rank: Some(GridRank {
+                            attribute: "gridrank".to_owned(),
+                            offset: i64::MAX - 3,
+                        }),
+                    },
+                    keys: vec![],
+                },
+            }],
+            ..LayerDef::new("pois", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    insta::assert_snapshot!(err, @"layer `pois`: a rank of `gridrank` from `rank_offset` 9223372036854775804 does not fit a 64-bit integer");
+}
+
+#[test]
 fn rejects_a_group_by_attribute_the_layer_does_not_write() {
     let err = Plan::new(vec![TableDef {
         columns: vec![
@@ -176,6 +239,23 @@ fn rejects_a_group_by_attribute_the_layer_does_not_write() {
     assert_eq!(
         err.to_string(),
         "layer `pois`: `merge_multi` groups by `kind`, which the layer does not write"
+    );
+}
+
+#[test]
+fn rejects_a_hidden_attribute_the_layer_does_not_write() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Columns(vec!["name".to_owned()]),
+            hidden: vec!["kind".to_owned()],
+            ..LayerDef::new("pois", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "layer `pois`: hidden attribute `kind` is not one the layer writes"
     );
 }
 
