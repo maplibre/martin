@@ -2,7 +2,7 @@
 
 use std::fmt::{self, Display};
 
-use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, case_yaml, output_yaml};
+use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, case_yaml, output_yaml, same_outputs};
 use crate::generate::spec::report::{Change, Look, Status, Tone, tally};
 use crate::generate::spec::rows::Found;
 
@@ -65,7 +65,11 @@ impl Reviewed {
             .cloned();
         let status = match &old {
             None => CaseStatus::New,
-            Some(old) if old.input == case.input && old.output == case.output && old.per_tile == case.per_tile => {
+            Some(old)
+                if old.input == case.input
+                    && same_outputs(&old.output, &case.output)
+                    && old.per_tile == case.per_tile =>
+            {
                 CaseStatus::Same
             }
             Some(_) => CaseStatus::Changed,
