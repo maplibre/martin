@@ -267,7 +267,7 @@ function verdictText(v: LayerVerdict): string {
     case 'unknown':
       return 'unknown';
     case 'zoom':
-      return `z${v.minzoom}–${v.maxzoom}`;
+      return `z${v.minzoom}-${v.maxzoom}`;
   }
 }
 

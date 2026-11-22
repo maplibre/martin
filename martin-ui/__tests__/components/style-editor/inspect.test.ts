@@ -25,7 +25,7 @@ const motorway: InspectedFeature = {
 };
 
 describe('layerMatches', () => {
-  it('says for every layer on the feature’s source layer whether it draws it, topmost first', () => {
+  it('says for every layer on the feature's source layer whether it draws it, topmost first', () => {
     const style: StyleSpecification = {
       layers: [
         { id: 'water', source: 'omt', 'source-layer': 'water', type: 'fill' },
