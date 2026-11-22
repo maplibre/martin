@@ -938,7 +938,7 @@ mod tests {
         [
             SourceError {
                 source_id: "t_missing_schema",
-                error: "Unable to configure source t_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, plain_schema, public, tiger, tiger_data, topology",
+                error: "Unable to configure source t_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, plain_schema, public, tiger, topology",
             },
             SourceError {
                 source_id: "t_schema_without_geometry",
@@ -946,7 +946,7 @@ mod tests {
             },
             SourceError {
                 source_id: "f_missing_schema",
-                error: "Unable to configure source f_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, plain_schema, public, tiger, tiger_data, topology",
+                error: "Unable to configure source f_missing_schema because schema 'ghost_schema' does not exist. Available schemas: empty_schema, plain_schema, public, tiger, topology",
             },
             SourceError {
                 source_id: "f_schema_without_functions",
