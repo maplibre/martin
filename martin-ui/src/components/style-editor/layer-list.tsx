@@ -127,7 +127,7 @@ const ICON_BUTTON =
 
 function zoomRange(layer: LayerSpecification): string | null {
   if (layer.minzoom === undefined && layer.maxzoom === undefined) return null;
-  return `z${layer.minzoom ?? 0}–${layer.maxzoom ?? 24}`;
+  return `z${layer.minzoom ?? 0}-${layer.maxzoom ?? 24}`;
 }
 
 function Swatches({ colors }: { colors: string[] }) {
