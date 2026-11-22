@@ -160,7 +160,7 @@ memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
 mlt-core = { version = "0.22.2", default-features = false }
 moka = { version = "0.12", default-features = false }
-notify = "8.2.0"
+notify = "9.0.0"
 num_cpus = "1"
 numpy = "0.30"
 object_store = { version = "0.14.1", features = ["gcp", "aws", "azure", "fs", "http"] }
