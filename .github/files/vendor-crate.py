@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Turn an extracted `cargo package` directory into a library-only `martin-vendored-*` crate.
 
 Usage: vendor-crate.py <package-dir> <dest-dir> <new-name> <origin> <keep,...> [<no-default-dep,...>]
