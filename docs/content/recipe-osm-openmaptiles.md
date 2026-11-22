@@ -9,38 +9,21 @@ tags:
 
 # Building OpenMapTiles from OpenStreetMap
 
-This builds a basemap tileset from an [OpenStreetMap](https://www.openstreetmap.org/) extract with the 16 layers of
-the [OpenMapTiles schema](https://openmaptiles.org/schema/), so that OpenMapTiles styles such as
+This recipe builds a basemap from an [OpenStreetMap](https://www.openstreetmap.org/) extract with the 16 layers of
+the [OpenMapTiles schema](https://openmaptiles.org/schema/). Styles made for OpenMapTiles, such as
 [OSM Bright](https://github.com/openmaptiles/osm-bright-gl-style) and
-[Positron](https://github.com/openmaptiles/positron-gl-style) draw it. The configuration is a port of
-[Planetiler's OpenMapTiles profile](https://github.com/openmaptiles/planetiler-openmaptiles), with its zooms,
-minimum sizes, buffers, label grids, merges and draw orders. It reads OpenStreetMap only, plus the ocean polygons of
-the whole world, and leaves out what Planetiler takes from Natural Earth and Wikidata, see
-[How it differs](#how-it-differs-from-planetilers-openmaptiles).
+[Positron](https://github.com/openmaptiles/positron-gl-style), draw it.
 
-Martin's tests render the inputs of Planetiler's OpenMapTiles layer tests: 231 of its 341 examples match. The others
-are differences listed in [How it differs](#how-it-differs-from-planetilers-openmaptiles), or what the tests check
-differently from a rendered tile:
+The configuration is a port of [Planetiler's OpenMapTiles profile](https://github.com/openmaptiles/planetiler-openmaptiles).
+It keeps Planetiler's zooms, minimum sizes, buffers, label grids, merges and draw orders. It reads only
+OpenStreetMap and the ocean polygons of the whole world. It leaves out what Planetiler takes from Natural Earth and
+Wikidata, see [How it differs](#how-it-differs-from-planetilers-openmaptiles).
 
-| Examples | Why they do not match                                                                                             |
-|---------:|-------------------------------------------------------------------------------------------------------------------|
-|       33 | Natural Earth and lake centerline inputs, which are not read                                                      |
-|       16 | Country borders with `adm0_l`/`adm0_r`, which Planetiler draws after reading the file, outside the tested code    |
-|       16 | Natural Earth ranks of countries, states, cities and seas                                                         |
-|       11 | `rank` from the label grid, which Planetiler's tests leave out and Martin's tiles have                            |
-|        8 | GB and IE road networks                                                                                           |
-|        4 | `route_N` order and duplicates                                                                                    |
-|        5 | Feature lengths: short trunks at z5, `brunnel` by size                                                            |
-|        5 | Ocean polygons and large lakes below z6, and inputs the tests' whole-world polygons were shrunk to 1° for         |
-|        4 | Wikidata translations, translated names of river relations                                                        |
-|        4 | `--boundary-osm-only` zooms, `hide_3d`, `customary_ft`                                                            |
-|        3 | A minimum size dropping a feature below the zoom Planetiler declares, an attribute asked below the feature's zoom |
-|        1 | A closed `man_made=pier` way drawn as a line too                                                                  |
+The configuration uses an `osm` section, described in [OpenStreetMap PBF Sources](sources-osm.md), a `shapefile`
+section, described in [Shapefile Sources](sources-shapefile.md), and the layer keys of
+[Table Source Layers](sources-pg-layers.md).
 
-The tests are generated from Planetiler's own by
-[`openmaptiles_spec.py`](https://github.com/maplibre/martin/blob/main/tests/fixtures/osm/openmaptiles_spec.py).
-The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md), the `shapefile` section in
-[Shapefile Sources](sources-shapefile.md), and the layer keys in [Table Source Layers](sources-pg-layers.md).
+## Build the tileset
 
 1. Download an extract, for example Berlin from [Geofabrik](https://download.geofabrik.de/), and the ocean
    polygons of the whole world from [osmdata.openstreetmap.de](https://osmdata.openstreetmap.de/data/water-polygons.html),
@@ -59,7 +42,8 @@ The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md), t
         --8<-- "openmaptiles.yaml"
         ```
 
-3. Generate the tileset of the extract's area:
+3. Generate the tileset of the extract's area. The ocean polygons cover the whole world, so without `--bbox` the
+   tileset does too:
 
     ```bash
     martin cp --mode bulk --config openmaptiles.yaml --output-file berlin.mbtiles --format mvt --max-zoom 14 \
@@ -72,6 +56,8 @@ The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md), t
     martin berlin.mbtiles
     ```
 
+A Berlin run, next to Planetiler on the same extract:
+
 | Run                                 | PBF    | Features  | Tiles | Size    | Time   | Memory |
 |-------------------------------------|--------|-----------|-------|---------|--------|--------|
 | Martin, Berlin, 2026-11-11          | 100 MB | 1,724,829 | 912   | 45.4 MB | 1m 8s  | 8.4 GB |
@@ -80,6 +66,30 @@ The `osm` section is described in [OpenStreetMap PBF Sources](sources-osm.md), t
 Measured on 24 threads, with the extract and the ocean polygons in the page cache. Martin unpacks the ocean polygons
 in 6 s and keeps whole tiles of the `--bbox`. Planetiler's time includes 23 s of Natural Earth and lake centerline
 downloads and 15 s reading the ocean polygons, and it covers the extract's own bounds.
+
+## How closely it matches Planetiler
+
+Martin's tests render the inputs of Planetiler's OpenMapTiles layer tests, and 231 of its 341 examples match. The
+other 110 come from the differences in [How it differs](#how-it-differs-from-planetilers-openmaptiles), or from
+tests that check something other than the rendered tile:
+
+| Examples | Why they do not match                                                                                             |
+|---------:|-------------------------------------------------------------------------------------------------------------------|
+|       33 | Natural Earth and lake centerline inputs, which are not read                                                      |
+|       16 | Country borders with `adm0_l`/`adm0_r`, which Planetiler draws after reading the file, outside the tested code    |
+|       16 | Natural Earth ranks of countries, states, cities and seas                                                         |
+|       11 | `rank` from the label grid, which Planetiler's tests leave out and Martin's tiles have                            |
+|        8 | GB and IE road networks                                                                                           |
+|        5 | Feature lengths: short trunks at z5, `brunnel` by size                                                            |
+|        5 | Ocean polygons and large lakes below z6, and inputs the tests' whole-world polygons were shrunk to 1° for         |
+|        4 | `route_N` order and duplicates                                                                                    |
+|        4 | Wikidata translations, translated names of river relations                                                        |
+|        4 | `--boundary-osm-only` zooms, `hide_3d`, `customary_ft`                                                            |
+|        3 | A minimum size dropping a feature below the zoom Planetiler declares, an attribute asked below the feature's zoom |
+|        1 | A closed `man_made=pier` way drawn as a line too                                                                  |
+
+[`openmaptiles_spec.py`](https://github.com/maplibre/martin/blob/main/tests/fixtures/osm/openmaptiles_spec.py)
+generates these tests from Planetiler's own.
 
 ## How it differs from Planetiler's OpenMapTiles
 
@@ -118,11 +128,20 @@ centerlines and Wikidata, and runs code that `martin cp` has no equivalent for y
 | all                   | `min_size` compares the square root of a polygon's area and a line's length                           | Compares the larger side of the bounding box, so more thin polygons and lines stay                                                                       |
 | `landuse`             | Residential areas closer than 0.2 px joined at z9-12                                                  | Closer than 0.1 px, as larger distances could not make a valid union in Berlin                                                                           |
 
-These constructs of the configuration matter when you change it:
+## Changing the configuration
 
-- A `minzoom` above a layer's zooms is clamped, so zoom bands are separate layers writing into one output layer
-  with [`layer`](sources-pg-layers.md#combining-layers), each with its own `min_size` and `buffer`.
-- A `where` with no equivalent for the PBF read, such as one calling `area()` or a regular expression, makes Martin
-  read every object. Such a condition goes into a `minzoom` or `maxzoom` expression instead: a feature whose
-  `minzoom` ends up above its `maxzoom`, such as a lake below 25 km² with a `maxzoom` of 0, is left out.
-- A hidden `_unmerged: osm_id` keeps a feature out of a merge, as Planetiler's selective merges do.
+The configuration uses three patterns that you need to know before you change it.
+
+**Zoom bands.** Martin clamps a `minzoom` or `maxzoom` to its layer's zooms. Where Planetiler changes a feature's
+settings by zoom, the configuration splits the layer into one layer per zoom band. Each band has its own `min_size`
+and `buffer`, and all bands write into one output layer with [`layer`](sources-pg-layers.md#combining-layers).
+
+**Conditions as zooms.** A `where` that the PBF reader cannot check, such as one calling `area()` or a regular
+expression, makes Martin read every object in the file. The configuration puts such conditions into `minzoom` and
+`maxzoom` expressions instead. Martin leaves out a feature whose `minzoom` ends up above its `maxzoom`. In
+`water_lakes_low`, which draws large lakes up to z5, a lake below 25 km² gets a `minzoom` of 5 and a `maxzoom` of 0,
+so that layer leaves it out.
+
+**Selective merges.** Planetiler merges only some features of a layer, such as only wood and forest in `landcover`.
+The configuration gives every other feature a [hidden attribute](sources-pg-layers.md#hidden-attributes)
+`_unmerged` set to its `osm_id`. No two features share that value, so they never merge.
