@@ -790,7 +790,6 @@ jobs:
           MARTIN_BIN: target_releases/martin.exe
           MBTILES_BIN: target_releases/mbtiles.exe
 
-  # Does not wait for the binary builds; test-svc-pg-binaries tests what they produce.
   test-svc-pg:
     name: Test against PostGIS variants
     runs-on: ubuntu-26.04
