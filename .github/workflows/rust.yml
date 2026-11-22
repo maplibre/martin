@@ -790,18 +790,14 @@ jobs:
           MARTIN_BIN: target_releases/martin.exe
           MBTILES_BIN: target_releases/mbtiles.exe
 
+  # Does not wait for the binary builds; test-svc-pg-binaries tests what they produce.
   test-svc-pg:
     name: Test against PostGIS variants
     runs-on: ubuntu-26.04
     timeout-minutes: 90
     permissions:
       contents: read
-    needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64 ]
-    if: |
-      !cancelled()
-      && needs.build-x86_64-unknown-linux-gnu.result == 'success'
-      && needs.build-debian-x86_64.result != 'failure'
-    env:
+    env: &postgis-variants-env
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
@@ -810,8 +806,9 @@ jobs:
     # sslmode=verify-ca and sslmode=verify-full are missing because Rustls fails to validate
     # the snakeoil certificate's name with NotValidForName. Re-enabling them also needs the
     # server cert copied out of the service container into PGSSLROOTCERT.
-    services:
-      # These must match the versions of postgres used in the docker-compose.yml
+    # These must match the versions of postgres used in the docker-compose.yml.
+    # Alpine images don't support SSL, so for sslmode=require pg18-ssl uses the Debian image.
+    services: &postgis-variants
       pg15-alpine:
         image: postgis/postgis:15-3.5-alpine
         ports:
@@ -848,7 +845,6 @@ jobs:
           --entrypoint sh
           postgis/postgis:18-3.6-alpine
           -c "exec docker-entrypoint.sh postgres -c max_connections=200"
-      # alpine images don't support SSL, so for sslmode=require we use the debian image
       pg18-ssl:
         image: postgis/postgis:18-3.6
         ports:
@@ -864,7 +860,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,nextest,fast-mvt', rendering: true, cache: true, coverage: true }
-      - parallel:
+      - parallel: &init-postgis-variants
           - name: Init pg15-alpine database
             run: tests/fixtures/initdb.sh
             env:
@@ -896,6 +892,29 @@ jobs:
               DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
       - uses: $/.github/actions/upload-coverage
         with: { suite: pg }
+
+  test-svc-pg-binaries:
+    name: Test the built binaries against PostGIS variants
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64 ]
+    if: |
+      !cancelled()
+      && needs.build-x86_64-unknown-linux-gnu.result == 'success'
+      && needs.build-debian-x86_64.result != 'failure'
+    env: *postgis-variants-env
+    services: *postgis-variants
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - name: Set up sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
+      - uses: $/.github/actions/setup-rust
+        with: { tools: 'just,nextest,fast-mvt', cache: true }
+      - parallel: *init-postgis-variants
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
