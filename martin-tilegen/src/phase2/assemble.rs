@@ -100,12 +100,13 @@ impl LayerAssembler {
     /// Consecutive records of the same origin are the pieces of one feature in this tile (multi-part geometry, or
     /// a wrapped antimeridian twin) and become one multi-geometry feature; their properties and sort keys are
     /// identical, so the first record's are used. Features with a sort key are then stably sorted by it, and `ops`
-    /// run on them in that order.
+    /// run on them in that order. The `hidden` properties, of any definition, are left out once `ops` ran.
     pub fn assemble<'a>(
         &'a mut self,
         name: &'a str,
         grid: LayerGrid,
         names: &'a KeyNames,
+        hidden: &[KeyId],
         records: &[(RecordOrigin, &'a [u8])],
         ops: TileOps<'_>,
     ) -> TileGenResult<AssembledLayer<'a>> {
@@ -141,9 +142,9 @@ impl LayerAssembler {
         let props = tile.props.borrow();
 
         #[cfg(feature = "unstable-mlt-v2")]
-        tally_columns(features, &props, names, columns, schema, documents);
+        tally_columns(features, &props, names, hidden, columns, schema, documents);
         #[cfg(not(feature = "unstable-mlt-v2"))]
-        tally_columns(features, &props, names, columns, schema);
+        tally_columns(features, &props, names, hidden, columns, schema);
 
         collect_texts(features, &props, columns, schema, text, texts);
         let text = text.as_str();
@@ -207,12 +208,13 @@ impl LayerAssembler {
     }
 }
 
-/// Fills `columns` and `schema` with the columns the tile's features need, and `documents` with the
-/// values of its scalar document keys.
+/// Fills `columns` and `schema` with the columns the tile's features need, leaving out the `hidden` keys, and
+/// `documents` with the values of its scalar document keys.
 fn tally_columns(
     features: &[TileFeature],
     props: &[(KeyId, PropValueRef<'_>)],
     names: &KeyNames,
+    hidden: &[KeyId],
     columns: &mut TileColumns,
     schema: &mut Vec<(KeyId, PropKind)>,
     #[cfg(feature = "unstable-mlt-v2")] documents: &mut Documents,
@@ -221,7 +223,7 @@ fn tally_columns(
     #[cfg(feature = "unstable-mlt-v2")]
     documents.clear();
     for feature in features {
-        for &(key, value) in &props[feature.props()] {
+        for &(key, value) in props[feature.props()].iter().filter(|(key, _)| !hidden.contains(key)) {
             #[cfg(feature = "unstable-mlt-v2")]
             if documents.note(names, columns, key) {
                 continue;
@@ -232,7 +234,7 @@ fn tally_columns(
     columns.finish(names, schema);
     #[cfg(feature = "unstable-mlt-v2")]
     for feature in features {
-        for &(key, value) in &props[feature.props()] {
+        for &(key, value) in props[feature.props()].iter().filter(|(key, _)| !hidden.contains(key)) {
             documents.collect_leaf(names, key, value);
         }
     }
@@ -485,7 +487,7 @@ mod tests {
             .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
-            .assemble("roads", GRID, &names, &records, TileOps::NONE)
+            .assemble("roads", GRID, &names, &[], &records, TileOps::NONE)
             .unwrap();
         let decoded = decode_mlt(
             &assembled
@@ -554,7 +556,7 @@ mod tests {
             .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
-            .assemble("roads", GRID, &names, &records, TileOps::NONE)
+            .assemble("roads", GRID, &names, &[], &records, TileOps::NONE)
             .unwrap();
         let decoded = decode_mlt(
             &assembled
@@ -604,6 +606,7 @@ mod tests {
                 "water",
                 GRID,
                 &names,
+                &[],
                 &[(
                     RecordOrigin {
                         fill_buffer: GRID.buffer,
@@ -674,7 +677,9 @@ mod tests {
             })
             .collect();
         let mut scratch = LayerAssembler::default();
-        let assembled = scratch.assemble("pois", GRID, &names, &records, TileOps::NONE).unwrap();
+        let assembled = scratch
+            .assemble("pois", GRID, &names, &[], &records, TileOps::NONE)
+            .unwrap();
         let decoded = decode_mlt(
             &assembled
                 .layer

@@ -3270,9 +3270,9 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "form_urlencoded"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
+checksum = "afa489199eaffb1211795df1c6236ce1ad0d41a6fa45250add73e3b02420f06e"
 dependencies = [
  "percent-encoding",
 ]
@@ -9351,9 +9351,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-compressions"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61f2ddcb891dd012a171afdc4f343d9782e1a22142717b837b5dee807262d712"
+checksum = "f54832dbee53699a5a81fdab5099624de8a27f1439ea28ec3555635fc571c262"
 dependencies = [
  "bsdiff",
  "flate2",
@@ -9362,9 +9362,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite-hashes"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5789a68792d0e859a270bd9f92b76d33437338cdd81e9bb3aa71fea08db0941c"
+checksum = "ce11e456547bd68fd634aa55b7e050225d70feaae2717f63c1a28cf2e6484d2e"
 dependencies = [
  "digest 0.11.3",
  "hex",
@@ -10915,9 +10915,9 @@ dependencies = [
 
 [[package]]
 name = "url"
-version = "2.5.8"
+version = "2.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff67a8a4397373c3ef660812acab3268222035010ab8680ec4215f38ba3d0eed"
+checksum = "f00cd2407bb42c0ef17be88d4cf020f5cceffd121665bac9b8b9493a369b3b1a"
 dependencies = [
  "form_urlencoded",
  "idna",

@@ -20,6 +20,8 @@ pub enum Value {
 pub struct ValueSpec {
     pub value: Value,
     pub zooms: ZoomRange,
+    /// Per-tile operations read the attribute, but tiles leave it out.
+    pub hidden: bool,
 }
 
 impl ValueSpec {
@@ -27,6 +29,7 @@ impl ValueSpec {
         Self {
             value,
             zooms: ZoomRange::default(),
+            hidden: false,
         }
     }
 }
@@ -39,6 +42,8 @@ struct RawValue {
     expr: Option<Expr>,
     minzoom: Option<Zoom>,
     maxzoom: Option<Zoom>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    hidden: bool,
 }
 
 impl TryFrom<RawValue> for ValueSpec {
@@ -54,6 +59,7 @@ impl TryFrom<RawValue> for ValueSpec {
         Ok(Self {
             value,
             zooms: ZoomRange::new(raw.minzoom, raw.maxzoom)?,
+            hidden: raw.hidden,
         })
     }
 }
@@ -69,6 +75,7 @@ impl From<&ValueSpec> for RawValue {
             expr,
             minzoom: spec.zooms.minzoom(),
             maxzoom: spec.zooms.maxzoom(),
+            hidden: spec.hidden,
         }
     }
 }
@@ -105,7 +112,7 @@ impl<'de> Deserialize<'de> for ValueSpec {
 
 impl Serialize for ValueSpec {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        if self.zooms.is_unbounded() {
+        if self.zooms.is_unbounded() && !self.hidden {
             match &self.value {
                 Value::Expr(expr) => return expr.serialize(serializer),
                 Value::Literal(literal) if !matches!(literal, Literal::String(_)) => {
@@ -457,6 +464,7 @@ mod tests {
                     ValueSpec {
                         value: expr("int(layer)"),
                         zooms: ZoomRange::new(Some(zoom(9)), None).expect("valid range"),
+                        hidden: false,
                     },
                 ),
                 (
@@ -464,12 +472,51 @@ mod tests {
                     ValueSpec {
                         value: Value::Literal(Literal::Bool(true)),
                         zooms: ZoomRange::new(Some(zoom(11)), Some(zoom(14))).expect("valid range"),
+                        hidden: false,
                     },
                 ),
             ]),
             copied_prefixes: vec![],
         });
         assert_eq!(layers.get("transportation").expect("layer exists").attributes, expected);
+    }
+
+    #[test]
+    fn an_attribute_can_be_hidden() {
+        let layers = parse(indoc! {r#"
+            housenumber:
+              attributes:
+                housenumber: housenumber
+                _partition: { expr: "street + ' ' + housenumber", hidden: true }
+        "#});
+        let expected = Attributes::Columns(Columns {
+            computed: IndexMap::from([
+                ("housenumber".to_owned(), ValueSpec::plain(expr("housenumber"))),
+                (
+                    "_partition".to_owned(),
+                    ValueSpec {
+                        value: expr("street + ' ' + housenumber"),
+                        zooms: ZoomRange::default(),
+                        hidden: true,
+                    },
+                ),
+            ]),
+            copied_prefixes: vec![],
+        });
+        assert_eq!(layers.get("housenumber").expect("layer exists").attributes, expected);
+    }
+
+    #[test]
+    fn a_hidden_attribute_is_written_back_as_a_map() {
+        let layers = parse("poi: { attributes: { _kind: { value: shop, hidden: true } } }");
+        insta::assert_snapshot!(
+            serde_saphyr::to_string(&layers.get("poi").expect("layer exists").attributes).expect("serializes"),
+            @"
+        _kind:
+          value: shop
+          hidden: true
+        "
+        );
     }
 
     #[test]
@@ -516,7 +563,7 @@ mod tests {
     fn an_attribute_cannot_be_a_sort_key() {
         insta::assert_snapshot!(
             rejection("poi: { attributes: { name: { expr: name, desc: true } } }"),
-            @"error: line 1 column 42: unknown field `desc`, expected one of value, expr, minzoom, maxzoom"
+            @"error: line 1 column 42: unknown field `desc`, expected one of value, expr, minzoom, maxzoom, hidden"
         );
     }
 
