@@ -5,8 +5,10 @@ on:
     inputs:
       run-heavy:
         description: >-
-          Run the jobs that only re-prove the Linux lane's coverage on another
-          platform. Off for pull requests below the top of their stack.
+          Run the jobs whose coverage the top of a stack proves again for the
+          whole stack: the other platforms, the Docker images, the feature
+          matrix and the static musl build. Off for pull requests below the
+          top of their stack.
         type: boolean
         default: true
       run-release-builds:
@@ -21,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       run-heavy:
-        description: Run the Windows/macOS builds and the publish dry-run
+        description: Run the other platforms, the Docker images, the feature matrix and the musl build
         type: boolean
         default: true
       run-release-builds:
@@ -212,6 +214,7 @@ jobs:
       - run: just clippy
   check-features:
     name: Check feature matrix (${{ matrix.partition }})
+    if: inputs.run-heavy
     permissions:
       contents: read
     # Depends on lint-rust not because it needs its output, but so the fan-out
@@ -255,6 +258,7 @@ jobs:
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-musl:
+    if: inputs.run-heavy
     uses: $/.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-musl
@@ -385,6 +389,7 @@ jobs:
     needs: [ build-aarch64-unknown-linux-gnu, build-x86_64-unknown-linux-gnu, build-aarch64-unknown-linux-gnu-full, build-x86_64-unknown-linux-gnu-full ]
     if: |
       !cancelled()
+      && inputs.run-heavy
       && needs.build-x86_64-unknown-linux-gnu.result == 'success'
       && needs.build-x86_64-unknown-linux-gnu-full.result == 'success'
       && needs.build-aarch64-unknown-linux-gnu.result != 'failure'
