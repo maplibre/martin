@@ -107,7 +107,6 @@ bytes = "1"
 bytesize = "2.7.0"
 bytestring = "1.5"
 cel = { version = "0.16", default-features = false, features = ["regex"] }
-chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 cog-tiles = { path = "cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
@@ -130,7 +129,7 @@ geo-index = { version = "0.4.0", features = ["rayon"] }
 geo-traits = "0.3"
 geo-types = "0.7.19"
 geojson = { version = "1", features = ["geo-types"] }
-hotpath = "0.32.0"
+hotpath = "0.33.0"
 humantime = "2.4.0"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
@@ -139,6 +138,7 @@ image-webp = "0.2.4"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = "0.18.3"
 indoc = "2"
+jiff = { version = "0.2.46", default-features = false, features = ["serde", "std"] }
 insta = "1.46.3"
 itertools = "0.15"
 jpeg-decoder = "0.3.1"
@@ -198,7 +198,7 @@ rustls = "0.23.38"
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
 rustls-pemfile = "2"
-schemars = { version = "1.2", default-features = false, features = ["chrono04", "derive", "std"] }
+schemars = { version = "1.2", default-features = false, features = ["derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde-saphyr = { version = "2.0.0", features = ["miette", "properties"] }
@@ -231,7 +231,7 @@ tracing-log = { version = "0.2.0", features = ["interest-cache"] }
 tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
-utoipa = { version = "6.0", default-features = false, features = ["chrono", "macros", "actix_extras"] }
+utoipa = { version = "6.0", default-features = false, features = ["jiff_0_2", "macros", "actix_extras"] }
 vt100 = "0.18.0"
 walkdir = "2.5.0"
 webp = { version = "0.3.1", default-features = false }
