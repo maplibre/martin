@@ -1,6 +1,7 @@
 import type { SourceSpecification, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import { buildMartinUrl } from '@/lib/api';
+import { isExpression } from './style-spec';
 
 /** Style-level resources the icon and font pickers browse. */
 export interface StyleResources {
@@ -118,26 +119,48 @@ export function useStyleResources(): StyleResources {
   return useContext(StyleResourcesContext);
 }
 
-/** Font names found in literal `text-font` arrays and in string outputs of `text-font` expressions, most used first. */
+/** Font stacks a `text-font` value can produce: literal stacks and the outputs of `match`, `case`, `step`, `coalesce` and `let`, never the inputs that choose between them. */
+function fontStacks(value: unknown): string[][] {
+  if (!Array.isArray(value)) {
+    if (
+      value !== null &&
+      typeof value === 'object' &&
+      'stops' in value &&
+      Array.isArray(value.stops)
+    ) {
+      return value.stops.flatMap((stop: unknown) =>
+        Array.isArray(stop) ? fontStacks(stop[1]) : [],
+      );
+    }
+    return [];
+  }
+  if (!isExpression(value)) return value.every((f) => typeof f === 'string') ? [value] : [];
+  const [op, ...args] = value;
+  switch (op) {
+    case 'literal':
+      return fontStacks(args[0]);
+    case 'match':
+      return [...args.slice(1, -1).filter((_, i) => i % 2 === 1), args.at(-1)].flatMap(fontStacks);
+    case 'case':
+      return [...args.slice(0, -1).filter((_, i) => i % 2 === 1), args.at(-1)].flatMap(fontStacks);
+    case 'step':
+      return [args[1], ...args.slice(2).filter((_, i) => i % 2 === 1)].flatMap(fontStacks);
+    case 'coalesce':
+      return args.flatMap(fontStacks);
+    case 'let':
+      return [...args.slice(0, -1).filter((_, i) => i % 2 === 1), args.at(-1)].flatMap(fontStacks);
+    default:
+      return [];
+  }
+}
+
+/** Font names the style's `text-font` values can produce, most used first. */
 export function collectFonts(style: StyleSpecification): string[] {
   const counts = new Map<string, number>();
-  const walk = (v: unknown) => {
-    if (typeof v === 'string') counts.set(v, (counts.get(v) ?? 0) + 1);
-    else if (Array.isArray(v)) {
-      for (const x of v) if (typeof x === 'string' || Array.isArray(x)) walk(x);
-    }
-  };
   for (const layer of style.layers) {
-    const fonts = (layer as { layout?: Record<string, unknown> }).layout?.['text-font'];
-    if (Array.isArray(fonts)) {
-      for (const f of fonts) {
-        if (
-          typeof f === 'string' &&
-          !['literal', 'get', 'match', 'case', 'step', 'coalesce'].includes(f)
-        ) {
-          counts.set(f, (counts.get(f) ?? 0) + 1);
-        } else if (Array.isArray(f)) walk(f);
-      }
+    if (layer.type !== 'symbol') continue;
+    for (const stack of fontStacks(layer.layout?.['text-font'])) {
+      for (const font of stack) counts.set(font, (counts.get(font) ?? 0) + 1);
     }
   }
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);

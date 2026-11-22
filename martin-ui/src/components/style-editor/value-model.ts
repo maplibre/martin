@@ -103,6 +103,7 @@ function parseCurve(v: unknown[]): CurveValue | undefined {
   if (!zoom && attribute === undefined) return undefined;
   const base = { attribute, mode: zoom ? ('zoom' as const) : ('ramp' as const) };
   if (v[0] === 'step') {
+    if (!isLiteral(unwrapLiteral(v[2]))) return undefined;
     const stops: Stop[] = [{ input: Number.NEGATIVE_INFINITY, output: unwrapLiteral(v[2]) }];
     for (let i = 3; i + 1 < v.length; i += 2) {
       if (typeof v[i] !== 'number' || !isLiteral(unwrapLiteral(v[i + 1]))) return undefined;

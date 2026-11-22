@@ -22,6 +22,8 @@ export interface SourceSchema {
   attributes: (source: string, sourceLayer: string | undefined) => AttributeInfo[];
   /** Source layers of a vector source from its TileJSON plus those seen in loaded tiles, sorted. */
   sourceLayers: (source: string) => string[];
+  /** Grows whenever something new is learned; a memo dependency for values derived from this schema. */
+  version: number;
 }
 
 interface Sample {
@@ -32,18 +34,18 @@ interface Sample {
   max: number;
 }
 
-type Store = Map<string, Map<string, Sample>>;
+/** Samples per source, then per source layer (`''` for GeoJSON), then per attribute. */
+type Store = Map<string, Map<string, Map<string, Sample>>>;
 
 const MAX_DISTINCT = 500;
 const MAX_FEATURES = 3000;
 
-function sampleFor(store: Store, key: string, attr: string): Sample {
-  let layer = store.get(key);
-  if (!layer) {
-    layer = new Map();
-    store.set(key, layer);
-  }
-  let s = layer.get(attr);
+function sampleFor(store: Store, source: string, sourceLayer: string, attr: string): Sample {
+  const layers = store.get(source) ?? new Map<string, Map<string, Sample>>();
+  store.set(source, layers);
+  const attrs = layers.get(sourceLayer) ?? new Map<string, Sample>();
+  layers.set(sourceLayer, attrs);
+  let s = attrs.get(attr);
   if (!s) {
     s = {
       counts: new Map(),
@@ -51,7 +53,7 @@ function sampleFor(store: Store, key: string, attr: string): Sample {
       min: Number.POSITIVE_INFINITY,
       types: new Set(),
     };
-    layer.set(attr, s);
+    attrs.set(attr, s);
   }
   return s;
 }
@@ -63,10 +65,21 @@ export function useSourceSchema(
 ): SourceSchema {
   const store = useRef<Store>(new Map());
   const layerIds = useRef<Map<string, Set<string>>>(new Map());
+  const definitions = useRef<Map<string, string>>(new Map());
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!style) return;
+    const current = new Map(
+      Object.entries(style.sources).map(([id, s]) => [id, JSON.stringify(s)]),
+    );
+    for (const [id, definition] of definitions.current) {
+      if (current.get(id) !== definition) {
+        store.current.delete(id);
+        layerIds.current.delete(id);
+      }
+    }
+    definitions.current = current;
     const controller = new AbortController();
     for (const [id, source] of Object.entries(style.sources)) {
       if (source.type !== 'vector' || !source.url) continue;
@@ -77,7 +90,7 @@ export function useSourceSchema(
             for (const vl of tilejson?.vector_layers ?? []) {
               layerIds.current.set(id, (layerIds.current.get(id) ?? new Set()).add(vl.id));
               for (const [attr, description] of Object.entries(vl.fields ?? {})) {
-                sampleFor(store.current, `${id}/${vl.id}`, attr).description = description;
+                sampleFor(store.current, id, vl.id, attr).description = description;
               }
             }
             setVersion((v) => v + 1);
@@ -85,24 +98,33 @@ export function useSourceSchema(
         )
         .catch(() => undefined);
     }
+    setVersion((v) => v + 1);
     return () => controller.abort();
   }, [style?.sources]);
 
   useEffect(() => {
     if (!map || !style) return;
-    const pairs = new Set<string>();
+    const targets = new Map<string, { source: string; sourceLayer?: string }>();
     for (const l of style.layers) {
-      if ('source' in l && 'source-layer' in l && l['source-layer'])
-        pairs.add(`${l.source}/${l['source-layer']}`);
+      if (!('source' in l) || typeof l.source !== 'string') continue;
+      const sourceLayer = 'source-layer' in l ? l['source-layer'] : undefined;
+      const type = style.sources[l.source]?.type;
+      if (sourceLayer || type === 'geojson') {
+        targets.set(JSON.stringify([l.source, sourceLayer ?? '']), {
+          source: l.source,
+          sourceLayer,
+        });
+      }
     }
     const collect = () => {
-      for (const pair of pairs) {
-        const [source, sourceLayer] = pair.split('/');
+      for (const { source, sourceLayer } of targets.values()) {
         if (!map.getSource(source)) continue;
-        const features = map.querySourceFeatures(source, { sourceLayer }).slice(0, MAX_FEATURES);
+        const features = map
+          .querySourceFeatures(source, sourceLayer ? { sourceLayer } : undefined)
+          .slice(0, MAX_FEATURES);
         for (const f of features) {
           for (const [attr, value] of Object.entries(f.properties ?? {})) {
-            const s = sampleFor(store.current, pair, attr);
+            const s = sampleFor(store.current, source, sourceLayer ?? '', attr);
             s.types.add(typeof value);
             if (s.counts.size < MAX_DISTINCT || s.counts.has(value))
               s.counts.set(value, (s.counts.get(value) ?? 0) + 1);
@@ -124,7 +146,7 @@ export function useSourceSchema(
   return {
     attributes: (source, sourceLayer) => {
       void version;
-      const layer = store.current.get(`${source}/${sourceLayer ?? ''}`);
+      const layer = store.current.get(source)?.get(sourceLayer ?? '');
       if (!layer) return [];
       return [...layer.entries()]
         .map(([name, s]): AttributeInfo => {
@@ -149,10 +171,11 @@ export function useSourceSchema(
     sourceLayers: (source) => {
       void version;
       const names = new Set(layerIds.current.get(source));
-      for (const key of store.current.keys()) {
-        if (key.startsWith(`${source}/`)) names.add(key.slice(source.length + 1));
+      for (const sourceLayer of store.current.get(source)?.keys() ?? []) {
+        if (sourceLayer) names.add(sourceLayer);
       }
       return [...names].sort();
     },
+    version,
   };
 }

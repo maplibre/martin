@@ -22,6 +22,13 @@ const lineWidth = () => {
 };
 
 describe('parseValue', () => {
+  it('leaves a step whose first output is computed as an expression', () => {
+    expect(parseValue(['step', ['zoom'], ['get', 'width'], 10, 4], lineWidth())).toEqual({
+      mode: 'expression',
+      value: ['step', ['zoom'], ['get', 'width'], 10, 4],
+    });
+  });
+
   it('parses a string into a constant', () => {
     expect(parseValue('#ff0000', lineColor())).toMatchInlineSnapshot(`
       {

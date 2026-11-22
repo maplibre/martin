@@ -62,8 +62,11 @@ interface Size {
 const sheetCache = new Map<string, Promise<Sheet>>();
 const sizeCache = new Map<string, Promise<Size>>();
 
-function absolute(url: string): string {
-  return new URL(url, window.location.href).href;
+/** URL of one sprite file: `suffix` such as `@2x.json` goes on the path of `base`, keeping its query and hash. */
+export function spriteFileUrl(base: string, suffix: string): string {
+  const url = new URL(base, window.location.href);
+  url.pathname += suffix;
+  return url.href;
 }
 
 async function fetchIndex(url: string): Promise<Record<string, IndexEntry> | undefined> {
@@ -73,12 +76,11 @@ async function fetchIndex(url: string): Promise<Record<string, IndexEntry> | und
 }
 
 async function fetchSheet(id: string, base: string): Promise<Sheet> {
-  const root = absolute(base);
-  const hd = await fetchIndex(`${root}@2x.json`).catch(() => undefined);
-  if (hd) return { id, imageUrl: `${root}@2x.png`, index: hd };
-  const sd = await fetchIndex(`${root}.json`);
-  if (!sd) throw new Error(`No sprite index at ${root}.json`);
-  return { id, imageUrl: `${root}.png`, index: sd };
+  const hd = await fetchIndex(spriteFileUrl(base, '@2x.json')).catch(() => undefined);
+  if (hd) return { id, imageUrl: spriteFileUrl(base, '@2x.png'), index: hd };
+  const sd = await fetchIndex(spriteFileUrl(base, '.json'));
+  if (!sd) throw new Error(`No sprite index at ${spriteFileUrl(base, '.json')}`);
+  return { id, imageUrl: spriteFileUrl(base, '.png'), index: sd };
 }
 
 function loadSheet(id: string, base: string): Promise<Sheet> {

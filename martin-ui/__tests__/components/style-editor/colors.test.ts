@@ -198,6 +198,57 @@ describe('colorSites', () => {
   });
 });
 
+describe('colors bound with let', () => {
+  it('finds a color bound with let through its var and rewrites the binding', () => {
+    const style: StyleSpecification = {
+      layers: [
+        {
+          id: 'water',
+          paint: { 'fill-color': ['let', 'c', '#ff0000', ['var', 'c']] },
+          source: 'omt',
+          'source-layer': 'water',
+          type: 'fill',
+        },
+      ],
+      sources: {},
+      version: 8,
+    };
+
+    const sites = colorSites(style);
+    writeColorSites(style, sites, () => Color.parse('#0000ff') ?? Color.red);
+
+    expect(sites.map((s) => [s.key, s.path])).toEqual([['#ff0000', [2]]]);
+    expect(style.layers[0]).toMatchObject({
+      paint: { 'fill-color': ['let', 'c', '#0000ff', ['var', 'c']] },
+    });
+  });
+
+  it('reports a binding used twice once', () => {
+    const style: StyleSpecification = {
+      layers: [
+        {
+          id: 'water',
+          paint: {
+            'fill-color': [
+              'let',
+              'c',
+              '#ff0000',
+              ['case', ['has', 'deep'], ['var', 'c'], ['var', 'c']],
+            ],
+          },
+          source: 'omt',
+          'source-layer': 'water',
+          type: 'fill',
+        },
+      ],
+      sources: {},
+      version: 8,
+    };
+
+    expect(colorSites(style).map((s) => s.path)).toEqual([[2]]);
+  });
+});
+
 describe('writeColorSites', () => {
   it('rewrites only the output colors of a match, leaving labels', () => {
     const style: StyleSpecification = {

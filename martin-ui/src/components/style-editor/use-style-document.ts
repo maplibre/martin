@@ -7,14 +7,26 @@ export interface Edit {
   id: number;
   /** What changed, shown in the history list. */
   label: string;
-  /** Edits with the same key in a row merge into one entry, e.g. while dragging a slider. */
+  /** Edits with the same key in a row merge into one entry while one interaction lasts, e.g. while dragging a slider. */
   coalesce?: string;
+}
+
+/** A past state of the style: what it looked like right after `edit`. */
+export interface Version {
+  /** The edit that produced this state. */
+  edit: Edit;
+  /** The style after the edit. */
+  style: StyleSpecification;
 }
 
 /** The style being edited plus its undo/redo history; nothing is persisted. */
 export interface StyleDocument {
   /** Current style, `null` while loading. */
   style: StyleSpecification | null;
+  /** The style as loaded from the server, `null` while loading. */
+  original: StyleSpecification | null;
+  /** States after each applied edit, oldest first. */
+  versions: readonly Version[];
   /** Load failure, if any. */
   error: string | null;
   /** Applied edits, oldest first. */
@@ -33,18 +45,26 @@ export interface StyleDocument {
   reset: () => void;
 }
 
-interface Entry {
-  style: StyleSpecification;
-  edit: Edit;
-}
-
-/** Loads the style at `url` and tracks edits to it in memory. */
+/** Loads the style at `url` and tracks edits to it in memory; an interaction, which ends on pointer up or when focus leaves an element, merges edits that share a coalesce key. */
 export function useStyleDocument(url: string): StyleDocument {
   const [original, setOriginal] = useState<StyleSpecification | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<Entry[]>([]);
-  const [undone, setUndone] = useState<Entry[]>([]);
+  const [done, setDone] = useState<Version[]>([]);
+  const [undone, setUndone] = useState<Version[]>([]);
   const nextId = useRef(0);
+  const interactionEnded = useRef(false);
+
+  useEffect(() => {
+    const end = () => {
+      interactionEnded.current = true;
+    };
+    document.addEventListener('pointerup', end, true);
+    document.addEventListener('focusout', end, true);
+    return () => {
+      document.removeEventListener('pointerup', end, true);
+      document.removeEventListener('focusout', end, true);
+    };
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,8 +86,10 @@ export function useStyleDocument(url: string): StyleDocument {
       recipe(next);
       nextId.current += 1;
       const entry = { edit: { coalesce, id: nextId.current, label }, style: next };
+      const mayMerge = coalesce !== undefined && !interactionEnded.current;
+      interactionEnded.current = false;
       setDone((d) =>
-        coalesce && d.at(-1)?.edit.coalesce === coalesce
+        mayMerge && d.at(-1)?.edit.coalesce === coalesce
           ? [...d.slice(0, -1), entry]
           : [...d, entry],
       );
@@ -77,6 +99,7 @@ export function useStyleDocument(url: string): StyleDocument {
     canUndo: done.length > 0,
     edits: done.map((d) => d.edit),
     error,
+    original,
     redo: () => {
       const last = undone.at(-1);
       if (!last) return;
@@ -94,5 +117,6 @@ export function useStyleDocument(url: string): StyleDocument {
       setDone((d) => d.slice(0, -1));
       setUndone((u) => [...u, { ...last, edit: { id: last.edit.id, label: last.edit.label } }]);
     },
+    versions: done,
   };
 }

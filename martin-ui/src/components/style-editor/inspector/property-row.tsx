@@ -1,6 +1,6 @@
 import type { LayerSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { RotateCcw } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { colorSites } from '../colors';
 import { usePropertyDocs } from '../property-docs';
@@ -13,6 +13,7 @@ import { MatchEditor } from '../value-editors/match-editor';
 import {
   allowedModes,
   convertValue,
+  type EditableValue,
   parseValue,
   serializeValue,
   type ValueMode,
@@ -58,7 +59,23 @@ export function PropertyRow({
   const docOf = usePropertyDocs();
   const ref: PropertyRef = { group, layer: layer.id, name };
   const isSet = raw !== undefined;
-  const value = parseValue(isSet ? raw : spec.default, spec);
+  const rawKey = JSON.stringify(raw ?? null);
+  const [draft, setDraft] = useState<{ value: EditableValue; raw: string } | null>(null);
+  const saved = parseValue(isSet ? raw : spec.default, spec);
+  // A draft keeps the chosen editor while its value would parse back into another one; any outside change to the property drops it.
+  const value = draft?.raw === rawKey ? draft.value : saved;
+
+  const commit = (next: EditableValue, coalesce?: string) => {
+    const serialized = serializeValue(next);
+    const keepsEditor = parseValue(serialized, spec).mode === next.mode;
+    const saves = keepsEditor || next.mode === 'expression';
+    setDraft(
+      keepsEditor
+        ? null
+        : { raw: saves ? JSON.stringify(serialized ?? null) : rawKey, value: next },
+    );
+    if (saves) onSet(ref, serialized, coalesce);
+  };
   const modes = allowedModes(spec);
   const errors = validateProperty(raw, name, spec);
 
@@ -80,7 +97,7 @@ export function PropertyRow({
       sampleRange: mode === 'ramp' ? attribute?.range : undefined,
       spec,
     });
-    onSet(ref, serializeValue(next));
+    commit(next);
   };
 
   const doc = docOf(layer.type, group, name);
@@ -133,7 +150,7 @@ export function PropertyRow({
       editor = (
         <CurveEditor
           attributes={attributes}
-          onChange={(next, coalesce) => onSet(ref, serializeValue(next), coalesce)}
+          onChange={(next, coalesce) => commit(next, coalesce)}
           spec={spec}
           value={value}
           zoom={zoom}
@@ -144,7 +161,7 @@ export function PropertyRow({
       editor = (
         <MatchEditor
           attributes={attributes}
-          onChange={(next, coalesce) => onSet(ref, serializeValue(next), coalesce)}
+          onChange={(next, coalesce) => commit(next, coalesce)}
           spec={spec}
           value={value}
         />
@@ -154,7 +171,7 @@ export function PropertyRow({
       editor = (
         <ExpressionEditor
           name={name}
-          onChange={(next) => onSet(ref, next)}
+          onChange={(next) => commit({ mode: 'expression', value: next })}
           spec={spec}
           value={value.value}
         />

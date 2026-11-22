@@ -88,7 +88,15 @@ export function contrastRatio(a: Color, b: Color): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-function walkOutputs(v: unknown, path: ValuePath, emit: (path: ValuePath, raw: string) => void) {
+/** `let` bindings visible at a point of an expression: what each name is bound to and where that value sits. */
+type Scope = ReadonlyMap<string, { value: unknown; path: ValuePath; scope: Scope }>;
+
+function walkOutputs(
+  v: unknown,
+  path: ValuePath,
+  emit: (path: ValuePath, raw: string) => void,
+  scope: Scope = new Map(),
+) {
   if (typeof v === 'string') {
     emit(path, v);
     return;
@@ -96,13 +104,13 @@ function walkOutputs(v: unknown, path: ValuePath, emit: (path: ValuePath, raw: s
   if (v && typeof v === 'object' && !Array.isArray(v)) {
     const fn = v as { stops?: [unknown, unknown][]; default?: unknown };
     fn.stops?.forEach((s, i) => {
-      walkOutputs(s[1], [...path, 'stops', i, 1], emit);
+      walkOutputs(s[1], [...path, 'stops', i, 1], emit, scope);
     });
-    if (fn.default !== undefined) walkOutputs(fn.default, [...path, 'default'], emit);
+    if (fn.default !== undefined) walkOutputs(fn.default, [...path, 'default'], emit, scope);
     return;
   }
   if (!Array.isArray(v)) return;
-  const at = (i: number) => walkOutputs(v[i], [...path, i], emit);
+  const at = (i: number, inner: Scope = scope) => walkOutputs(v[i], [...path, i], emit, inner);
   const op = v[0];
   if (op === 'literal' || op === 'to-color' || op === 'coalesce') {
     for (let i = 1; i < v.length; i++) at(i);
@@ -118,21 +126,32 @@ function walkOutputs(v: unknown, path: ValuePath, emit: (path: ValuePath, raw: s
   } else if (typeof op === 'string' && op.startsWith('interpolate')) {
     for (let i = 4; i < v.length; i += 2) at(i);
   } else if (op === 'let') {
-    at(v.length - 1);
+    const inner = new Map(scope);
+    for (let i = 1; i + 1 < v.length - 1; i += 2) {
+      if (typeof v[i] === 'string')
+        inner.set(v[i], { path: [...path, i + 1], scope, value: v[i + 1] });
+    }
+    at(v.length - 1, inner);
+  } else if (op === 'var' && typeof v[1] === 'string') {
+    const bound = scope.get(v[1]);
+    if (bound) walkOutputs(bound.value, bound.path, emit, bound.scope);
   }
 }
 
-/** Every literal color in every color-typed property; only expression output positions are visited, so match labels never count. */
+/** Every literal color in every color-typed property; only expression output positions are visited, so match labels never count, and a `var` leads to the color its `let` binds. */
 export function colorSites(style: StyleSpecification): ColorSite[] {
   const sites: ColorSite[] = [];
   for (const layer of style.layers) {
     for (const group of ['paint', 'layout'] as const) {
       for (const [name, value] of Object.entries(groupValues(layer, group))) {
         if (propertySpec(layer.type, group, name)?.type !== 'color') continue;
+        const seen = new Set<string>();
         walkOutputs(value, [], (path, raw) => {
           const color = Color.parse(raw);
-          if (color)
-            sites.push({ color, group, key: colorKey(color), layer: layer.id, name, path });
+          const at = path.join('.');
+          if (!color || seen.has(at)) return;
+          seen.add(at);
+          sites.push({ color, group, key: colorKey(color), layer: layer.id, name, path });
         });
       }
     }

@@ -3,6 +3,7 @@ import { Pencil, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { setRoot } from '../operations';
 import { martinGlyphsUrl, martinSpriteUrl, useStyleResources } from '../style-resources';
+import { spriteFileUrl } from '../value-editors/pickers/icon/sprite-sheets';
 import {
   fetchChecked,
   fetchJson,
@@ -167,7 +168,7 @@ function SheetRow({
 }) {
   const [editing, setEditing] = useState(false);
   const probe = useProbe(`sprite ${sheet.url}`, async (signal) => {
-    const index = await fetchJson(`${sheet.url}.json`, signal);
+    const index = await fetchJson(spriteFileUrl(sheet.url, '.json'), signal);
     const count = index && typeof index === 'object' ? Object.keys(index).length : 0;
     return `${count} icons`;
   });
