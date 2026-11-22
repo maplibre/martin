@@ -15,7 +15,7 @@ use geojson::{Geometry, GeometryValue};
 use image::RgbaImage;
 use martin_core::overlay::{Color, OverlayFeature, OverlayProperties, OverlaySpec};
 use martin_core::styles::render_pool::RenderPools;
-use martin_core::styles::{RenderParams, TileSize};
+use martin_core::styles::{DEFAULT_STATIC_RENDERERS_PER_WORKER, RenderParams, TileSize};
 use serde::Serialize;
 
 /// Latitude and longitude every case is centered on.
@@ -641,7 +641,13 @@ pub async fn run() -> anyhow::Result<()> {
 
     let cpu_start = cpu_seconds()?;
     let started = Instant::now();
-    let pools = RenderPools::new(Some(workers), TileSize::Px512, case.renderers_per_worker(), None)?;
+    let pools = RenderPools::new(
+        Some(workers),
+        TileSize::Px512,
+        case.renderers_per_worker(),
+        DEFAULT_STATIC_RENDERERS_PER_WORKER,
+        None,
+    )?;
     let startup = started.elapsed();
     let rss_start_mib = status_mib("VmRSS")?;
 

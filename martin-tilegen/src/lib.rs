@@ -5,6 +5,8 @@ mod block;
 mod error;
 mod expr;
 mod generate;
+#[cfg(feature = "unstable-mlt-v2")]
+pub mod nested;
 #[cfg(feature = "osm")]
 pub mod osm;
 mod phase1;
@@ -13,6 +15,8 @@ mod pipeline;
 pub mod plan;
 mod progress;
 pub mod props;
+#[cfg(feature = "shapefile")]
+pub mod shapefile;
 mod sink;
 mod sort;
 pub mod source;
@@ -22,7 +26,7 @@ pub use map_tile_toolkit::ClipMode;
 
 pub use crate::block::render_block;
 pub use crate::error::{TileGenError, TileGenResult};
-pub use crate::generate::{GenerateConfig, LayerSliceErrors, OpSummary, Summary, generate};
+pub use crate::generate::{GenerateConfig, LayerSliceErrors, MixedKinds, OpSummary, RoundedValues, Summary, generate};
 pub use crate::phase1::{Feature, FeatureGeom, GeometryError, PixelThreshold, RenderLayer, RenderLayerError, project};
 pub use crate::phase2::{OpCounts, OpKind, TileFormat};
 pub use crate::plan::{ExprErrors, LayerGrid};

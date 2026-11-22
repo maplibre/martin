@@ -9,7 +9,7 @@ use geo::BoundingRect;
 use geo_types::{Coord, Rect};
 
 use crate::error::TileGenResult;
-use crate::expr::{Cel, FEATURE, FeatureView, condition_of, eval_part, feature_key};
+use crate::expr::{AREA, Cel, FEATURE, FeatureView, condition_of, eval_part, feature_key};
 use crate::phase1::project_geometry;
 use crate::plan::{
     Case, ColumnDef, CompareOp, Condition, ExprRef, Filter, GeometryType, Literal, Plan, PlannedAttrs, PlannedExpr,
@@ -150,10 +150,10 @@ impl Plan {
             return Ok(Vec::new());
         };
         let mut errors = vec![0; self.exprs.len()];
-        Ok(self.with_view(usize::from(table), feature, |view| {
+        Ok(self.with_view(usize::from(table), feature, Some(geom), |view| {
             paths
                 .into_iter()
-                .filter(|path| path.test.passes(self, view, geom, &mut errors))
+                .filter(|path| path.test.passes(self, view, &geometry, geom, &mut errors))
                 .map(|path| path.branch)
                 .collect()
         }))
@@ -228,16 +228,17 @@ struct Test<'p> {
 }
 
 impl Test<'_> {
-    /// Whether the feature seen through `view`, with the projected geometry `geom`, meets the test.
+    /// Whether the feature seen through `view`, with `geometry`, projected as `geom`, meets the test.
     fn passes(
         &self,
         plan: &Plan,
         view: &FeatureView<'_, SourceStr>,
+        geometry: &Geometry,
         geom: FeatureGeom<'_>,
         errors: &mut [u64],
     ) -> bool {
         let layer = self.layer;
-        if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
+        if layer.entry(geometry, geom).is_none() {
             return false;
         }
         let reached = match &self.reach {
@@ -609,7 +610,8 @@ impl<'a> LayerPaths<'a, '_> {
         }
         for attr in case.attrs.computed.iter().chain(&case.attrs.banded) {
             if let PlannedValue::Expr(expr) = attr.value {
-                let key = self.layer.keys.get(attr.key.index()).map_or("?", String::as_str);
+                let keys = &self.plan.outputs[self.layer.output].keys;
+                let key = keys.get(attr.key.index()).map_or("?", String::as_str);
                 out.push((format!("attributes.{key}"), expr.index));
             }
         }
@@ -668,11 +670,12 @@ impl<'a> LayerPaths<'a, '_> {
             .any(|column| self.known.iter().any(|k| k.column == *column) && self.decided_by(expr, column))
     }
 
-    /// Whether `expr` reads `column` and otherwise only columns with one known value, so a value of `column` decides
-    /// it.
+    /// Whether `expr` reads `column` and otherwise only columns with one known value, and no geometry, so a value of
+    /// `column` decides it.
     fn decided_by(&self, expr: &IdedExpr, column: &str) -> bool {
         let read = read_columns(expr);
-        read.iter().any(|c| c == column)
+        !reads_beyond_columns(expr)
+            && read.iter().any(|c| c == column)
             && read
                 .iter()
                 .all(|c| c == column || self.known.iter().any(|k| k.column == *c && k.single().is_some()))
@@ -692,7 +695,8 @@ impl<'a> LayerPaths<'a, '_> {
             geometry: Geometry::Point(Coord { x: 0.0, y: 0.0 }),
             props,
         };
-        self.plan.with_view(self.table, &feature, |view| eval_part(expr, view))
+        self.plan
+            .with_view(self.table, &feature, None, |view| eval_part(expr, view))
     }
 
     /// For the rules of each `min_size`, lines and polygons kept only at the layer's max zoom, those too small for
@@ -717,7 +721,7 @@ impl<'a> LayerPaths<'a, '_> {
                 Reach::Geometry | Reach::Layer => String::new(),
             };
             let mut parts = self.reached_rows(&reach);
-            if self.layer.geometry.is_none() {
+            if self.layer.geometry_condition().is_none() {
                 let shapes = [GeometryType::Line, GeometryType::Polygon].map(Condition::Geometry);
                 parts.push(("geometry", Ok(Condition::or(shapes))));
             }
@@ -848,11 +852,11 @@ impl<'a> LayerPaths<'a, '_> {
         parts
     }
 
-    /// The layer's geometry type, if it has one.
+    /// The layer's geometry types, unless it takes all.
     fn geometry(&self) -> Vec<Part<'a>> {
         self.layer
-            .geometry
-            .map(|geometry| ("geometry", Ok(Condition::Geometry(geometry))))
+            .geometry_condition()
+            .map(|condition| ("geometry", Ok(condition)))
             .into_iter()
             .collect()
     }
@@ -921,7 +925,7 @@ impl<'a> LayerPaths<'a, '_> {
             .into_iter()
             .map(|(source, part)| {
                 part.map_err(|reason| Untranslatable {
-                    layer: self.layer.info.name.clone(),
+                    layer: self.layer.name.clone(),
                     expr: source.to_owned(),
                     reason,
                 })
@@ -930,7 +934,7 @@ impl<'a> LayerPaths<'a, '_> {
             .map(Condition::and);
         Path {
             branch: Branch {
-                layer: self.layer.info.name.clone(),
+                layer: self.layer.name.clone(),
                 path,
                 rows,
                 shape: None,
@@ -969,7 +973,8 @@ fn compared_as(columns: &[ColumnDef], column: &str, value: &Literal) -> Option<R
     };
     let read_as = columns.iter().find_map(|c| match c {
         ColumnDef::Value(name, read_as) if name == column => Some(*read_as),
-        ColumnDef::Value(..) | ColumnDef::Keys(_) => None,
+        ColumnDef::Document(name) if name == column => Some(None),
+        ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) => None,
     });
     match read_as {
         Some(Some(read_as)) => read_as.common(kind).map(Ok),
@@ -1158,6 +1163,21 @@ fn read_columns(expr: &IdedExpr) -> Vec<String> {
         false
     });
     out
+}
+
+/// Whether `expr` may read more than [`read_columns`] finds: it calls `area`, which reads the geometry, or has a
+/// macro, map or message, whose insides [`walk`] skips.
+fn reads_beyond_columns(expr: &IdedExpr) -> bool {
+    let mut found = false;
+    walk(expr, &mut |e| {
+        found |= match &e.expr {
+            Expr::Call(call) => call.func_name == AREA,
+            Expr::Comprehension(_) | Expr::Map(_) | Expr::Struct(_) => true,
+            Expr::Unspecified | Expr::Ident(_) | Expr::Literal(_) | Expr::Select(_) | Expr::List(_) => false,
+        };
+        !found
+    });
+    found
 }
 
 /// A place where an expression picks one of several values, `root` when it is the whole expression.

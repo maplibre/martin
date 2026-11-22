@@ -44,6 +44,12 @@
       groupName: 'pyo3 crates',
     },
     {
+      // sqlx and the rusqlite-based sqlite-* crates each pin one libsqlite3-sys, which links a single sqlite3, so they move together.
+      matchManagers: ['cargo'],
+      matchPackageNames: ['sqlx', 'sqlite-compressions', 'sqlite-hashes'],
+      groupName: 'sqlite crates',
+    },
+    {
       // Maintained by us, so no need to wait for the ecosystem to catch up.
       matchManagers: ['cargo'],
       matchPackageNames: ['maplibre_native', 'mlt-core'],

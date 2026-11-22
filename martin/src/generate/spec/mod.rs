@@ -3,6 +3,8 @@
 pub mod backend;
 mod catalog;
 pub mod file;
+#[cfg(all(feature = "osm", feature = "shapefile"))]
+pub mod files;
 pub mod memory;
 #[cfg(feature = "osm")]
 pub mod osm;
@@ -11,6 +13,8 @@ pub mod render;
 pub mod report;
 pub mod review;
 pub mod rows;
+#[cfg(feature = "shapefile")]
+pub mod shapefile;
 #[cfg(feature = "tui")]
 pub mod tui;
 
@@ -20,7 +24,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use crate::generate::spec::backend::{TestBackend, TestTable};
-use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, output_yaml, read_spec, write_spec};
+use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, output_yaml, read_spec, same_outputs, write_spec};
 use crate::generate::spec::postgres::Postgres;
 use crate::generate::spec::render::{outputs, render_bulk};
 use crate::generate::spec::report::{Change, Look, Reporter, Status, Tone, tally};
@@ -91,8 +95,16 @@ pub async fn start(args: TestArgs) -> GenerateResult<bool> {
         TestAction::Generate(args) => &args.config,
         TestAction::Run(args) => &args.config,
     };
-    #[cfg(feature = "osm")]
+    #[cfg(all(feature = "osm", feature = "shapefile"))]
+    if let Some(backend) = files::Files::load(config)? {
+        return run_action(&backend, args.action, started).await;
+    }
+    #[cfg(all(feature = "osm", not(feature = "shapefile")))]
     if let Some(backend) = osm::Osm::load(config)? {
+        return run_action(&backend, args.action, started).await;
+    }
+    #[cfg(all(feature = "shapefile", not(feature = "osm")))]
+    if let Some(backend) = shapefile::Shapefiles::load(config)? {
         return run_action(&backend, args.action, started).await;
     }
     let backend = Postgres::load(config).await?;
@@ -307,7 +319,7 @@ pub async fn check<B: TestBackend>(backend: &B, tables: &[TestTable], case: &Cas
     let output = outputs(&bulk);
     Ok(Outcome {
         row: row_change(case, now.as_ref()),
-        output: (output != case.output || per_tile != case.per_tile).then(|| Change {
+        output: (!same_outputs(&output, &case.output) || per_tile != case.per_tile).then(|| Change {
             old: output_yaml(&case.output, &case.per_tile),
             new: output_yaml(&output, &per_tile),
         }),

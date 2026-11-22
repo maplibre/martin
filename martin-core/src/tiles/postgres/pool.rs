@@ -635,7 +635,7 @@ mod tests {
             None,
             Some(&ca_path),
             2,
-            RetryTimeout::default(),
+            RetryTimeout::After(Duration::ZERO),
         )
         .await;
         assert!(

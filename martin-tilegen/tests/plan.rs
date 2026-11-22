@@ -3,12 +3,14 @@
 
 use geo_types::{Coord, LineString, Polygon};
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, GeometryType, IdDef, LayerDef, Plan, PlanError, RowFilter, RuleDef,
-    SortDef, TableDef, ThinningMethod, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryDef, GeometryType, IdDef, LayerDef, Plan, PlanError,
+    RowFilter, RuleDef, SortDef, TableDef, ThinningMethod, TileOp, TileOpDef, ValueDef, ValueKind, ZoomDef,
 };
+use martin_tilegen::project::from_lonlat;
 use martin_tilegen::props::{KeyId, Prop};
 use martin_tilegen::source::{Geometry, SourceFeature};
 use martin_tilegen::{LayerGrid, PixelThreshold};
+use rstest::rstest;
 
 const GRID: LayerGrid = LayerGrid {
     extent: 4096,
@@ -33,19 +35,93 @@ fn evaluate(plan: &Plan, features: &[SourceFeature]) -> String {
 }
 
 #[test]
-fn rejects_a_repeated_layer_name() {
+fn rejects_geometry_entries_drawing_different_types() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: vec![
+                GeometryType::Line.into(),
+                GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::Centroid),
+                },
+            ],
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    insta::assert_snapshot!(err, @"layer `roads`: its `geometry` entries draw different geometry types");
+}
+
+#[test]
+fn rejects_definitions_of_one_output_layer_with_different_extents() {
     let err = Plan::new(vec![
         TableDef {
             columns: vec![],
-            layers: vec![LayerDef::new("roads", 0..=14, GRID)],
+            layers: vec![LayerDef::new("ocean", 0..=14, GRID)],
         },
         TableDef {
             columns: vec![],
-            layers: vec![LayerDef::new("roads", 0..=14, GRID)],
+            layers: vec![LayerDef {
+                output: Some("ocean".to_owned()),
+                ..LayerDef::new("lakes", 0..=14, LayerGrid { extent: 512, buffer: 8 })
+            }],
         },
     ])
     .unwrap_err();
-    assert_eq!(err.to_string(), "layer name `roads` is used more than once");
+    insta::assert_snapshot!(err, @"layers `ocean` and `lakes` both write into layer `ocean` but with different `extent`; it must be equal wherever it is set");
+}
+
+#[test]
+fn rejects_definitions_of_one_output_layer_with_different_sort_by() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("rank".to_owned(), None)],
+        layers: vec![
+            LayerDef::new("pois", 0..=14, GRID),
+            LayerDef {
+                output: Some("pois".to_owned()),
+                sort_by: vec![SortDef {
+                    expr: "rank".to_owned(),
+                    descending: false,
+                }],
+                ..LayerDef::new("shops", 0..=14, GRID)
+            },
+            LayerDef {
+                output: Some("pois".to_owned()),
+                sort_by: vec![SortDef {
+                    expr: "rank".to_owned(),
+                    descending: true,
+                }],
+                ..LayerDef::new("cafes", 0..=14, GRID)
+            },
+        ],
+    }])
+    .unwrap_err();
+    insta::assert_snapshot!(err, @"layers `shops` and `cafes` both write into layer `pois` but with different `sort_by`; it must be equal wherever it is set");
+}
+
+#[test]
+fn rejects_definitions_of_one_output_layer_with_different_operations_of_one_kind() {
+    let limit = |count| TileOpDef {
+        zooms: 0..=14,
+        op: TileOp::Limit { count },
+    };
+    let err = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![
+            LayerDef {
+                per_tile: vec![limit(10)],
+                ..LayerDef::new("pois", 0..=14, GRID)
+            },
+            LayerDef {
+                output: Some("pois".to_owned()),
+                per_tile: vec![limit(20)],
+                ..LayerDef::new("shops", 0..=14, GRID)
+            },
+        ],
+    }])
+    .unwrap_err();
+    insta::assert_snapshot!(err, @"layers `pois` and `shops` both write into layer `pois` but with different `limit`; it must be equal wherever it is set");
 }
 
 #[test]
@@ -580,15 +656,15 @@ fn a_layer_takes_only_features_of_its_geometry_type() {
         columns: vec![],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Point),
+                geometry: vec![GeometryType::Point.into()],
                 ..LayerDef::new("points", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("lines", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("polygons", 0..=0, GRID)
             },
             LayerDef::new("everything", 0..=0, GRID),
@@ -1257,11 +1333,11 @@ fn a_table_reads_the_rows_of_each_layers_geometry() {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Point),
+                geometry: vec![GeometryType::Point.into()],
                 ..LayerDef::new("stops", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("roads", 0..=0, GRID)
             },
         ],
@@ -1289,7 +1365,7 @@ fn a_layer_without_a_filter_reads_every_row() {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("roads", 0..=0, GRID)
             },
             LayerDef::new("all", 0..=0, GRID),
@@ -1305,11 +1381,11 @@ fn a_table_reads_only_the_rows_of_layers_at_the_zooms_read() {
         columns: vec![ColumnDef::Value("class".to_owned(), None)],
         layers: vec![
             LayerDef {
-                geometry: Some(GeometryType::Line),
+                geometry: vec![GeometryType::Line.into()],
                 ..LayerDef::new("detail", 10..=14, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Polygon),
+                geometry: vec![GeometryType::Polygon.into()],
                 ..LayerDef::new("overview", 0..=14, GRID)
             },
         ],
@@ -1351,7 +1427,7 @@ fn a_table_reads_the_rows_some_layer_takes() {
                 ..LayerDef::new("roads", 0..=0, GRID)
             },
             LayerDef {
-                geometry: Some(GeometryType::Point),
+                geometry: vec![GeometryType::Point.into()],
                 filter: Some("!(rank >= 4)".to_owned()),
                 ..LayerDef::new("minor", 0..=0, GRID)
             },
@@ -1495,6 +1571,33 @@ fn lower_ascii_as_a_global_function_is_untranslatable() {
         panic!("translatable");
     };
     insta::assert_snapshot!(err, @"layer `named`: `lowerAscii(name) == 'a'` uses `lowerAscii`, which has no SQL equivalent");
+}
+
+#[rstest]
+#[case::matches("name.matches('^A')", "`name.matches('^A')` uses `matches`")]
+#[case::regex_replace(
+    "regex.replace(name, 'a', 'b') == 'b'",
+    "`regex.replace(name, 'a', 'b') == 'b'` uses `regex.replace`"
+)]
+#[case::min("min(size(name), 3) == 1", "`min(size(name), 3) == 1` uses `min`")]
+#[case::is_latin("name.isLatin()", "`name.isLatin()` uses `isLatin`")]
+#[case::remove_latin("name.removeLatin() == 'A'", "`name.removeLatin() == 'A'` uses `removeLatin`")]
+fn text_functions_are_untranslatable(#[case] filter: &str, #[case] expected: &str) {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            filter: Some(filter.to_owned()),
+            ..LayerDef::new("named", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let RowFilter::Untranslatable(err) = plan.row_filter(0, 0..=0) else {
+        panic!("translatable");
+    };
+    assert_eq!(
+        err.to_string(),
+        format!("layer `named`: {expected}, which has no SQL equivalent")
+    );
 }
 
 #[test]
@@ -1830,4 +1933,135 @@ fn a_choice_chain_sets_the_minzoom_of_each_feature() {
     LayerFeature { layer: "boundaries", id: Some(2), zooms: 3..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
     LayerFeature { layer: "boundaries", id: Some(3), zooms: 8..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
     "#);
+}
+
+#[test]
+fn rejects_a_thinning_key_measuring_area() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            per_tile: vec![TileOpDef {
+                zooms: 0..=14,
+                op: TileOp::Thinning {
+                    method: ThinningMethod::Tile,
+                    keys: vec!["area('m2') > 5.0".to_owned()],
+                },
+            }],
+            ..LayerDef::new("lakes", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    insta::assert_snapshot!(err, @"layer `lakes`: thinning key `area('m2') > 5.0` calls `area`, which measures a feature before it is cut into tiles");
+}
+
+#[test]
+fn a_where_measuring_area_is_untranslatable() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("highway".to_owned(), Some(ValueKind::String))],
+        layers: vec![LayerDef {
+            filter: Some("highway != null && area('m2') > 5".to_owned()),
+            ..LayerDef::new("squares", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    insta::assert_debug_snapshot!(plan.row_filter(0, 0..=0), @r#"
+    Untranslatable(
+        Untranslatable {
+            layer: "squares",
+            expr: "highway != null && area('m2') > 5",
+            reason: Function(
+                "area",
+            ),
+        },
+    )
+    "#);
+}
+
+#[test]
+fn a_minzoom_measuring_area_measures_the_polygon_of_an_outline() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: vec![GeometryType::Line.into()],
+            minzoom_expr: Some("area('km2') >= 100000 ? 4 : 5".to_owned()),
+            attributes: AttributesDef::None,
+            ..LayerDef::new("borders", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let outline = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Outline(
+            [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0), (0.0, 0.0)]
+                .into_iter()
+                .map(|(x, y)| from_lonlat(Coord { x, y }))
+                .collect(),
+        ),
+        props: vec![],
+    };
+    insta::assert_snapshot!(evaluate(&plan, &[outline]), @r#"LayerFeature { layer: "borders", id: Some(1), zooms: 4..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }"#);
+}
+
+#[test]
+fn a_minzoom_measuring_area_picks_each_polygons_zooms() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            minzoom_expr: Some("area('km2') >= 100000 ? 4 : 5".to_owned()),
+            attributes: AttributesDef::None,
+            ..LayerDef::new("countries", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let square = |id, side: f64| SourceFeature {
+        id: Some(id),
+        geometry: Geometry::Polygons(vec![Polygon::new(
+            [(0.0, 0.0), (side, 0.0), (side, side), (0.0, side), (0.0, 0.0)]
+                .into_iter()
+                .map(|(x, y)| from_lonlat(Coord { x, y }))
+                .collect(),
+            vec![],
+        )]),
+        props: vec![],
+    };
+    let features = [square(1, 1.0), square(2, 4.0)];
+    insta::assert_snapshot!(evaluate(&plan, &features), @r#"
+    LayerFeature { layer: "countries", id: Some(1), zooms: 5..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    LayerFeature { layer: "countries", id: Some(2), zooms: 4..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {}, bands: [], sort: None }
+    "#);
+}
+
+#[test]
+fn a_derived_point_measures_the_polygon_it_comes_from() {
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::Centroid),
+            }],
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "way_area".to_owned(),
+                    value: ValueDef::Expr("area('ha')".to_owned()),
+                    zooms: 0..=14,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("lake_labels", 0..=14, GRID)
+        }],
+    }])
+    .unwrap();
+    let lake = SourceFeature {
+        id: Some(1),
+        geometry: Geometry::Polygons(vec![Polygon::new(
+            [(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5), (-0.5, -0.5)]
+                .into_iter()
+                .map(|(x, y)| from_lonlat(Coord { x, y }))
+                .collect(),
+            vec![],
+        )]),
+        props: vec![],
+    };
+    insta::assert_snapshot!(evaluate(&plan, &[lake]), @r#"LayerFeature { layer: "lake_labels", id: Some(1), zooms: 0..=14, simplify: PixelThreshold { below_max_zoom: 0.1, at_max_zoom: 0.0625 }, min_size: PixelThreshold { below_max_zoom: 1.0, at_max_zoom: 0.0625 }, props: {"way_area": F64(1236418.8935609078)}, bands: [], sort: None }"#);
 }

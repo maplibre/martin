@@ -8,11 +8,25 @@ use mlt_core::geo_types::Coord;
 use mlt_core::{FeatureWriter, GeometryType, LayerWriter, MltResult, PropKind, PropValue, PropValueRef, PropertyKey};
 
 use super::columns::TileColumns;
+#[cfg(feature = "unstable-mlt-v2")]
+use super::documents::Documents;
 use super::per_tile::{LayerOpCounts, LayerTile, OpScratch, TileFeature, TileOps};
 use crate::props::{KeyId, KeyNames};
-use crate::sort::Seq;
 use crate::sort::record::{GeomBuf, GeomKind, Record, Vertex};
+use crate::sort::{LayerId, Seq};
 use crate::{LayerGrid, TileGenResult};
+
+/// Where a record of an output layer comes from: the layer definition that rendered it, which also sets the buffer
+/// its fill covers, and the feature it is a piece of.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RecordOrigin {
+    /// The layer byte of the definition's sort key.
+    pub layer: LayerId,
+    /// The feature's position in its source.
+    pub seq: Seq,
+    /// Tile units around the tile that a fill covers.
+    pub fill_buffer: u32,
+}
 
 /// Reusable per-worker scratch for [`LayerAssembler::assemble`].
 #[derive(Default)]
@@ -25,6 +39,11 @@ pub struct LayerAssembler {
     keys: Vec<PropertyKey>,
     text: String,
     texts: Vec<Range<usize>>,
+    /// The integers of the last layer that float columns rounded.
+    rounded: Rounded,
+    /// The `jsonb` document keys of the last layer.
+    #[cfg(feature = "unstable-mlt-v2")]
+    documents: Documents,
     /// Scratch of the per-tile operations, and their failed evaluations.
     pub(crate) ops: OpScratch,
 }
@@ -36,19 +55,58 @@ pub struct AssembledLayer<'a> {
     pub columns: &'a [(KeyId, PropKind)],
     /// What the per-tile operations did to the layer.
     pub(crate) ops: LayerOpCounts,
+    /// The integers that float columns rounded.
+    pub(crate) rounded: &'a Rounded,
+}
+
+/// How many integers a float column rounded, by key, of the few keys that had any.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Rounded(Vec<(KeyId, u64)>);
+
+impl Rounded {
+    /// Adds `count` to `key`.
+    pub(crate) fn add(&mut self, key: KeyId, count: u64) {
+        if let Some((_, total)) = self.0.iter_mut().find(|(known, _)| *known == key) {
+            *total += count;
+        } else {
+            self.0.push((key, count));
+        }
+    }
+
+    /// Adds every key of `other`.
+    pub(crate) fn merge(&mut self, other: &Self) {
+        for &(key, count) in &other.0 {
+            self.add(key, count);
+        }
+    }
+
+    /// Whether no value was rounded.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// The keys with rounded values, in the order they first had one.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (KeyId, u64)> + '_ {
+        self.0.iter().copied()
+    }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
 }
 
 impl LayerAssembler {
-    /// `records` are one layer's records in one tile, in merge (seq) order. Consecutive records of the same
-    /// feature are its pieces in this tile (multi-part geometry, or a wrapped antimeridian twin) and become
-    /// one multi-geometry feature; their properties and sort keys are identical, so the first record's are
-    /// used. Features with a sort key are then stably sorted by it, and `ops` run on them in that order.
+    /// `records` are one output layer's records in one tile, by definition and in merge (seq) order within one.
+    /// Consecutive records of the same origin are the pieces of one feature in this tile (multi-part geometry, or
+    /// a wrapped antimeridian twin) and become one multi-geometry feature; their properties and sort keys are
+    /// identical, so the first record's are used. Features with a sort key are then stably sorted by it, and `ops`
+    /// run on them in that order.
     pub fn assemble<'a>(
         &'a mut self,
         name: &'a str,
         grid: LayerGrid,
         names: &'a KeyNames,
-        records: &[(Seq, &'a [u8])],
+        records: &[(RecordOrigin, &'a [u8])],
         ops: TileOps<'_>,
     ) -> TileGenResult<AssembledLayer<'a>> {
         let Self {
@@ -59,11 +117,14 @@ impl LayerAssembler {
             keys,
             text,
             texts,
+            rounded,
+            #[cfg(feature = "unstable-mlt-v2")]
+            documents,
             ops: op_scratch,
         } = self;
         let decoded = records
             .iter()
-            .map(|&(seq, bytes)| Ok((seq, Record::decode(bytes)?)))
+            .map(|&(origin, bytes)| Ok((origin, Record::decode(bytes)?)))
             .collect::<TileGenResult<Vec<_>>>()?;
 
         let mut props = Vec::new();
@@ -79,36 +140,27 @@ impl LayerAssembler {
         ops.apply(&tile, features, op_scratch)?;
         let props = tile.props.borrow();
 
-        columns.clear();
-        for feature in features.iter() {
-            for &(key, value) in &props[feature.props()] {
-                columns.add(key, value);
-            }
-        }
-        columns.finish(names, schema);
+        #[cfg(feature = "unstable-mlt-v2")]
+        tally_columns(features, &props, names, columns, schema, documents);
+        #[cfg(not(feature = "unstable-mlt-v2"))]
+        tally_columns(features, &props, names, columns, schema);
 
-        text.clear();
-        texts.clear();
-        for feature in features.iter() {
-            for &(key, value) in &props[feature.props()] {
-                if let Some(pos) = columns.position(key)
-                    && schema[pos].1 == PropKind::Str
-                    && !matches!(value, PropValueRef::Str(_))
-                {
-                    let from = text.len();
-                    write_text(text, value);
-                    texts.push(from..text.len());
-                }
-            }
-        }
+        collect_texts(features, &props, columns, schema, text, texts);
         let text = text.as_str();
         let mut texts = texts.iter();
 
         let mut layer = LayerWriter::new(name, grid.extent)?;
+        rounded.clear();
         keys.clear();
         for &(key, kind) in schema.iter() {
             keys.push(layer.add_property(names.name(key), kind)?);
         }
+        #[cfg(feature = "unstable-mlt-v2")]
+        documents.declare(names, &mut layer)?;
+        #[cfg(feature = "unstable-mlt-v2")]
+        let documents = &*documents;
+        #[cfg(feature = "unstable-mlt-v2")]
+        let mut document_writer = documents.writer();
 
         for tile_feature in features.iter() {
             let (kind, id) = tile.geometry(tile_feature, geom)?;
@@ -116,6 +168,12 @@ impl LayerAssembler {
             feature.id(id);
             write_geometry(&mut feature, kind, geom)?;
             for &(key, value) in &props[tile_feature.props()] {
+                #[cfg(feature = "unstable-mlt-v2")]
+                if names.document(key).is_some() {
+                    let property = columns.position(key).map(|pos| keys[pos]);
+                    document_writer.write(names, &mut feature, key, value, property)?;
+                    continue;
+                }
                 let Some(pos) = columns.position(key) else {
                     continue;
                 };
@@ -128,7 +186,11 @@ impl LayerAssembler {
                         .and_then(|range| text.get(range.clone()))
                         .map(PropValueRef::Str)
                 } else {
-                    scalar(&value.coerce(kind))
+                    let coerced = scalar(&value.coerce(kind));
+                    if is_rounded(value, coerced) {
+                        rounded.add(key, 1);
+                    }
+                    coerced
                 };
                 if let Some(value) = value {
                     feature.property(keys[pos], value)?;
@@ -140,23 +202,81 @@ impl LayerAssembler {
             layer,
             columns: schema,
             ops: op_scratch.counts,
+            rounded,
         })
+    }
+}
+
+/// Fills `columns` and `schema` with the columns the tile's features need, and `documents` with the
+/// values of its scalar document keys.
+fn tally_columns(
+    features: &[TileFeature],
+    props: &[(KeyId, PropValueRef<'_>)],
+    names: &KeyNames,
+    columns: &mut TileColumns,
+    schema: &mut Vec<(KeyId, PropKind)>,
+    #[cfg(feature = "unstable-mlt-v2")] documents: &mut Documents,
+) {
+    columns.clear();
+    #[cfg(feature = "unstable-mlt-v2")]
+    documents.clear();
+    for feature in features {
+        for &(key, value) in &props[feature.props()] {
+            #[cfg(feature = "unstable-mlt-v2")]
+            if documents.note(names, columns, key) {
+                continue;
+            }
+            columns.add(key, value);
+        }
+    }
+    columns.finish(names, schema);
+    #[cfg(feature = "unstable-mlt-v2")]
+    for feature in features {
+        for &(key, value) in &props[feature.props()] {
+            documents.collect_leaf(names, key, value);
+        }
+    }
+}
+
+/// Writes into `text` the text of every value that a string column holds but is not a string, and into
+/// `texts` where each one is, in the order the features carry them.
+fn collect_texts(
+    features: &[TileFeature],
+    props: &[(KeyId, PropValueRef<'_>)],
+    columns: &TileColumns,
+    schema: &[(KeyId, PropKind)],
+    text: &mut String,
+    texts: &mut Vec<Range<usize>>,
+) {
+    text.clear();
+    texts.clear();
+    for feature in features {
+        for &(key, value) in &props[feature.props()] {
+            if let Some(pos) = columns.position(key)
+                && schema[pos].1 == PropKind::Str
+                && !matches!(value, PropValueRef::Str(_))
+            {
+                let from = text.len();
+                write_text(text, value);
+                texts.push(from..text.len());
+            }
+        }
     }
 }
 
 /// Groups consecutive records of one feature and family into `features`, with their properties in
 /// `props`, then stably sorts the features by their sort key, if they have one.
 fn group_features<'a>(
-    decoded: &[(Seq, Record<'a>)],
+    decoded: &[(RecordOrigin, Record<'a>)],
     props: &mut Vec<(KeyId, PropValueRef<'a>)>,
     features: &mut Vec<TileFeature>,
 ) -> TileGenResult<()> {
     features.clear();
     let (mut start, mut sorted) = (0, false);
-    while let Some((seq, first)) = decoded.get(start) {
+    while let Some((origin, first)) = decoded.get(start) {
         let len = decoded[start..]
             .iter()
-            .take_while(|(s, r)| s == seq && r.kind.family() == first.kind.family())
+            .take_while(|(o, r)| o == origin && r.kind.family() == first.kind.family())
             .count();
         let from = props.len();
         for prop in first.props() {
@@ -186,6 +306,25 @@ fn write_text(text: &mut String, value: PropValueRef<'_>) {
         PropValueRef::Str(v) => write!(text, "{v}"),
     }
     .expect("writing to a String never fails");
+}
+
+/// Whether a float column rounded integer `value` to `coerced`.
+fn is_rounded(value: PropValueRef<'_>, coerced: Option<PropValueRef<'_>>) -> bool {
+    let int = match value {
+        PropValueRef::I8(v) => i128::from(v),
+        PropValueRef::U8(v) => i128::from(v),
+        PropValueRef::I32(v) => i128::from(v),
+        PropValueRef::U32(v) => i128::from(v),
+        PropValueRef::I64(v) => i128::from(v),
+        PropValueRef::U64(v) => i128::from(v),
+        PropValueRef::Bool(_) | PropValueRef::F32(_) | PropValueRef::F64(_) | PropValueRef::Str(_) => return false,
+    };
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "an exact float casts back to the same integer"
+    )]
+    let rounded = matches!(coerced, Some(PropValueRef::F64(float)) if float as i128 != int);
+    rounded
 }
 
 /// A non-string value as written into a column, or [`None`] for a null.
@@ -333,7 +472,17 @@ mod tests {
             ),
         ];
         let names = interner.freeze();
-        let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
+        let records: Vec<_> = records
+            .iter()
+            .map(|(seq, b)| {
+                let origin = RecordOrigin {
+                    seq: *seq,
+                    fill_buffer: GRID.buffer,
+                    ..RecordOrigin::default()
+                };
+                (origin, b.as_slice())
+            })
+            .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
             .assemble("roads", GRID, &names, &records, TileOps::NONE)
@@ -392,7 +541,17 @@ mod tests {
             (seq(3), line(3, &[1], 30)),
             (seq(4), line(4, &[1, 5], 40)),
         ];
-        let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
+        let records: Vec<_> = records
+            .iter()
+            .map(|(seq, b)| {
+                let origin = RecordOrigin {
+                    seq: *seq,
+                    fill_buffer: GRID.buffer,
+                    ..RecordOrigin::default()
+                };
+                (origin, b.as_slice())
+            })
+            .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
             .assemble("roads", GRID, &names, &records, TileOps::NONE)
@@ -441,7 +600,19 @@ mod tests {
         let names = interner.freeze();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch
-            .assemble("water", GRID, &names, &[(Seq::default(), &bytes)], TileOps::NONE)
+            .assemble(
+                "water",
+                GRID,
+                &names,
+                &[(
+                    RecordOrigin {
+                        fill_buffer: GRID.buffer,
+                        ..RecordOrigin::default()
+                    },
+                    &bytes,
+                )],
+                TileOps::NONE,
+            )
             .unwrap();
         let decoded = decode_mlt(
             &assembled
@@ -491,7 +662,17 @@ mod tests {
             ),
         ];
         let names = interner.freeze();
-        let records: Vec<_> = records.iter().map(|(s, b)| (*s, b.as_slice())).collect();
+        let records: Vec<_> = records
+            .iter()
+            .map(|(seq, b)| {
+                let origin = RecordOrigin {
+                    seq: *seq,
+                    fill_buffer: GRID.buffer,
+                    ..RecordOrigin::default()
+                };
+                (origin, b.as_slice())
+            })
+            .collect();
         let mut scratch = LayerAssembler::default();
         let assembled = scratch.assemble("pois", GRID, &names, &records, TileOps::NONE).unwrap();
         let decoded = decode_mlt(

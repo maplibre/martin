@@ -75,6 +75,7 @@ async fn kept(pool: &PostgresPool, yaml: &str) -> Kept {
         crs: all.crs,
         has_id: true,
         properties: all.properties.len(),
+        keep_documents: false,
     };
     let mut features = Vec::new();
     scan_features(&client, &all.sql, &[], &layout, 0, &plan.table_keys()[0], |batch| {
@@ -781,7 +782,7 @@ async fn sql_matches_the_plan_on_negated_float_greater() {
     )
     .await;
     assert_eq!(kept.by_sql, kept.by_plan);
-    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{4, 7}");
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2, 4, 7}");
 }
 
 #[tokio::test]
@@ -925,7 +926,7 @@ async fn sql_matches_the_plan_on_negated_float_less_than_int() {
     )
     .await;
     assert_eq!(kept.by_sql, kept.by_plan);
-    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 4, 5, 6, 8}");
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{1, 2, 4, 5, 6, 8}");
 }
 
 #[tokio::test]
@@ -1653,7 +1654,7 @@ async fn sql_matches_the_plan_on_negated_or() {
     )
     .await;
     assert_eq!(kept.by_sql, kept.by_plan);
-    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{}");
+    insta::assert_compact_debug_snapshot!(kept.by_sql, @"{2}");
 }
 
 #[tokio::test]

@@ -1,12 +1,14 @@
 //! Lowers table sources and their `layers` into the tables of a [`martin_tilegen::plan::Plan`].
 
+use std::collections::HashMap;
+use std::num::NonZeroU32;
 use std::ops::RangeInclusive;
 
 use indexmap::{IndexMap, IndexSet};
 use martin_core::tiles::postgres::column_def;
 use martin_tilegen::plan::{
-    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryType, IdDef, IdOrder, LayerDef, RuleDef, SortDef,
-    TableDef, ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
+    AttributesDef, ColumnDef, ComputedAttr, DerivedPoint, GeometryDef, GeometryType, IdDef, IdOrder, LayerDef, RuleDef,
+    SortDef, TableDef, ThinningGrid, ThinningMethod as PlanThinning, TileOp, TileOpDef, ValueDef, ZoomDef,
 };
 use martin_tilegen::props::Prop;
 use martin_tilegen::{ClipMode, LayerGrid, MAX_ZOOM, PixelThreshold};
@@ -18,9 +20,10 @@ use super::{GenerateError, GenerateResult};
 use crate::config::args::OrderByType;
 use crate::config::file::postgres::TableInfo;
 use crate::config::file::tiling::{
-    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Layers, Literal, MultiGeometry, OutputGeometry,
-    PerFeature, PerTile, Pixels, PropertySelector, RuleSettings, RuleThinning, Rules, Thinning, ThinningMethod, Value,
-    ValueSpec, Zoom, ZoomRange, ZoomSetting,
+    Attributes, ByZoomRange, Columns, Expr, IdPolicy, Layer, Layers, Limit, Literal, MergeLines, MergeMulti,
+    MergePolygons, MultiGeometry, NonEmpty, OutputGeometry, PerFeature, PerTile, Pixels, PropertySelector,
+    RuleSettings, RuleThinning, Rules, SortKey, Thinning, ThinningMethod, Value, ValueSpec, Zoom, ZoomRange,
+    ZoomSetting,
 };
 use crate::generate::postgres::ScanTable;
 
@@ -39,20 +42,73 @@ pub struct LowerOptions {
     pub order_by: Option<OrderByType>,
 }
 
-/// The table's layers, or one layer named by `layer_id` or `id` without `layers`. `None` when the
-/// table, or every layer with fixed zooms, has no zoom within the options' zooms.
+impl LowerOptions {
+    /// Whether the tiles take the MLT v2 wire format, which keeps a `jsonb` column whole.
+    #[cfg_attr(
+        not(feature = "unstable-mlt-v2"),
+        expect(clippy::unused_self, reason = "only v2 keeps documents")
+    )]
+    fn keeps_documents(&self) -> bool {
+        #[cfg(feature = "unstable-mlt-v2")]
+        {
+            self.encoder
+                .is_some_and(|encoder| encoder.wire_version() != mlt_core::encoder::WireVersion::V01)
+        }
+        #[cfg(not(feature = "unstable-mlt-v2"))]
+        {
+            false
+        }
+    }
+}
+
+/// The table's layers, or one layer named by `layer_id` or `id` without `layers`, as the only source of a run.
+/// `None` when the table, or every layer with fixed zooms, has no zoom within the options' zooms.
+///
+/// # Errors
+///
+/// Fails when a layer uses a setting `--mode bulk` does not support yet, or layers writing into one output layer
+/// disagree on a setting it has once.
+pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> GenerateResult<Option<ScanTable>> {
+    let outputs = OutputLayers::new([(id, table_settings(&info))], &options.zooms)?;
+    lower_table_with(id, info, options, &outputs)
+}
+
+/// The table's layers as [`lower_table`] lowers them, as one of the sources of `outputs`.
 ///
 /// # Errors
 ///
 /// Fails when a layer uses a setting `--mode bulk` does not support yet.
-pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> GenerateResult<Option<ScanTable>> {
+pub fn lower_table_with(
+    id: &str,
+    info: TableInfo,
+    options: &LowerOptions,
+    outputs: &OutputLayers,
+) -> GenerateResult<Option<ScanTable>> {
     let columns: Vec<ColumnDef> = info
         .properties
         .iter()
         .flatten()
         .filter_map(|(column, _)| Some(column_def(column.clone(), info.property_type(column)?)))
         .collect();
-    let source = SourceSettings {
+    let options = LowerOptions {
+        order_by: options.order_by.filter(|_| info.id_column.is_some()),
+        ..options.clone()
+    };
+    let Some(def) = lower_source(id, &table_settings(&info), columns, &options, outputs)? else {
+        return Ok(None);
+    };
+    Ok(Some(ScanTable {
+        id: id.to_owned(),
+        info,
+        def,
+        keep_documents: options.keeps_documents(),
+    }))
+}
+
+/// The settings of a table source that its layers take their defaults from.
+#[must_use]
+pub fn table_settings(info: &TableInfo) -> SourceSettings<'_> {
+    SourceSettings {
         minzoom: info.minzoom,
         maxzoom: info.maxzoom,
         extent: info.extent,
@@ -60,19 +116,7 @@ pub fn lower_table(id: &str, info: TableInfo, options: &LowerOptions) -> Generat
         clip_geom: info.clip_geom,
         layer_id: info.layer_id.as_deref(),
         layers: info.layers.as_deref(),
-    };
-    let options = LowerOptions {
-        order_by: options.order_by.filter(|_| info.id_column.is_some()),
-        ..options.clone()
-    };
-    let Some(def) = lower_source(id, &source, columns, &options)? else {
-        return Ok(None);
-    };
-    Ok(Some(ScanTable {
-        id: id.to_owned(),
-        info,
-        def,
-    }))
+    }
 }
 
 /// The source settings that layers take their defaults from.
@@ -82,7 +126,7 @@ pub struct SourceSettings<'a> {
     /// The highest zoom of its layers, if set.
     pub maxzoom: Option<u8>,
     /// The tile extent of its layers, if set.
-    pub extent: Option<std::num::NonZeroU32>,
+    pub extent: Option<NonZeroU32>,
     /// The tile buffer of its layers, if set.
     pub buffer: Option<u32>,
     /// Whether its layers clip geometries to the tile, if set.
@@ -93,7 +137,414 @@ pub struct SourceSettings<'a> {
     pub layers: Option<&'a Layers>,
 }
 
-/// The source's layers over `columns`, as [`lower_table`] lowers them for any kind of source.
+impl SourceSettings<'_> {
+    /// The source's zooms within the run's `zooms`, or `None` when it has none of them.
+    fn zooms(&self, zooms: &RangeInclusive<u8>) -> Option<RangeInclusive<u8>> {
+        let min = self.minzoom.unwrap_or(0).max(*zooms.start());
+        let max = self.maxzoom.unwrap_or(u8::MAX).min(*zooms.end());
+        (min <= max).then_some(min..=max)
+    }
+
+    /// The extent and buffer of `layer`, defaulting to the source's, then to 4096 and 64.
+    fn grid(&self, layer: &Layer) -> LayerGrid {
+        LayerGrid {
+            extent: layer.extent.or(self.extent).map_or(DEFAULT_EXTENT, NonZeroU32::get),
+            buffer: layer.buffer.or(self.buffer).unwrap_or(DEFAULT_BUFFER),
+        }
+    }
+}
+
+/// The fixed zooms of `layer` within its source's `zooms`, or `None` when it has none of them.
+fn layer_zooms(layer: &Layer, zooms: &RangeInclusive<u8>) -> Option<RangeInclusive<u8>> {
+    let fixed = |zoom: Option<&ZoomSetting>| zoom.and_then(ZoomSetting::fixed).map(|z| z.get());
+    let min = fixed(layer.minzoom.as_ref()).map_or(*zooms.start(), |z| z.max(*zooms.start()));
+    let max = fixed(layer.maxzoom.as_ref()).map_or(*zooms.end(), |z| z.min(*zooms.end()));
+    (min <= max).then_some(min..=max)
+}
+
+/// The output layers of the sources a run lowers together: what the layers writing into each one share, lowered
+/// once for all of them.
+#[derive(Debug, Default)]
+pub struct OutputLayers(HashMap<String, OutputLayer>);
+
+/// The `sort_by` and per-tile operations of one output layer, as each layer writing into it lowers them.
+#[derive(Debug, Default)]
+struct OutputLayer {
+    /// The `sort_by` of the layers that set it.
+    sort_by: Vec<SortDef>,
+    /// The operations of the layers that set them, within the zooms of all its layers.
+    per_tile: Vec<TileOpDef>,
+}
+
+/// A layer of a source, named in errors and warnings.
+#[derive(Clone, Copy, Debug)]
+struct Definition<'a> {
+    /// The source's id.
+    source: &'a str,
+    /// The layer's key.
+    key: &'a str,
+}
+
+/// Two layers writing into one output layer that disagree on a setting it has once.
+#[derive(thiserror::Error, Debug)]
+#[error(
+    "layers `{first}` of source `{first_source}` and `{second}` of source `{second_source}` both write into layer \
+     `{output}` but {difference}"
+)]
+pub struct OutputLayerMismatch {
+    /// The output layer's name.
+    output: String,
+    /// The source of the first layer.
+    first_source: String,
+    /// The key of the first layer.
+    first: String,
+    /// The source of the second layer.
+    second_source: String,
+    /// The key of the second layer.
+    second: String,
+    /// The setting they disagree on.
+    difference: Difference,
+}
+
+impl OutputLayerMismatch {
+    /// The error of `second` disagreeing with `first` on a setting of `output`.
+    fn error(output: &str, first: Definition<'_>, second: Definition<'_>, difference: Difference) -> GenerateError {
+        GenerateError::OutputLayerMismatch(Box::new(Self {
+            output: output.to_owned(),
+            first_source: first.source.to_owned(),
+            first: first.key.to_owned(),
+            second_source: second.source.to_owned(),
+            second: second.key.to_owned(),
+            difference,
+        }))
+    }
+}
+
+/// What two layers writing into one output layer disagree on.
+#[derive(Debug)]
+enum Difference {
+    /// Both set one key, differently.
+    Setting {
+        /// The key they set.
+        key: &'static str,
+    },
+    /// Their extents, after defaulting.
+    Extent {
+        /// The first layer's extent.
+        first: u32,
+        /// The second layer's extent.
+        second: u32,
+    },
+}
+
+impl std::fmt::Display for Difference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Setting { key } => {
+                write!(
+                    f,
+                    "set `{key}` differently; set it equal on both, or on only one of them"
+                )
+            }
+            Self::Extent { first, second } => {
+                write!(f, "with extents {first} and {second}; a layer has one extent")
+            }
+        }
+    }
+}
+
+/// A setting an output layer has once, and the first layer that set it.
+type Given<'a, T> = Option<(&'a T, Definition<'a>)>;
+
+/// What the layers writing into one output layer set, gathered before any of them is lowered.
+struct Gathered<'a> {
+    /// The first of them.
+    first: Definition<'a>,
+    /// Their extent, which they share.
+    extent: u32,
+    /// The widest of their buffers.
+    buffer: u32,
+    /// The zooms of those with some zoom in the run.
+    zooms: Option<RangeInclusive<u8>>,
+    /// The type of the geometry each of them draws, if it has only one.
+    draws: Vec<Option<GeometryType>>,
+    /// Their `sort_by`.
+    sort_by: Given<'a, NonEmpty<SortKey>>,
+    /// Their `merge_lines`.
+    merge_lines: Given<'a, ByZoomRange<MergeLines>>,
+    /// Their `merge_polygons`.
+    merge_polygons: Given<'a, ByZoomRange<MergePolygons>>,
+    /// Their `thinning`.
+    thinning: Given<'a, ByZoomRange<Thinning>>,
+    /// Their `merge_multi`.
+    merge_multi: Given<'a, ByZoomRange<MergeMulti>>,
+    /// Their `limit`.
+    limit: Given<'a, ByZoomRange<Limit>>,
+}
+
+impl OutputLayers {
+    /// The output layers of `sources`, each an id and its settings, rendered at `zooms`.
+    ///
+    /// # Errors
+    ///
+    /// If two layers writing into one output layer have different extents, or set `sort_by` or one per-tile operation
+    /// differently, or a layer's `geometry` cannot be lowered.
+    pub fn new<'a>(
+        sources: impl IntoIterator<Item = (&'a str, SourceSettings<'a>)>,
+        zooms: &RangeInclusive<u8>,
+    ) -> GenerateResult<Self> {
+        let mut gathered: IndexMap<&str, Gathered<'_>> = IndexMap::new();
+        for (id, source) in sources {
+            let source_zooms = source.zooms(zooms);
+            let Some(layers) = source.layers else {
+                let output = source.layer_id.unwrap_or(id);
+                let definition = Definition {
+                    source: id,
+                    key: output,
+                };
+                let grid = LayerGrid {
+                    extent: source.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get),
+                    buffer: source.buffer.unwrap_or(DEFAULT_BUFFER),
+                };
+                let entry = gathered
+                    .entry(output)
+                    .or_insert_with(|| Gathered::new(definition, grid.extent));
+                entry.take(output, definition, grid, source_zooms, None)?;
+                continue;
+            };
+            for (key, layer) in layers.iter() {
+                let definition = Definition { source: id, key };
+                let output = layer.layer.as_deref().unwrap_or(key);
+                let grid = source.grid(layer);
+                let layer_zooms = source_zooms.as_ref().and_then(|zooms| layer_zooms(layer, zooms));
+                let draws = if layer_zooms.is_some() {
+                    let geometry = lower_geometry(key, layer.geometry.as_ref())?;
+                    geometry.first().and_then(|entry| entry.draws())
+                } else {
+                    None
+                };
+                let entry = gathered
+                    .entry(output)
+                    .or_insert_with(|| Gathered::new(definition, grid.extent));
+                entry.take(output, definition, grid, layer_zooms, draws)?;
+                let per_tile = &layer.per_tile;
+                gather(
+                    &mut entry.sort_by,
+                    layer.sort_by.as_ref(),
+                    definition,
+                    output,
+                    "sort_by",
+                )?;
+                gather(
+                    &mut entry.merge_lines,
+                    per_tile.merge_lines.as_ref(),
+                    definition,
+                    output,
+                    "merge_lines",
+                )?;
+                let merge_polygons = per_tile.merge_polygons.as_ref();
+                gather(
+                    &mut entry.merge_polygons,
+                    merge_polygons,
+                    definition,
+                    output,
+                    "merge_polygons",
+                )?;
+                gather(
+                    &mut entry.thinning,
+                    per_tile.thinning.as_ref(),
+                    definition,
+                    output,
+                    "thinning",
+                )?;
+                gather(
+                    &mut entry.merge_multi,
+                    per_tile.merge_multi.as_ref(),
+                    definition,
+                    output,
+                    "merge_multi",
+                )?;
+                gather(&mut entry.limit, per_tile.limit.as_ref(), definition, output, "limit")?;
+            }
+        }
+        Ok(Self(
+            gathered
+                .into_iter()
+                .map(|(output, gathered)| (output.to_owned(), gathered.lower()))
+                .collect(),
+        ))
+    }
+}
+
+/// Takes `value`, which `definition` sets, as the output layer's `setting`, unless a layer before it set it, which
+/// must then have set it equal.
+fn gather<'a, T: PartialEq>(
+    given: &mut Given<'a, T>,
+    value: Option<&'a T>,
+    definition: Definition<'a>,
+    output: &str,
+    setting: &'static str,
+) -> GenerateResult<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    match given {
+        Some((known, first)) if *known != value => Err(OutputLayerMismatch::error(
+            output,
+            *first,
+            definition,
+            Difference::Setting { key: setting },
+        )),
+        Some(_) => Ok(()),
+        None => {
+            *given = Some((value, definition));
+            Ok(())
+        }
+    }
+}
+
+impl<'a> Gathered<'a> {
+    /// Nothing gathered yet for an output layer whose first layer is `first`, of `extent`.
+    fn new(first: Definition<'a>, extent: u32) -> Self {
+        Self {
+            first,
+            extent,
+            buffer: 0,
+            zooms: None,
+            draws: Vec::new(),
+            sort_by: None,
+            merge_lines: None,
+            merge_polygons: None,
+            thinning: None,
+            merge_multi: None,
+            limit: None,
+        }
+    }
+
+    /// Takes the grid, the zooms within the run and the drawn type of `definition`, a layer writing into `output`.
+    fn take(
+        &mut self,
+        output: &str,
+        definition: Definition<'a>,
+        grid: LayerGrid,
+        zooms: Option<RangeInclusive<u8>>,
+        draws: Option<GeometryType>,
+    ) -> GenerateResult<()> {
+        if grid.extent != self.extent {
+            let difference = Difference::Extent {
+                first: self.extent,
+                second: grid.extent,
+            };
+            return Err(OutputLayerMismatch::error(output, self.first, definition, difference));
+        }
+        if let Some(zooms) = zooms {
+            self.buffer = self.buffer.max(grid.buffer);
+            self.draws.push(draws);
+            self.zooms = Some(match self.zooms.take() {
+                Some(known) => (*known.start()).min(*zooms.start())..=(*known.end()).max(*zooms.end()),
+                None => zooms,
+            });
+        }
+        Ok(())
+    }
+
+    /// The output layer's settings, each operation lowered within the zooms of all its layers, with warnings naming
+    /// the layer that set it.
+    fn lower(&self) -> OutputLayer {
+        let Some(zooms) = &self.zooms else {
+            return OutputLayer::default();
+        };
+        let grid = LayerGrid {
+            extent: self.extent,
+            buffer: self.buffer,
+        };
+        let geometry = self
+            .draws
+            .iter()
+            .all(|draws| *draws == self.draws[0])
+            .then_some(self.draws[0])
+            .flatten();
+        let mut per_tile = Vec::new();
+        let mut lower = |definition: Definition<'_>, ops: PerTile| {
+            let grids = GridContext {
+                source: definition.source,
+                layer: definition.key,
+                zooms: zooms.clone(),
+                grid,
+                geometry,
+            };
+            per_tile.extend(lower_per_tile(
+                definition.source,
+                definition.key,
+                &ops,
+                zooms,
+                grid,
+                geometry,
+                &grids,
+            ));
+        };
+        if let Some((op, definition)) = self.merge_lines {
+            lower(
+                definition,
+                PerTile {
+                    merge_lines: Some(op.clone()),
+                    ..PerTile::default()
+                },
+            );
+        }
+        if let Some((op, definition)) = self.merge_polygons {
+            lower(
+                definition,
+                PerTile {
+                    merge_polygons: Some(op.clone()),
+                    ..PerTile::default()
+                },
+            );
+        }
+        if let Some((op, definition)) = self.thinning {
+            lower(
+                definition,
+                PerTile {
+                    thinning: Some(op.clone()),
+                    ..PerTile::default()
+                },
+            );
+        }
+        if let Some((op, definition)) = self.merge_multi {
+            lower(
+                definition,
+                PerTile {
+                    merge_multi: Some(op.clone()),
+                    ..PerTile::default()
+                },
+            );
+        }
+        if let Some((op, definition)) = self.limit {
+            lower(
+                definition,
+                PerTile {
+                    limit: Some(op.clone()),
+                    ..PerTile::default()
+                },
+            );
+        }
+        OutputLayer {
+            sort_by: self
+                .sort_by
+                .iter()
+                .flat_map(|(keys, _)| keys.iter())
+                .map(|key| SortDef {
+                    expr: key.expr.as_str().to_owned(),
+                    descending: key.descending,
+                })
+                .collect(),
+            per_tile,
+        }
+    }
+}
+
+/// The source's layers over `columns`, as [`lower_table`] lowers them for any kind of source, as one of the sources
+/// of `outputs`.
 ///
 /// # Errors
 ///
@@ -103,22 +554,24 @@ pub fn lower_source(
     source: &SourceSettings<'_>,
     columns: Vec<ColumnDef>,
     options: &LowerOptions,
+    outputs: &OutputLayers,
 ) -> GenerateResult<Option<TableDef>> {
-    let (cli_min, cli_max) = (*options.zooms.start(), *options.zooms.end());
-    let min = source.minzoom.unwrap_or(0).max(cli_min);
-    let max = source.maxzoom.unwrap_or(u8::MAX).min(cli_max);
-    if min > max {
-        warn!("Skipping source `{id}`: it has no zoom between {cli_min} and {cli_max}");
+    let Some(zooms) = source.zooms(&options.zooms) else {
+        warn!(
+            "Skipping source `{id}`: it has no zoom between {} and {}",
+            options.zooms.start(),
+            options.zooms.end()
+        );
         return Ok(None);
-    }
+    };
     let mut defaults = LayerDef {
         clip_mode: source.clip_geom.map_or(ClipMode::Clipped, clip_mode),
         bounds: options.bounds,
         ..LayerDef::new(
             String::new(),
-            min..=max,
+            zooms,
             LayerGrid {
-                extent: source.extent.map_or(DEFAULT_EXTENT, std::num::NonZeroU32::get),
+                extent: source.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get),
                 buffer: source.buffer.unwrap_or(DEFAULT_BUFFER),
             },
         )
@@ -126,11 +579,33 @@ pub fn lower_source(
     if let Some(encoder) = options.encoder {
         defaults.encoder = encoder;
     }
+    // A run that keeps `jsonb` documents whole reads each such column as one document, named after the column.
+    let documents: Option<Vec<String>> = options.keeps_documents().then(|| {
+        columns
+            .iter()
+            .filter(|column| matches!(column, ColumnDef::Keys(_)))
+            .map(|column| column.name().to_owned())
+            .collect()
+    });
+    let columns: Vec<ColumnDef> = if documents.is_some() {
+        columns
+            .into_iter()
+            .map(|column| match column {
+                ColumnDef::Keys(name) => ColumnDef::Document(name),
+                other @ (ColumnDef::Value(..) | ColumnDef::Document(_)) => other,
+            })
+            .collect()
+    } else {
+        columns
+    };
     let static_columns: Vec<&str> = columns
         .iter()
         .filter(|column| !matches!(column, ColumnDef::Keys(_)))
         .map(ColumnDef::name)
         .collect();
+    let documents: Option<Vec<&str>> = documents
+        .as_ref()
+        .map(|names| names.iter().map(String::as_str).collect());
     let layers = match source.layers {
         None => vec![LayerDef {
             name: source.layer_id.unwrap_or(id).to_owned(),
@@ -143,7 +618,16 @@ pub fn lower_source(
         Some(layers) => {
             let mut lowered = Vec::new();
             for (name, layer) in layers.iter() {
-                if let Some(def) = lower_layer(id, name, layer, &defaults, &static_columns)? {
+                if let Some(def) = lower_layer(
+                    id,
+                    name,
+                    layer,
+                    source,
+                    &defaults,
+                    &static_columns,
+                    outputs,
+                    documents.as_deref(),
+                )? {
                     lowered.push(def);
                 }
             }
@@ -156,46 +640,58 @@ pub fn lower_source(
     Ok(Some(TableDef { columns, layers }))
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the documents a v2 layer keeps come on top of the source settings"
+)]
 fn lower_layer(
     id: &str,
     name: &str,
     layer: &Layer,
+    source: &SourceSettings<'_>,
     defaults: &LayerDef,
     static_columns: &[&str],
+    outputs: &OutputLayers,
+    #[cfg_attr(
+        not(feature = "unstable-mlt-v2"),
+        expect(unused_variables, reason = "only v2 keeps documents")
+    )]
+    documents: Option<&[&str]>,
 ) -> GenerateResult<Option<LayerDef>> {
-    if let Some(what) = unsupported(layer) {
-        return Err(GenerateError::Unsupported {
-            layer: name.to_owned(),
-            what,
-        });
-    }
-    let fixed = |zoom: Option<&ZoomSetting>| zoom.and_then(ZoomSetting::fixed).map(|z| z.get());
-    let (table_min, table_max) = (*defaults.zooms.start(), *defaults.zooms.end());
-    let min = fixed(layer.minzoom.as_ref()).map_or(table_min, |z| z.max(table_min));
-    let max = fixed(layer.maxzoom.as_ref()).map_or(table_max, |z| z.min(table_max));
-    if min > max {
-        warn!("Skipping layer `{name}` of source `{id}`: it has no zoom between {table_min} and {table_max}");
+    let Some(zooms) = layer_zooms(layer, &defaults.zooms) else {
+        warn!(
+            "Skipping layer `{name}` of source `{id}`: it has no zoom between {} and {}",
+            defaults.zooms.start(),
+            defaults.zooms.end()
+        );
         return Ok(None);
+    };
+    let geometry = lower_geometry(name, layer.geometry.as_ref())?;
+    let output = geometry.first().and_then(|entry| entry.draws());
+    #[cfg(feature = "unstable-mlt-v2")]
+    if let (Attributes::Properties(selectors), Some(documents @ [_, ..])) = (&layer.attributes, documents) {
+        refuse_keys_inside_documents(id, name, selectors.as_slice(), static_columns, documents)?;
     }
     let threshold = |below: Option<Pixels>, at: Option<Pixels>, default: PixelThreshold| PixelThreshold {
         below_max_zoom: below.map_or(default.below_max_zoom, Pixels::get),
         at_max_zoom: at.map_or(default.at_max_zoom, Pixels::get),
     };
-    let grid = LayerGrid {
-        extent: layer.extent.map_or(defaults.grid.extent, std::num::NonZeroU32::get),
-        buffer: layer.buffer.unwrap_or(defaults.grid.buffer),
-    };
+    let grid = source.grid(layer);
     let grids = GridContext {
         source: id,
         layer: name,
-        zooms: min..=max,
+        zooms: zooms.clone(),
         grid,
-        geometry: layer.geometry,
+        geometry: output,
     };
-    let (input, point) = layer.geometry.and_then(|g| layer_geometry(g).ok()).unzip();
+    let shared = outputs
+        .0
+        .get(layer.layer.as_deref().unwrap_or(name))
+        .expect("the output layers were gathered from this source");
     Ok(Some(LayerDef {
         name: name.to_owned(),
-        zooms: min..=max,
+        output: layer.layer.clone(),
+        zooms,
         grid,
         clip_mode: layer.clip_geom.map_or(defaults.clip_mode, clip_mode),
         simplify: threshold(
@@ -210,8 +706,7 @@ fn lower_layer(
         ),
         bounds: defaults.bounds,
         encoder: defaults.encoder,
-        geometry: input.flatten(),
-        point: point.flatten(),
+        geometry,
         filter: layer.r#where.as_ref().map(|e| e.as_str().to_owned()),
         minzoom_expr: zoom_expr(layer.minzoom.as_ref()),
         maxzoom_expr: zoom_expr(layer.maxzoom.as_ref()),
@@ -230,25 +725,9 @@ fn lower_layer(
             .rules
             .as_ref()
             .map_or_else(Vec::new, |rules| lower_rules(rules, &grids)),
-        sort_by: layer
-            .sort_by
-            .iter()
-            .flatten()
-            .map(|key| SortDef {
-                expr: key.expr.as_str().to_owned(),
-                descending: key.descending,
-            })
-            .collect(),
+        sort_by: shared.sort_by.clone(),
         id_order: None,
-        per_tile: lower_per_tile(
-            id,
-            name,
-            &layer.per_tile,
-            &(min..=max),
-            grid,
-            output_geometry(layer.geometry),
-            &grids,
-        ),
+        per_tile: shared.per_tile.clone(),
     }))
 }
 
@@ -262,8 +741,8 @@ struct GridContext<'a> {
     zooms: RangeInclusive<u8>,
     /// The layer's extent and buffer.
     grid: LayerGrid,
-    /// The layer's `geometry`, if set.
-    geometry: Option<OutputGeometry>,
+    /// The type of the geometry the layer draws, if it has only one.
+    geometry: Option<GeometryType>,
 }
 
 impl GridContext<'_> {
@@ -309,7 +788,7 @@ impl GridContext<'_> {
             geometry,
             ..
         } = self;
-        if matches!(geometry, Some(OutputGeometry::Line | OutputGeometry::Polygon)) {
+        if matches!(geometry, Some(GeometryType::Line | GeometryType::Polygon)) {
             warn!(
                 "`{key}` of layer `{layer}` in source `{source}` only thins points by a grid, and the layer has none"
             );
@@ -393,35 +872,60 @@ fn computed_attrs(attributes: &IndexMap<String, ValueSpec>) -> Vec<ComputedAttr>
         .collect()
 }
 
+/// The entries of the layer's `geometry`, refusing a value the engine cannot derive yet, entries drawing
+/// different geometry types, and an entry whose types the entries before it all take.
+fn lower_geometry(layer: &str, geometry: Option<&NonEmpty<OutputGeometry>>) -> GenerateResult<Vec<GeometryDef>> {
+    let Some(geometry) = geometry else {
+        return Ok(Vec::new());
+    };
+    let list = || {
+        let names: Vec<_> = geometry.iter().map(|entry| entry.name()).collect();
+        names.join(", ")
+    };
+    let mut lowered: Vec<GeometryDef> = Vec::new();
+    for &entry in geometry {
+        let def = layer_geometry(entry).ok_or_else(|| GenerateError::Unsupported {
+            layer: layer.to_owned(),
+            what: format!("`geometry: {}`", entry.name()),
+        })?;
+        if lowered.first().is_some_and(|first| first.draws() != def.draws()) {
+            return Err(GenerateError::MixedGeometry {
+                layer: layer.to_owned(),
+                geometry: list(),
+            });
+        }
+        let taken = |kind: GeometryType| lowered.iter().any(|before| before.takes.is_none_or(|t| t == kind));
+        let kinds = def.takes.map_or(
+            vec![GeometryType::Point, GeometryType::Line, GeometryType::Polygon],
+            |kind| vec![kind],
+        );
+        if kinds.into_iter().all(taken) {
+            return Err(GenerateError::UnreachableGeometry {
+                layer: layer.to_owned(),
+                entry: entry.name(),
+                geometry: list(),
+            });
+        }
+        lowered.push(def);
+    }
+    Ok(lowered)
+}
+
 /// The features `geometry` takes and the point it derives from each, as Planetiler's custommap pairs
-/// them; `Err` names a value the engine cannot derive yet.
-fn layer_geometry(geometry: OutputGeometry) -> Result<(Option<GeometryType>, Option<DerivedPoint>), &'static str> {
-    match geometry {
-        OutputGeometry::Point => Ok((Some(GeometryType::Point), None)),
-        OutputGeometry::Line => Ok((Some(GeometryType::Line), None)),
-        OutputGeometry::Polygon => Ok((Some(GeometryType::Polygon), None)),
-        OutputGeometry::PolygonCentroid => Ok((Some(GeometryType::Polygon), Some(DerivedPoint::Centroid))),
-        OutputGeometry::LineCentroid => Ok((Some(GeometryType::Line), Some(DerivedPoint::Centroid))),
-        OutputGeometry::Centroid => Ok((None, Some(DerivedPoint::Centroid))),
-        OutputGeometry::LineMidpoint => Err("line_midpoint"),
-        OutputGeometry::PolygonCentroidIfConvex => Err("polygon_centroid_if_convex"),
-        OutputGeometry::PolygonPointOnSurface => Err("polygon_point_on_surface"),
-        OutputGeometry::PointOnLine => Err("point_on_line"),
-        OutputGeometry::InnermostPoint => Err("innermost_point"),
-    }
-}
-
-/// The type of the geometry a layer with `geometry` draws, if it has only one.
-fn output_geometry(geometry: Option<OutputGeometry>) -> Option<GeometryType> {
-    match layer_geometry(geometry?).ok()? {
-        (_, Some(_)) => Some(GeometryType::Point),
-        (input, None) => input,
-    }
-}
-
-fn unsupported(layer: &Layer) -> Option<String> {
-    let geometry = layer.geometry.and_then(|g| layer_geometry(g).err());
-    geometry.map(|geometry| format!("`geometry: {geometry}`"))
+/// them; `None` for a value the engine cannot derive yet.
+fn layer_geometry(geometry: OutputGeometry) -> Option<GeometryDef> {
+    let (takes, point) = match geometry {
+        OutputGeometry::Point => (Some(GeometryType::Point), None),
+        OutputGeometry::Line => (Some(GeometryType::Line), None),
+        OutputGeometry::Polygon => (Some(GeometryType::Polygon), None),
+        OutputGeometry::PolygonCentroid => (Some(GeometryType::Polygon), Some(DerivedPoint::Centroid)),
+        OutputGeometry::LineCentroid => (Some(GeometryType::Line), Some(DerivedPoint::Centroid)),
+        OutputGeometry::Centroid => (None, Some(DerivedPoint::Centroid)),
+        OutputGeometry::PolygonCentroidIfConvex => (Some(GeometryType::Polygon), Some(DerivedPoint::CentroidIfConvex)),
+        OutputGeometry::PolygonPointOnSurface => (Some(GeometryType::Polygon), Some(DerivedPoint::PointOnSurface)),
+        OutputGeometry::LineMidpoint | OutputGeometry::PointOnLine | OutputGeometry::InnermostPoint => return None,
+    };
+    Some(GeometryDef { takes, point })
 }
 
 /// The layer's per-tile operations within `zooms`, warning about each one that has none of them, each
@@ -589,6 +1093,32 @@ fn clip_mode(clip_geom: bool) -> ClipMode {
     }
 }
 
+/// An error for the first named key that is neither a column nor a `jsonb` column of `documents`, which is kept
+/// whole, so no key lives inside it to select.
+#[cfg(feature = "unstable-mlt-v2")]
+fn refuse_keys_inside_documents(
+    source_id: &str,
+    layer: &str,
+    selectors: &[PropertySelector],
+    static_columns: &[&str],
+    documents: &[&str],
+) -> GenerateResult<()> {
+    for selector in selectors {
+        if let PropertySelector::Named(key) = selector
+            && !static_columns.contains(&key.as_str())
+            && !documents.contains(&key.as_str())
+        {
+            return Err(GenerateError::KeyInsideDocument {
+                source_id: source_id.to_owned(),
+                layer: layer.to_owned(),
+                key: key.clone(),
+                documents: documents.join(", "),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Named keys in their order, each prefix as the matching table columns in table order; keys inside
 /// a `jsonb` column are only selected by name.
 fn expand(selectors: &[PropertySelector], static_columns: &[&str]) -> Vec<String> {
@@ -677,6 +1207,7 @@ mod tests {
             layers: [
                 LayerDef {
                     name: "roads",
+                    output: None,
                     zooms: 2..=8,
                     grid: LayerGrid {
                         extent: 512,
@@ -700,8 +1231,7 @@ mod tests {
                         },
                     ),
                     encoder: EncoderConfig { .. },
-                    geometry: None,
-                    point: None,
+                    geometry: [],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -739,6 +1269,7 @@ mod tests {
             layers: [
                 LayerDef {
                     name: "roads_source",
+                    output: None,
                     zooms: 0..=14,
                     grid: LayerGrid {
                         extent: 4096,
@@ -755,8 +1286,7 @@ mod tests {
                     },
                     bounds: None,
                     encoder: EncoderConfig { .. },
-                    geometry: None,
-                    point: None,
+                    geometry: [],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -837,6 +1367,7 @@ mod tests {
             layers: [
                 LayerDef {
                     name: "roads",
+                    output: None,
                     zooms: 4..=12,
                     grid: LayerGrid {
                         extent: 4096,
@@ -853,10 +1384,14 @@ mod tests {
                     },
                     bounds: None,
                     encoder: EncoderConfig { .. },
-                    geometry: Some(
-                        Line,
-                    ),
-                    point: None,
+                    geometry: [
+                        GeometryDef {
+                            takes: Some(
+                                Line,
+                            ),
+                            point: None,
+                        },
+                    ],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -869,6 +1404,7 @@ mod tests {
                 },
                 LayerDef {
                     name: "road_points",
+                    output: None,
                     zooms: 1..=6,
                     grid: LayerGrid {
                         extent: 1024,
@@ -885,10 +1421,14 @@ mod tests {
                     },
                     bounds: None,
                     encoder: EncoderConfig { .. },
-                    geometry: Some(
-                        Point,
-                    ),
-                    point: None,
+                    geometry: [
+                        GeometryDef {
+                            takes: Some(
+                                Point,
+                            ),
+                            point: None,
+                        },
+                    ],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -901,6 +1441,7 @@ mod tests {
                 },
                 LayerDef {
                     name: "areas",
+                    output: None,
                     zooms: 1..=12,
                     grid: LayerGrid {
                         extent: 1024,
@@ -917,10 +1458,14 @@ mod tests {
                     },
                     bounds: None,
                     encoder: EncoderConfig { .. },
-                    geometry: Some(
-                        Polygon,
-                    ),
-                    point: None,
+                    geometry: [
+                        GeometryDef {
+                            takes: Some(
+                                Polygon,
+                            ),
+                            point: None,
+                        },
+                    ],
                     filter: None,
                     minzoom_expr: None,
                     maxzoom_expr: None,
@@ -934,6 +1479,182 @@ mod tests {
             ],
         }
         "#);
+    }
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    mod documents {
+        use martin_tilegen::plan::{Plan, RowFilter, TranslateError, ValueKind};
+        use mlt_core::encoder::{Network, Profile, WireVersion};
+
+        use super::*;
+
+        fn lower_with(wire: Option<WireVersion>, attributes: &str) -> GenerateResult<Option<ScanTable>> {
+            let yaml = format!(
+                indoc! {"
+                    schema: public
+                    table: roads
+                    srid: 4326
+                    geometry_column: geom
+                    properties:
+                      class: text
+                      links: jsonb
+                    layers:
+                      roads:
+                        attributes: {}
+                "},
+                attributes
+            );
+            let info: TableInfo = serde_saphyr::from_str(&yaml).expect("valid table");
+            lower_table(
+                "roads_source",
+                info,
+                &LowerOptions {
+                    zooms: 0..=14,
+                    bounds: None,
+                    encoder: wire.map(|wire| {
+                        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(wire)
+                    }),
+                    order_by: None,
+                },
+            )
+        }
+
+        #[test]
+        fn v2_keeps_a_jsonb_column_whole_and_selects_it_by_its_name() {
+            let scan = lower_with(Some(WireVersion::V02), "[class, links]")
+                .expect("lowers")
+                .expect("has a layer");
+            assert!(scan.keep_documents);
+            assert_eq!(
+                scan.def.columns,
+                [
+                    ColumnDef::Value("class".to_owned(), Some(ValueKind::String)),
+                    ColumnDef::Document("links".to_owned()),
+                ]
+            );
+        }
+
+        #[test]
+        fn v2_selects_a_kept_jsonb_column_by_a_prefix() {
+            let scan = lower_with(Some(WireVersion::V02), r#"["li*"]"#)
+                .expect("lowers")
+                .expect("has a layer");
+            assert_eq!(
+                scan.def.layers[0].attributes,
+                AttributesDef::Columns(vec!["links".to_owned()])
+            );
+        }
+
+        fn v2_row_filter(filter: &str) -> RowFilter {
+            let yaml = format!(
+                indoc! {r#"
+                    schema: public
+                    table: roads
+                    srid: 4326
+                    geometry_column: geom
+                    properties:
+                      class: text
+                      links: jsonb
+                    layers:
+                      roads:
+                        where: "{}"
+                "#},
+                filter
+            );
+            let info: TableInfo = serde_saphyr::from_str(&yaml).expect("valid table");
+            let scan = lower_table(
+                "roads_source",
+                info,
+                &LowerOptions {
+                    zooms: 0..=14,
+                    bounds: None,
+                    encoder: Some(
+                        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(WireVersion::V02),
+                    ),
+                    order_by: None,
+                },
+            )
+            .expect("lowers")
+            .expect("has a layer");
+            Plan::new(vec![scan.def]).expect("plans").row_filter(0, 0..=14)
+        }
+
+        /// PostgreSQL's `IS NULL` misses a JSON `null`, which the scan reads as no document, so a source never
+        /// filters on a kept document.
+        #[test]
+        fn v2_leaves_a_filter_reading_a_kept_jsonb_column_to_the_features() {
+            let RowFilter::Untranslatable(untranslatable) = v2_row_filter("links == null") else {
+                panic!("a filter reading a kept document reached the source");
+            };
+            assert_eq!(untranslatable.reason, TranslateError::NotAColumn("links".to_owned()));
+        }
+
+        #[test]
+        fn v2_still_lets_a_source_filter_on_the_other_columns() {
+            let rows = v2_row_filter("class == 'primary'");
+            assert_eq!(
+                rows.condition().map(ToString::to_string).as_deref(),
+                Some("class = 'primary'")
+            );
+        }
+
+        #[test]
+        fn v2_refuses_to_select_a_key_inside_a_jsonb_column() {
+            let err = lower_with(Some(WireVersion::V02), "[class, surface]").unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                "layer `roads` of source `roads_source` selects `surface`, which is not a column: `--format mlt2` keeps a `jsonb` column (links) whole as one nested column, so a key inside it cannot be selected; select the column instead"
+            );
+        }
+
+        #[test]
+        fn v2_skips_a_layer_outside_the_run_zooms_even_when_it_selects_a_key_inside_a_jsonb_column() {
+            let info: TableInfo = serde_saphyr::from_str(indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                properties:
+                  class: text
+                  links: jsonb
+                layers:
+                  roads:
+                    minzoom: 10
+                    attributes: [class, surface]
+            "})
+            .expect("valid table");
+            let scan = lower_table(
+                "roads_source",
+                info,
+                &LowerOptions {
+                    zooms: 0..=5,
+                    bounds: None,
+                    encoder: Some(
+                        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(WireVersion::V02),
+                    ),
+                    order_by: None,
+                },
+            )
+            .expect("lowers");
+            assert!(scan.is_none());
+        }
+
+        #[test]
+        fn v1_and_mvt_still_spread_a_jsonb_column_into_keys() {
+            for wire in [Some(WireVersion::V01), None] {
+                let scan = lower_with(wire, "[class, surface]")
+                    .expect("lowers")
+                    .expect("has a layer");
+                assert!(!scan.keep_documents);
+                assert_eq!(
+                    scan.def.columns,
+                    [
+                        ColumnDef::Value("class".to_owned(), Some(ValueKind::String)),
+                        ColumnDef::Keys("links".to_owned()),
+                    ]
+                );
+            }
+        }
     }
 
     #[test]
@@ -1384,37 +2105,199 @@ mod tests {
             .def
             .layers
             .iter()
-            .map(|layer| (layer.name.as_str(), layer.geometry, layer.point))
+            .map(|layer| (layer.name.as_str(), &layer.geometry))
             .collect();
         insta::assert_debug_snapshot!(geometries, @r#"
         [
             (
                 "parks",
-                Some(
-                    Polygon,
-                ),
-                Some(
-                    Centroid,
-                ),
+                [
+                    GeometryDef {
+                        takes: Some(
+                            Polygon,
+                        ),
+                        point: Some(
+                            Centroid,
+                        ),
+                    },
+                ],
             ),
             (
                 "roads",
-                Some(
-                    Line,
-                ),
-                Some(
-                    Centroid,
-                ),
+                [
+                    GeometryDef {
+                        takes: Some(
+                            Line,
+                        ),
+                        point: Some(
+                            Centroid,
+                        ),
+                    },
+                ],
             ),
             (
                 "everything",
-                None,
-                Some(
-                    Centroid,
-                ),
+                [
+                    GeometryDef {
+                        takes: None,
+                        point: Some(
+                            Centroid,
+                        ),
+                    },
+                ],
             ),
         ]
         "#);
+    }
+
+    #[test]
+    fn a_point_on_surface_geometry_takes_polygons_and_draws_a_point_on_their_surface() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  labels: { geometry: polygon_point_on_surface }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        let layer = &scan.def.layers[0];
+        insta::assert_debug_snapshot!(layer.geometry, @"
+        [
+            GeometryDef {
+                takes: Some(
+                    Polygon,
+                ),
+                point: Some(
+                    PointOnSurface,
+                ),
+            },
+        ]
+        ");
+    }
+
+    #[test]
+    fn a_centroid_if_convex_geometry_takes_polygons_and_draws_their_centroid_if_convex() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  labels: { geometry: polygon_centroid_if_convex }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        let layer = &scan.def.layers[0];
+        insta::assert_debug_snapshot!(layer.geometry, @"
+        [
+            GeometryDef {
+                takes: Some(
+                    Polygon,
+                ),
+                point: Some(
+                    CentroidIfConvex,
+                ),
+            },
+        ]
+        ");
+    }
+
+    #[test]
+    fn a_geometry_list_lowers_each_entry_in_order() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  addresses: { geometry: [polygon_centroid_if_convex, point] }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has a layer");
+        insta::assert_debug_snapshot!(scan.def.layers[0].geometry, @"
+        [
+            GeometryDef {
+                takes: Some(
+                    Polygon,
+                ),
+                point: Some(
+                    CentroidIfConvex,
+                ),
+            },
+            GeometryDef {
+                takes: Some(
+                    Point,
+                ),
+                point: None,
+            },
+        ]
+        ");
+    }
+
+    #[test]
+    fn a_geometry_list_drawing_lines_and_points_is_refused() {
+        let err = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads: { geometry: [line, polygon_centroid] }
+            "},
+            0..=14,
+        )
+        .map(|_| ())
+        .expect_err("mixes lines and points");
+        insta::assert_snapshot!(err, @"layer `roads`: `geometry: [line, polygon_centroid]` mixes geometry types; the entries of a list must all draw points");
+    }
+
+    #[test]
+    fn a_geometry_entry_after_entries_taking_all_its_types_is_refused() {
+        let err = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  pois: { geometry: [centroid, point] }
+            "},
+            0..=14,
+        )
+        .map(|_| ())
+        .expect_err("point is never reached");
+        insta::assert_snapshot!(err, @"layer `pois`: `point` in `geometry: [centroid, point]` takes no feature, as the entries before it take all of its types");
+    }
+
+    #[test]
+    fn a_layer_outside_the_run_zooms_is_skipped_even_when_its_geometry_list_is_refused() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  roads:
+                    minzoom: 10
+                    geometry: [line, polygon_centroid]
+            "},
+            0..=5,
+        )
+        .expect("lowers");
+        assert!(scan.is_none());
     }
 
     #[test]
@@ -1451,8 +2334,6 @@ mod tests {
     fn unsupported_settings_are_rejected() {
         let layers = [
             "roads: { geometry: line_midpoint }",
-            "roads: { geometry: polygon_centroid_if_convex }",
-            "roads: { geometry: polygon_point_on_surface }",
             "roads: { geometry: point_on_line }",
             "roads: { geometry: innermost_point }",
         ];
@@ -1466,8 +2347,6 @@ mod tests {
             .collect();
         insta::assert_snapshot!(errors.join("\n"), @"
         layer `roads`: `geometry: line_midpoint` is not supported by `--mode bulk` yet
-        layer `roads`: `geometry: polygon_centroid_if_convex` is not supported by `--mode bulk` yet
-        layer `roads`: `geometry: polygon_point_on_surface` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: point_on_line` is not supported by `--mode bulk` yet
         layer `roads`: `geometry: innermost_point` is not supported by `--mode bulk` yet
         ");
@@ -1944,5 +2823,164 @@ mod tests {
             },
         ]
         "#);
+    }
+
+    #[test]
+    fn layers_of_one_output_layer_share_the_sort_by_and_operations_one_of_them_sets() {
+        let scan = lower(
+            indoc! {"
+                schema: public
+                table: parks
+                srid: 4326
+                geometry_column: geom
+                properties:
+                  name: text
+                  rank: int4
+                layers:
+                  park:
+                    geometry: polygon
+                    maxzoom: 10
+                    buffer: 4
+                    sort_by: [rank]
+                  park_label:
+                    layer: park
+                    geometry: polygon_point_on_surface
+                    minzoom: 5
+                    buffer: 128
+                    limit: { count: 10 }
+            "},
+            0..=14,
+        )
+        .expect("lowers")
+        .expect("has layers");
+        let layers: Vec<_> = scan
+            .def
+            .layers
+            .iter()
+            .map(|layer| {
+                (
+                    &layer.name,
+                    &layer.output,
+                    &layer.zooms,
+                    &layer.sort_by,
+                    &layer.per_tile,
+                )
+            })
+            .collect();
+        insta::assert_debug_snapshot!(layers, @r#"
+        [
+            (
+                "park",
+                None,
+                0..=10,
+                [
+                    SortDef {
+                        expr: "rank",
+                        descending: false,
+                    },
+                ],
+                [
+                    TileOpDef {
+                        zooms: 0..=14,
+                        op: Limit {
+                            count: 10,
+                        },
+                    },
+                ],
+            ),
+            (
+                "park_label",
+                Some(
+                    "park",
+                ),
+                5..=14,
+                [
+                    SortDef {
+                        expr: "rank",
+                        descending: false,
+                    },
+                ],
+                [
+                    TileOpDef {
+                        zooms: 0..=14,
+                        op: Limit {
+                            count: 10,
+                        },
+                    },
+                ],
+            ),
+        ]
+        "#);
+    }
+
+    #[test]
+    fn a_default_layer_widens_the_zooms_of_the_operations_its_output_layer_shares() {
+        let oceans: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: oceans
+            srid: 4326
+            geometry_column: geom
+        "})
+        .expect("valid table");
+        let lakes: TableInfo = serde_saphyr::from_str(indoc! {"
+            schema: public
+            table: lakes
+            srid: 4326
+            geometry_column: geom
+            layers:
+              lake:
+                layer: water
+                minzoom: 10
+                limit: { count: 10 }
+        "})
+        .expect("valid table");
+        let options = LowerOptions {
+            zooms: 0..=14,
+            bounds: None,
+            encoder: None,
+            order_by: None,
+        };
+        let outputs = OutputLayers::new(
+            [("water", table_settings(&oceans)), ("lakes", table_settings(&lakes))],
+            &options.zooms,
+        )
+        .expect("gathers");
+        let scan = lower_table_with("lakes", lakes, &options, &outputs)
+            .expect("lowers")
+            .expect("has layers");
+        let per_tile: Vec<_> = scan.def.layers.iter().map(|layer| &layer.per_tile).collect();
+        insta::assert_debug_snapshot!(per_tile, @"
+        [
+            [
+                TileOpDef {
+                    zooms: 0..=14,
+                    op: Limit {
+                        count: 10,
+                    },
+                },
+            ],
+        ]
+        ");
+    }
+
+    #[test]
+    fn layers_of_one_output_layer_must_set_an_operation_equally() {
+        let err = lower(
+            indoc! {"
+                schema: public
+                table: parks
+                srid: 4326
+                geometry_column: geom
+                layers:
+                  park:
+                    limit: { count: 10 }
+                  park_label:
+                    layer: park
+                    limit: { count: 20 }
+            "},
+            0..=14,
+        )
+        .expect_err("refused");
+        insta::assert_snapshot!(err, @"layers `park` of source `roads_source` and `park_label` of source `roads_source` both write into layer `park` but set `limit` differently; set it equal on both, or on only one of them");
     }
 }

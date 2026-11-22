@@ -8,14 +8,15 @@ use std::sync::atomic::Ordering;
 use tracing::warn;
 
 use super::{
-    AttributesDef, Case, IdOrder, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedTable, PlannedValue,
-    PlannedZoom,
+    AttributesDef, Case, IdOrder, Plan, PlannedAttr, PlannedAttrs, PlannedId, PlannedLayer, PlannedOutput,
+    PlannedTable, PlannedValue, PlannedZoom,
 };
-use crate::expr::{ExprKeys, ExprRef, FeatureView, PropSlots, Role};
-use crate::props::{KeyId, KeyInterner, KeyNames, Prop, SourceStr};
+use crate::expr::{Areas, ExprKeys, ExprRef, FeatureView, PropSlots, Role};
+use crate::phase2::Rounded;
+use crate::props::{KeyId, KeyInterner, KeyNames, LayerKinds, Prop, SourceStr};
 use crate::sort::record::EncodedProps;
 use crate::source::SourceFeature;
-use crate::{Feature, FeatureGeom, RenderLayer, TileGenError, TileGenResult};
+use crate::{Feature, FeatureGeom, MixedKinds, RenderLayer, RoundedValues, TileGenError, TileGenResult};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExprErrors {
@@ -55,11 +56,11 @@ pub(super) struct Keys {
     tables: Vec<KeyInterner>,
     /// What expressions know of each table's keys before any feature is read.
     names: Vec<(ExprKeys, u32)>,
-    layers: Vec<KeyInterner>,
+    outputs: Vec<KeyInterner>,
 }
 
 impl Keys {
-    pub(super) fn new(tables: &[PlannedTable], layers: &[PlannedLayer]) -> Self {
+    pub(super) fn new(tables: &[PlannedTable], outputs: &[PlannedOutput]) -> Self {
         let keys: Vec<_> = tables
             .iter()
             .map(|table| {
@@ -82,7 +83,7 @@ impl Keys {
                 })
                 .collect(),
             tables: keys,
-            layers: layers.iter().map(|layer| KeyInterner::new(&layer.keys)).collect(),
+            outputs: outputs.iter().map(|output| KeyInterner::new(&output.keys)).collect(),
         }
     }
 }
@@ -100,6 +101,7 @@ impl Plan {
             slots: PropSlots::default(),
             names: self.keys.names.clone(),
             errors: vec![0; self.exprs.len()],
+            kinds: LayerKinds::default(),
         }
     }
 
@@ -117,16 +119,52 @@ impl Plan {
             .zip(&tallies.0)
             .filter(|(_, errors)| **errors > 0)
             .map(|(expr, &errors)| ExprErrors {
-                layer: self.layers[expr.layer].info.name.clone(),
+                layer: self.layers[expr.layer].name.clone(),
                 expr: expr.source.clone(),
                 errors,
             })
             .collect()
     }
 
+    /// The keys whose values had kinds no single column holds, in output layer order, then by key.
+    pub(crate) fn mixed_kinds(&self, kinds: &LayerKinds) -> Vec<MixedKinds> {
+        let mut mixed = Vec::new();
+        for (index, output) in self.outputs.iter().enumerate() {
+            let keys = &self.keys.outputs[index];
+            for (key, kind) in kinds.layer(index).iter().enumerate() {
+                if kind.mixed {
+                    let key = KeyId::new(u32::try_from(key).expect("fewer than 2^32 property keys"));
+                    mixed.push(MixedKinds {
+                        layer: output.info.name.clone(),
+                        key: keys.name(key).unwrap_or_default(),
+                    });
+                }
+            }
+        }
+        mixed
+    }
+
+    /// The keys whose integers a float column rounded, with `rounded` by output layer index.
+    pub(crate) fn rounded_values(&self, rounded: &[Rounded]) -> Vec<RoundedValues> {
+        let mut values = Vec::new();
+        for (index, output) in self.outputs.iter().enumerate() {
+            let Some(layer_rounded) = rounded.get(index) else {
+                continue;
+            };
+            let mut keys: Vec<_> = layer_rounded.iter().collect();
+            keys.sort_unstable_by_key(|&(key, _)| key.index());
+            values.extend(keys.into_iter().map(|(key, count)| RoundedValues {
+                layer: output.info.name.clone(),
+                key: self.keys.outputs[index].name(key).unwrap_or_default(),
+                values: count,
+            }));
+        }
+        values
+    }
+
     /// The keys of each output layer. Call once no more keys can appear, i.e. after rendering.
     pub(crate) fn key_names(&self) -> Vec<KeyNames> {
-        self.keys.layers.iter().map(KeyInterner::names).collect()
+        self.keys.outputs.iter().map(KeyInterner::names).collect()
     }
 
     /// A failed evaluation or conversion is counted, logged the first time, and counts as `null`.
@@ -145,7 +183,7 @@ impl Plan {
                 if !self.warned[index].swap(true, Ordering::Relaxed) {
                     warn!(
                         "layer `{}`: `{}` failed and counts as null: {err}",
-                        self.layers[planned.layer].info.name, planned.source
+                        self.layers[planned.layer].name, planned.source
                     );
                 }
                 R::Out::default()
@@ -175,11 +213,13 @@ impl Plan {
         )
     }
 
-    /// Passes `f` the view expressions of table `table` have of `feature`.
+    /// Passes `f` the view expressions of table `table` have of `feature`, measuring `geom`, its projected geometry,
+    /// for `area()` if given.
     pub(super) fn with_view<T>(
         &self,
         table: usize,
         feature: &SourceFeature,
+        geom: Option<FeatureGeom<'_>>,
         f: impl FnOnce(&FeatureView<'_, SourceStr>) -> T,
     ) -> T {
         let mut names = self.keys.names[table].clone();
@@ -187,7 +227,11 @@ impl Plan {
             learn_keys(&mut names, &feature.props, &self.keys.tables[table]);
         }
         let mut slots = PropSlots::default();
-        f(&slots.bind(&names.0, &feature.props))
+        let view = slots.bind(&names.0, &feature.props);
+        match geom.map(|geom| Areas::of(&feature.geometry, geom)) {
+            Some(areas) => f(&view.with_areas(&areas)),
+            None => f(&view),
+        }
     }
 
     /// The feature's zooms and the first case it matches, or `None` when the layer filters the feature
@@ -215,18 +259,22 @@ impl Plan {
     }
 
     /// Adds the computed attributes to `props`, and fills `bands` if they have zoom bands.
+    #[expect(clippy::too_many_arguments, reason = "the evaluator's scratch, borrowed apart")]
     fn computed(
         &self,
+        output: usize,
         attrs: &PlannedAttrs,
         feature: &[(KeyId, Prop<SourceStr>)],
         view: Option<&FeatureView<'_, SourceStr>>,
         errors: &mut [u64],
         props: &mut EncodedProps,
         bands: &mut Vec<(u8, EncodedProps)>,
+        kinds: &mut LayerKinds,
     ) {
         for attr in &attrs.computed {
             if let Some(value) = self.attr(attr, feature, view, errors) {
-                props.push(attr.key, value.as_ref());
+                props.push_prop(attr.key, &value);
+                kinds.add_prop(output, attr.key, &value);
             }
         }
         if attrs.bands.is_empty() {
@@ -241,9 +289,10 @@ impl Plan {
             let Some(value) = self.attr(attr, feature, view, errors) else {
                 continue;
             };
+            kinds.add_prop(output, attr.key, &value);
             for (from, band) in bands.iter_mut() {
                 if attr.zooms.contains(from) {
-                    band.push(attr.key, value.as_ref());
+                    band.push_prop(attr.key, &value);
                 }
             }
         }
@@ -307,6 +356,8 @@ pub struct Evaluator<'p> {
     names: Vec<(ExprKeys, u32)>,
     /// Failed evaluations by expression of the plan.
     errors: Vec<u64>,
+    /// The kinds of the values each output layer's keys took.
+    kinds: LayerKinds,
 }
 
 impl Evaluator<'_> {
@@ -332,6 +383,7 @@ impl Evaluator<'_> {
             slots,
             names,
             errors,
+            kinds,
         } = self;
         let plan: &Plan = plan;
         let index = usize::from(table);
@@ -339,17 +391,20 @@ impl Evaluator<'_> {
         if planned.evaluates && planned.dynamic_props {
             learn_keys(&mut names[index], &feature.props, &plan.keys.tables[index]);
         }
-        let view = planned.evaluates.then(|| slots.bind(&names[index].0, &feature.props));
+        let areas = Areas::of(&feature.geometry, geom);
+        let view = planned
+            .evaluates
+            .then(|| slots.bind(&names[index].0, &feature.props).with_areas(&areas));
         let view = view.as_ref();
         for layer_index in planned.layers.clone() {
             let layer = &plan.layers[layer_index];
-            if layer.geometry.is_some_and(|kind| !kind.matches(geom)) {
+            let Some(entry) = layer.entry(&feature.geometry, geom) else {
                 continue;
-            }
+            };
             let derived;
-            let geom = match layer.point {
+            let geom = match entry.point {
                 Some(point) => {
-                    let Some(coord) = point.of(geom) else {
+                    let Some(coord) = point.of(&feature.geometry, geom) else {
                         continue;
                     };
                     derived = coord;
@@ -367,14 +422,15 @@ impl Evaluator<'_> {
             let attrs = &case.attrs;
             props.clear();
             for (key, value) in &feature.props {
-                let output = (&plan.keys.tables[index], &plan.keys.layers[layer_index]);
+                let output = (&plan.keys.tables[index], &plan.keys.outputs[layer.output]);
                 if let Some(key) = output_key(&mut dynamic[layer_index], layer, output, *key)
                     && (attrs.overrides.is_empty() || attrs.overrides.binary_search(&key).is_err())
                 {
-                    props.push(key, value.as_ref());
+                    props.push_prop(key, value);
+                    kinds.add_prop(layer.output, key, value);
                 }
             }
-            plan.computed(attrs, &feature.props, view, errors, props, bands);
+            plan.computed(layer.output, attrs, &feature.props, view, errors, props, bands, kinds);
             let id = match layer.id {
                 PlannedId::Keep => feature.id.and_then(|id| u64::try_from(id).ok()),
                 PlannedId::Drop => None,
@@ -408,6 +464,11 @@ impl Evaluator<'_> {
     pub fn finish(self) -> ExprTallies {
         ExprTallies(self.errors)
     }
+
+    /// The kinds of the values each layer's keys took so far, leaving none.
+    pub(crate) fn take_kinds(&mut self) -> LayerKinds {
+        std::mem::take(&mut self.kinds)
+    }
 }
 
 /// A feature as one layer takes it.
@@ -431,7 +492,7 @@ impl<'a> LayerFeature<'a> {
 
 impl Debug for LayerFeature<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let names = &self.plan.keys.layers[usize::from(self.layer.render.index)];
+        let names = &self.plan.keys.outputs[self.layer.output];
         let Feature {
             id,
             geom: _,
@@ -448,7 +509,7 @@ impl Debug for LayerFeature<'_> {
             .map(|(zoom, props)| (zoom, NamedProps { props, names }))
             .collect();
         f.debug_struct("LayerFeature")
-            .field("layer", &self.layer.info.name)
+            .field("layer", &self.layer.name)
             .field("id", id)
             .field("zooms", zooms)
             .field("simplify", simplify)

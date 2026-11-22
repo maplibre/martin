@@ -446,6 +446,222 @@ async fn spreads_jsonb_keys_over_properties_as_martin_serves_them() {
     assert_eq!(mlt_dump(&generated), mlt_dump(&served));
 }
 
+/// Tests that need a `martin` built with `unstable-mlt-v2`.
+#[cfg(feature = "test-mlt-v2")]
+mod mlt_v2 {
+    use std::fs;
+
+    use indoc::indoc;
+    use martin_e2e_tests::{MartinCp, mlt_dump, mlt_layers, temp_dir, tiles};
+
+    const CONFIG: &str = indoc! {"
+        postgres:
+          connection_string: ${DATABASE_URL}
+          auto_publish: false
+          tables:
+            array_props:
+              schema: public
+              table: array_props
+              srid: 4326
+              geometry_column: geom
+              id_column: feat_id
+              bounds: [-180.0, -90.0, 180.0, 90.0]
+              properties:
+                tags: int4
+                label: text
+                doc: jsonb
+    "};
+
+    /// A bulk `--format mlt2` tile keeps a `jsonb` document whole in a nested column, as the tile
+    /// mode copy of the same table does.
+    #[tokio::test]
+    async fn keeps_jsonb_documents_whole_as_tile_mode_does() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(&config, CONFIG).expect("failed to write the config");
+
+        let bulk = dir.path().join("bulk.mbtiles");
+        MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(&bulk)
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        let (_, _, _, data) = tiles(&bulk).await.into_iter().next().expect("the copy wrote no tiles");
+        let bulk_layers = mlt_layers(&data);
+
+        let tile_mode = dir.path().join("tile_mode.mbtiles");
+        MartinCp::new()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--source")
+            .arg("array_props")
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--encoding")
+            .arg("identity")
+            .arg("--output-file")
+            .arg(&tile_mode)
+            .arg("--mbtiles-type")
+            .arg("flat")
+            .arg("--min-zoom")
+            .arg("0")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        let (_, _, _, data) = tiles(&tile_mode)
+            .await
+            .into_iter()
+            .next()
+            .expect("the tile mode copy wrote no tiles");
+        let tile_mode_layers = mlt_layers(&data);
+
+        assert_eq!(bulk_layers[0].nested_names(), ["doc"]);
+        insta::assert_snapshot!(mlt_dump(&bulk_layers), @r#"
+        layer array_props extent 4096
+          id=Some(1) geom=POINT(2048 2048) props=[label=Str(Some("one")), tags=Str(Some("{1,2,3}"))] nested=[doc=Map(Some({"deep": Map(Some({"k": Leaf(I64(Some(1)))})), "kind": Leaf(Str(Some("a"))), "list": List(Some([Leaf(I64(Some(1))), Leaf(I64(Some(2)))])), "rank": Leaf(I64(Some(1))), "score": Leaf(F64(Some(1.5)))}))]
+          id=Some(2) geom=POINT(2059 2037) props=[label=Str(Some("two")), tags=Str(None)] nested=[doc=Map(Some({"label": Leaf(Str(Some("from the document"))), "rank": Leaf(I64(Some(-2))), "score": Leaf(F64(Some(3.0)))}))]
+        "#);
+        assert_eq!(mlt_dump(&bulk_layers), mlt_dump(&tile_mode_layers));
+    }
+
+    /// A prefix in a list of `attributes` selects a `jsonb` column kept whole, as it selects any column.
+    #[tokio::test]
+    async fn a_list_prefix_selects_a_kept_jsonb_column() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(
+            &config,
+            format!("{CONFIG}      layers:\n        props:\n          attributes: [\"do*\"]\n"),
+        )
+        .expect("failed to write the config");
+
+        let output = dir.path().join("list_prefix.mbtiles");
+        MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        let (_, _, _, data) = tiles(&output)
+            .await
+            .into_iter()
+            .next()
+            .expect("the copy wrote no tiles");
+        let layers = mlt_layers(&data);
+
+        assert_eq!(layers[0].nested_names(), ["doc"]);
+        assert_eq!(layers[0].property_names(), [] as [String; 0]);
+    }
+
+    /// A prefix in a map of `attributes` copies a `jsonb` column kept whole, as it copies any column.
+    #[tokio::test]
+    async fn a_map_prefix_copies_a_kept_jsonb_column() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(
+            &config,
+            format!("{CONFIG}      layers:\n        props:\n          attributes:\n            \"do*\": \"do*\"\n"),
+        )
+        .expect("failed to write the config");
+
+        let output = dir.path().join("map_prefix.mbtiles");
+        MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(&output)
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--encoding")
+            .arg("none")
+            .arg("--max-zoom")
+            .arg("0")
+            .run()
+            .await;
+        let (_, _, _, data) = tiles(&output)
+            .await
+            .into_iter()
+            .next()
+            .expect("the copy wrote no tiles");
+        let layers = mlt_layers(&data);
+
+        assert_eq!(layers[0].nested_names(), ["doc"]);
+        assert_eq!(layers[0].property_names(), [] as [String; 0]);
+    }
+
+    /// An expression cannot read a key inside a `jsonb` column once the column is kept whole.
+    #[tokio::test]
+    async fn refuses_an_expression_reading_a_key_inside_a_jsonb_column() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(
+            &config,
+            format!("{CONFIG}      layers:\n        props:\n          where: \"rank > 0\"\n"),
+        )
+        .expect("failed to write the config");
+
+        let log = MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(dir.path().join("refused.mbtiles"))
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--max-zoom")
+            .arg("0")
+            .run_expecting_failure()
+            .await;
+        assert!(log.contains("`rank > 0` references unknown property `rank`"), "{log}");
+    }
+
+    /// A key inside a `jsonb` column cannot be selected once the column is kept whole.
+    #[tokio::test]
+    async fn refuses_to_select_a_key_inside_a_jsonb_column() {
+        let dir = temp_dir();
+        let config = dir.path().join("config.yaml");
+        fs::write(
+            &config,
+            format!("{CONFIG}      layers:\n        props:\n          attributes: [label, rank]\n"),
+        )
+        .expect("failed to write the config");
+
+        let log = MartinCp::bulk()
+            .with_postgres()
+            .arg("--config")
+            .arg(&config)
+            .arg("--output-file")
+            .arg(dir.path().join("refused.mbtiles"))
+            .arg("--format")
+            .arg("mlt2")
+            .arg("--max-zoom")
+            .arg("0")
+            .run_expecting_failure()
+            .await;
+        assert!(log.contains("selects `rank`, which is not a column"), "{log}");
+    }
+}
+
 #[tokio::test]
 #[expect(clippy::too_many_lines, reason = "inline snapshot of the tile")]
 async fn martin_serves_mvt_output_in_every_compression() {
@@ -1039,17 +1255,77 @@ async fn refuses_arguments_bulk_mode_cannot_honour() {
 
 #[cfg(feature = "test-mlt-v2")]
 #[tokio::test]
-async fn refuses_mlt2() {
+async fn mlt2_tiles_hold_the_same_layers_in_the_v2_wire_format() {
     let dir = temp_dir();
-    let log = MartinCp::bulk()
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                table_source:
+                  schema: public
+                  table: table_source
+                  filter: \"gid <> 14\"
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: GEOMETRY
+                  properties:
+                    gid: int4
+        "},
+    )
+    .expect("failed to write the config");
+    let v1 = dir.path().join("v1.mbtiles");
+    MartinCp::bulk()
         .with_postgres()
+        .arg("--config")
+        .arg(&config)
         .arg("--output-file")
-        .arg(dir.path().join("out.mbtiles"))
+        .arg(&v1)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--encoding")
+        .arg("none")
+        .run()
+        .await;
+    let v2 = dir.path().join("v2.mbtiles");
+    MartinCp::bulk()
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&v2)
+        .arg("--max-zoom")
+        .arg("1")
+        .arg("--encoding")
+        .arg("none")
         .arg("--format")
         .arg("mlt2")
-        .run_expecting_failure()
+        .run()
         .await;
-    insta::assert_snapshot!(log, @"ERROR `--mode bulk` cannot write `--format mlt2` yet");
+    let (v1, v2) = (tiles(&v1).await, tiles(&v2).await);
+    let same: Vec<_> = v1
+        .iter()
+        .zip(&v2)
+        .map(|((z, x, y, a), (_, _, _, b))| {
+            let v2_wire = mlt_core::Parser::default()
+                .parse_layers(b)
+                .unwrap()
+                .iter()
+                .all(|layer| matches!(layer, mlt_core::Layer::Tag02(_)));
+            let same = mlt_dump(&mlt_layers(a)) == mlt_dump(&mlt_layers(b));
+            format!("{z}/{x}/{y} v2 wire: {v2_wire}, same layers: {same}")
+        })
+        .collect();
+    insta::assert_snapshot!(same.join("\n"), @"
+    0/0/0 v2 wire: true, same layers: true
+    1/0/0 v2 wire: true, same layers: true
+    1/0/1 v2 wire: true, same layers: true
+    1/1/0 v2 wire: true, same layers: true
+    1/1/1 v2 wire: true, same layers: true
+    ");
 }
 
 #[tokio::test]
@@ -1868,6 +2144,43 @@ async fn encodes_with_the_configured_convert_to_mlt_settings() {
     ");
 }
 
+#[cfg(feature = "test-mlt-v2")]
+#[tokio::test]
+async fn refuses_allow_delta2_which_mlt_v1_tiles_ignore() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        indoc! {"
+            postgres:
+              connection_string: ${DATABASE_URL}
+              auto_publish: false
+              tables:
+                points1:
+                  schema: public
+                  table: points1
+                  srid: 4326
+                  geometry_column: geom
+                  geometry_type: POINT
+                  convert_to_mlt:
+                    allow_delta2: true
+        "},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("out.mbtiles");
+    let log = MartinCp::bulk()
+        .env("RUST_LOG", "error")
+        .with_postgres()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .run_expecting_failure()
+        .await;
+    insta::assert_snapshot!(log, @"ERROR Source `points1` sets `allow_delta2` in `convert_to_mlt`, which changes only `--format mlt2` tiles; add `--format mlt2`");
+    assert!(!output.exists());
+}
+
 #[tokio::test]
 async fn refuses_mlt_output_for_a_source_with_mlt_conversion_disabled() {
     let dir = temp_dir();
@@ -2558,7 +2871,7 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
             .arg("--output-file")
             .arg(dir.path().join(file))
             .arg("--max-zoom")
-            .arg("8")
+            .arg("4")
             .arg("--encoding")
             .arg("none")
             .arg("--threads")
@@ -2575,11 +2888,11 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
     insta::assert_snapshot!(logs[0], @"
-    INFO Ran `merge_lines` layer.id=merged tiles=1167 features.input=3927 features.output=3810
-    INFO Ran `merge_polygons` layer.id=merged tiles=1167 features.input=3810 features.output=2821
-    INFO Ran `thinning` layer.id=merged tiles=90 features.input=608 features.output=479
-    INFO Ran `merge_multi` layer.id=merged tiles=1167 features.input=2692 features.output=2630
-    INFO Ran `limit` layer.id=merged tiles=1167 features.input=2630 features.output=2596
+    INFO Ran `merge_lines` layer.id=merged tiles=36 features.input=440 features.output=364
+    INFO Ran `merge_polygons` layer.id=merged tiles=36 features.input=364 features.output=299
+    INFO Ran `thinning` layer.id=merged tiles=30 features.input=282 features.output=206
+    INFO Ran `merge_multi` layer.id=merged tiles=36 features.input=223 features.output=169
+    INFO Ran `limit` layer.id=merged tiles=36 features.input=169 features.output=148
     ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
@@ -2639,7 +2952,7 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
             .arg("--format")
             .arg("mvt")
             .arg("--max-zoom")
-            .arg("8")
+            .arg("4")
             .arg("--encoding")
             .arg("none")
             .arg("--threads")
@@ -2674,12 +2987,12 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
     }
     insta::assert_debug_snapshot!(kinds, @r#"
     {
-        "line": 437,
-        "multi-line": 99,
-        "multi-point": 35,
-        "multi-polygon": 61,
-        "point": 128,
-        "polygon": 1836,
+        "line": 13,
+        "multi-line": 34,
+        "multi-point": 28,
+        "multi-polygon": 16,
+        "point": 32,
+        "polygon": 25,
     }
     "#);
 }

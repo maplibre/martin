@@ -97,6 +97,7 @@ default = [
     "postgres",
     "processing",
     "resources",
+    "shapefile",
     "tui",
     "webui",
 ]
@@ -156,9 +157,16 @@ postgres = [
 ]
 processing = ["martin-core/processing", "_tiles", "_file_kinds", "dep:base64"]
 resources = ["martin-core/resources", "dep:walkdir", "_catalog"]
+# ESRI shapefiles as `martin cp --mode bulk` sources
+shapefile = ["postgres", "martin-tilegen/shapefile"]
 webui = ["dep:actix-web-static-files", "dep:martin-ui"]
 tui = ["dep:ratatui", "dep:crossterm", "dep:strum"]
-unstable-mlt-v2 = ["_tiles", "mlt-core/unstable-v2", "martin-core/unstable-mlt-v2"]
+unstable-mlt-v2 = [
+    "_tiles",
+    "mlt-core/unstable-v2",
+    "martin-core/unstable-mlt-v2",
+    "martin-tilegen?/unstable-mlt-v2",
+]
 _tiles = [
     "martin-core/_tiles",
     "_catalog",
@@ -302,6 +310,7 @@ indoc.workspace = true
 insta = { workspace = true, features = ["filters", "glob", "json", "redactions", "yaml"] }
 martin-core = { workspace = true, features = ["_testing"] }
 rstest.workspace = true
+shapefile.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true
 tokio = { workspace = true, features = ["test-util"] }

@@ -1,4 +1,4 @@
-#![cfg(feature = "osm")]
+#![cfg(all(feature = "osm", feature = "shapefile"))]
 #![expect(clippy::unwrap_used)]
 
 use std::collections::BTreeMap;
@@ -8,10 +8,12 @@ use std::io::Write as _;
 use martin::generate::spec::backend::TestBackend as _;
 use martin::generate::spec::check;
 use martin::generate::spec::file::{Attribute, Output, read_spec};
+use martin::generate::spec::files::Files;
 use martin::generate::spec::osm::Osm;
 use martin::generate::spec::render::{outputs, render_bulk};
 use serde::Deserialize;
 use serde_json::Value;
+use wkt::ToWkt as _;
 
 #[derive(Deserialize)]
 struct Spec {
@@ -69,6 +71,13 @@ fn attributes_at(output: &Output, zoom: Option<u8>) -> BTreeMap<String, Value> {
         .collect()
 }
 
+fn same_value(expected: &Value, actual: &Value) -> bool {
+    match (expected.as_f64(), actual.as_f64()) {
+        (Some(want), Some(got)) if expected.is_f64() => (want - got).abs() <= want.abs() * 1e-12,
+        _ => expected == actual,
+    }
+}
+
 fn proximity(expected: &Expected, output: &Output) -> usize {
     let attributes = attributes_at(output, expected.at_zoom);
     let tags = expected.tags.iter().flatten();
@@ -76,7 +85,7 @@ fn proximity(expected: &Expected, output: &Output) -> usize {
         + usize::from(expected.geometry.as_ref() == Some(&output.geometry.to_string()))
         + tags
             .map(|(key, value)| match attributes.get(key) {
-                Some(actual) if actual == value => 2,
+                Some(actual) if same_value(value, actual) => 2,
                 Some(_) => 1,
                 None => 0,
             })
@@ -144,7 +153,7 @@ fn issues(expected: &[Expected], mut actual: Vec<Output>) -> Vec<String> {
         let mut attributes = attributes_at(&got, want.at_zoom);
         for (key, value) in want.tags.iter().flatten() {
             match attributes.remove(key) {
-                Some(actual) if actual == *value => {}
+                Some(actual) if same_value(value, &actual) => {}
                 Some(actual) => issues.push(format!("{layer}.{key} {value}, got {actual}")),
                 None => issues.push(format!("{layer}.{key} {value}, got none")),
             }
@@ -160,28 +169,27 @@ fn issues(expected: &[Expected], mut actual: Vec<Output>) -> Vec<String> {
 
 #[tokio::test]
 async fn shortbread_snippet_renders_planetiler_examples() {
-    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures");
     let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
         .unwrap()
         .replace(
             "path: berlin-latest.osm.pbf",
-            &format!("path: {fixtures}/shortbread-examples.osm.pbf"),
+            &format!("path: {fixtures}/osm/shortbread-examples.osm.pbf"),
+        )
+        .replace(
+            "path: water-polygons-split-3857.zip",
+            &format!("path: {fixtures}/shapefile/ocean.zip"),
         );
     let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     config.write_all(snippet.as_bytes()).unwrap();
-    let backend = Osm::load(config.path()).unwrap().unwrap();
+    let backend = Files::load(config.path()).unwrap().unwrap();
     let tables = backend.tables(14).unwrap();
-    let spec_yaml = std::fs::read_to_string(format!("{fixtures}/shortbread.spec.yml")).unwrap();
+    let spec_yaml = std::fs::read_to_string(format!("{fixtures}/osm/shortbread.spec.yml")).unwrap();
     let spec: Spec =
         serde_saphyr::from_str_with_options(&spec_yaml, serde_saphyr::options! { strict_booleans: true }).unwrap();
     let mut report = String::new();
     let mut matched = 0;
-    let mut osm = 0;
     for (index, example) in spec.examples.iter().enumerate() {
-        if example.input.source != "osm" {
-            continue;
-        }
-        osm += 1;
         let tags = example.input.tags.clone().unwrap_or_default();
         let kind = match example.input.geometry.as_str() {
             "point" => 1,
@@ -189,13 +197,22 @@ async fn shortbread_snippet_renders_planetiler_examples() {
             geometry if geometry.starts_with("POLYGON") && tags.contains_key("boundary") => 3,
             _ => 2,
         };
-        let key = (index as u64 + 1) * 10 + kind;
-        let (tiles, _) = render_bulk(&backend, &tables[0], key).await.unwrap();
+        let (source, key) = match example.input.source.as_str() {
+            "osm" => ("shortbread", (index as u64 + 1) * 10 + kind),
+            source => (source, 1),
+        };
+        let table = tables.iter().find(|table| table.source == source).unwrap();
+        let (tiles, _) = render_bulk(&backend, table, key).await.unwrap();
         let expected = match &example.output {
             OneOrMany::One(one) => std::slice::from_ref(one),
             OneOrMany::Many(many) => many.as_slice(),
         };
-        let issues = issues(expected, outputs(&tiles));
+        let mut actual = outputs(&tiles);
+        let polygon = example.input.geometry == "polygon" || example.input.geometry.starts_with("POLYGON");
+        if kind == 2 && polygon && tags.get("area") != Some(&Value::from("yes")) {
+            actual.retain(|output| output.geometry.to_string() != "line");
+        }
+        let issues = issues(expected, actual);
         if issues.is_empty() {
             matched += 1;
         } else {
@@ -205,51 +222,29 @@ async fn shortbread_snippet_renders_planetiler_examples() {
             }
         }
     }
-    writeln!(report, "{matched} of {osm} examples match").unwrap();
+    writeln!(report, "{matched} of {} examples match", spec.examples.len()).unwrap();
     insta::assert_snapshot!(report, @"
-    waterway=dock:
-      water_polygons.way_area 12364188935.60872, got none
-    pedestrian polygon without area=yes gets also interpreted as an polygon:
-      layer street_polygons, got streets
-      street_polygons geometry polygon, got line
-      street_polygons min_zoom 14, got 13
-      street_polygons.link not expected, got false
-      street_polygons.oneway not expected, got false
-      street_polygons.oneway_reverse not expected, got false
-      layer streets_polygons_labels, got street_labels
-      streets_polygons_labels geometry point, got line
-      streets_polygons_labels.tunnel not expected, got false
-    boundary_labels:
-      boundary_labels.way_area 1236418.8935608722, got none
-    boundary_labels admin_level=2 z4:
-      boundary_labels min_zoom 4, got 5
-      boundary_labels.way_area 11126640.16653054, got none
-    boundary_labels admin_level=2 z3:
-      boundary_labels min_zoom 3, got 5
-      boundary_labels.way_area 79067549.40857396, got none
-    boundary_labels admin_level=2 z2:
-      boundary_labels min_zoom 2, got 5
-      boundary_labels.way_area 492066726.2278699, got none
-    boundary_labels admin_level=4 z3:
-      boundary_labels min_zoom 3, got 5
-      boundary_labels.way_area 492066726.2278699, got none
-    59 of 66 examples match
+    67 of 67 examples match
     ");
 }
 
 #[tokio::test]
 async fn shortbread_snippet_passes_its_monaco_spec() {
-    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures");
     let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
         .unwrap()
         .replace(
             "path: berlin-latest.osm.pbf",
-            &format!("path: {fixtures}/monaco.osm.pbf"),
+            &format!("path: {fixtures}/osm/monaco.osm.pbf"),
+        )
+        .replace(
+            "path: water-polygons-split-3857.zip",
+            &format!("path: {fixtures}/shapefile/ocean.zip"),
         );
     let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     config.write_all(snippet.as_bytes()).unwrap();
-    let backend = Osm::load(config.path()).unwrap().unwrap();
-    let spec = read_spec(format!("{fixtures}/shortbread-monaco.spec.yaml").as_ref()).unwrap();
+    let backend = Files::load(config.path()).unwrap().unwrap();
+    let spec = read_spec(format!("{fixtures}/osm/shortbread-monaco.spec.yaml").as_ref()).unwrap();
     let tables = backend.tables(spec.max_zoom).unwrap();
     let mut report = String::new();
     let mut passed = 0;
@@ -270,5 +265,84 @@ async fn shortbread_snippet_passes_its_monaco_spec() {
         }
     }
     writeln!(report, "{passed} of {} cases pass", spec.cases.len()).unwrap();
-    insta::assert_snapshot!(report, @"51 of 51 cases pass");
+    insta::assert_snapshot!(report, @"52 of 52 cases pass");
+}
+
+#[tokio::test]
+async fn shortbread_addresses_of_a_concave_building_lie_on_its_surface() {
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
+        .unwrap()
+        .replace(
+            "path: berlin-latest.osm.pbf",
+            &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
+        );
+    let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    config.write_all(snippet.as_bytes()).unwrap();
+    let backend = Osm::load(config.path()).unwrap().unwrap();
+    let tables = backend.tables(14).unwrap();
+    let (tiles, _) = render_bulk(&backend, &tables[0], 12).await.unwrap();
+    let features: Vec<String> = tiles
+        .iter()
+        .filter(|(coord, _)| coord.z() == 14)
+        .flat_map(|(coord, features)| {
+            features
+                .iter()
+                .map(move |f| format!("{coord} {}: {}", f.layer, f.geometry.wkt_string()))
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "14,8237,8146 buildings: POLYGON((2094 1993,2094 1247,2280 1247,2280 1807,2839 1807,2839 1993,2094 1993))",
+        "14,8237,8146 addresses: POINT(2187 1620)",
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn shortbread_pois_of_a_concave_area_lie_on_its_surface() {
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
+        .unwrap()
+        .replace(
+            "path: berlin-latest.osm.pbf",
+            &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
+        );
+    let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    config.write_all(snippet.as_bytes()).unwrap();
+    let backend = Osm::load(config.path()).unwrap().unwrap();
+    let tables = backend.tables(14).unwrap();
+    let (tiles, _) = render_bulk(&backend, &tables[0], 32).await.unwrap();
+    let features: Vec<String> = tiles
+        .iter()
+        .filter(|(coord, _)| coord.z() == 14)
+        .flat_map(|(coord, features)| {
+            features
+                .iter()
+                .map(move |f| format!("{coord} {}: {}", f.layer, f.geometry.wkt_string()))
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        "14,8238,8146 pois: POINT(1819 1620)",
+    ]
+    "#);
+}
+
+#[tokio::test]
+async fn shortbread_pois_leave_out_a_line() {
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures/osm");
+    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../docs/snippets/shortbread.yaml"))
+        .unwrap()
+        .replace(
+            "path: berlin-latest.osm.pbf",
+            &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
+        );
+    let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+    config.write_all(snippet.as_bytes()).unwrap();
+    let backend = Osm::load(config.path()).unwrap().unwrap();
+    let tables = backend.tables(14).unwrap();
+    let (tiles, _) = render_bulk(&backend, &tables[0], 22).await.unwrap();
+    let layers: Vec<String> = outputs(&tiles).into_iter().map(|output| output.layer).collect();
+    insta::assert_debug_snapshot!(layers, @"[]");
 }

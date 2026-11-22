@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use eval::Keys;
-use geo::{Centroid as _, Coord, MultiLineString, MultiPoint, MultiPolygon};
+use geo::{Centroid as _, Coord, InteriorPoint as _, MultiLineString, MultiPoint, MultiPolygon, Polygon};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
@@ -25,6 +25,7 @@ pub use crate::plan::filter::{
     CompareOp, Condition, Literal, Pattern, Polarity, RowFilter, Term, TranslateError, Untranslatable, ValueKind,
 };
 use crate::props::{KeyId, Prop};
+use crate::source::Geometry;
 use crate::{FeatureGeom, MAX_ZOOM, PixelThreshold, RenderLayer, RenderLayerError};
 
 #[derive(thiserror::Error, Debug)]
@@ -36,8 +37,17 @@ pub enum PlanError {
     #[error("{0} tables exceed the 65536 a feature batch can address")]
     TooManyTables(usize),
 
-    #[error("layer name `{0}` is used more than once")]
-    DuplicateLayer(String),
+    /// Two definitions writing into one output layer that disagree on a setting it has once.
+    #[error(
+        "layers `{first}` and `{second}` both write into layer `{output}` but with different `{setting}`; it must be \
+         equal wherever it is set"
+    )]
+    OutputMismatch {
+        output: String,
+        first: String,
+        second: String,
+        setting: &'static str,
+    },
 
     #[error("layer `{layer}`: zoom {zoom} is above {MAX_ZOOM}")]
     ZoomTooHigh { layer: String, zoom: u8 },
@@ -54,12 +64,21 @@ pub enum PlanError {
     #[error("layer `{layer}`: {error}")]
     InvalidLayer { layer: String, error: RenderLayerError },
 
+    #[error("layer `{layer}`: its `geometry` entries draw different geometry types")]
+    MixedGeometry { layer: String },
+
     #[error("layer `{layer}`: `{op}` groups by `{attribute}`, which the layer does not write")]
     UnknownGroupBy {
         layer: String,
         op: &'static str,
         attribute: String,
     },
+
+    /// A `thinning` key calling `area`, which only the whole geometry has, not a tile's part of it.
+    #[error(
+        "layer `{layer}`: thinning key `{expr}` calls `area`, which measures a feature before it is cut into tiles"
+    )]
+    ThinningArea { layer: String, expr: String },
 }
 
 /// A table as its source scans it; its position in [`Plan::new`] is the [`table`] of its batches.
@@ -80,20 +99,23 @@ pub enum ColumnDef {
     /// Properties under keys of their own, e.g. those of a JSON column.
     /// Expressions do not see the column by its name, but a key with that name takes its [`KeyId`].
     Keys(String),
+    /// A JSON document kept whole as one property named after the column, which no source can filter on, since
+    /// a source's `null` is not the document's.
+    Document(String),
 }
 
 impl ColumnDef {
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
-            Self::Value(name, _) | Self::Keys(name) => name,
+            Self::Value(name, _) | Self::Keys(name) | Self::Document(name) => name,
         }
     }
 
     /// The property name of a column that is not [`ColumnDef::Keys`].
     fn value(&self) -> Option<&str> {
         match self {
-            Self::Value(name, _) => Some(name),
+            Self::Value(name, _) | Self::Document(name) => Some(name),
             Self::Keys(_) => None,
         }
     }
@@ -109,7 +131,14 @@ pub struct LayerGrid {
 /// Expressions are CEL over the feature's properties (see [`expr`](crate::expr)), compiled by [`Plan::new`].
 #[derive(Clone, Debug)]
 pub struct LayerDef {
+    /// Names the definition in errors and paths, and the output layer unless [`Self::output`] does.
     pub name: String,
+    /// The output layer it writes into, which other definitions may share; [`Self::name`] when `None`.
+    ///
+    /// Definitions sharing one are merged in each tile, each keeping its own features, zooms, grid buffer,
+    /// simplification, attributes and rules. They must have equal extents and encoders, and equal `sort_by`
+    /// and operations of each kind in `per_tile` wherever those are not empty; the output layer uses them.
+    pub output: Option<String>,
     pub zooms: RangeInclusive<u8>,
     pub grid: LayerGrid,
     /// Whether each tile gets only its part of a line or polygon, or the whole geometry.
@@ -121,10 +150,9 @@ pub struct LayerDef {
     /// WGS84: only tiles intersecting it are generated.
     pub bounds: Option<Bounds>,
     pub encoder: EncoderConfig,
-    /// Only features of this type, if set.
-    pub geometry: Option<GeometryType>,
-    /// Each feature the layer takes becomes this point of its geometry, if set.
-    pub point: Option<DerivedPoint>,
+    /// The features the layer takes and what it draws for each: a feature is drawn by the first entry that takes
+    /// its type, and left out when none does. Empty takes every feature as it is.
+    pub geometry: Vec<GeometryDef>,
     /// Only features for which this is `true`.
     pub filter: Option<String>,
     /// Per feature, clamped into `zooms`; `null` keeps the layer's.
@@ -134,14 +162,14 @@ pub struct LayerDef {
     pub attributes: AttributesDef,
     /// The first rule a feature matches overrides the layer's settings for it.
     pub rules: Vec<RuleDef>,
-    /// Orders the layer's features in each tile, ties in source order; empty keeps source order.
-    /// Turns off the sort trials of `encoder`.
+    /// Orders the output layer's features in each tile, ties in definition order, then source order; empty keeps
+    /// that order. Turns off the sort trials of `encoder`.
     pub sort_by: Vec<SortDef>,
-    /// Orders features that tie on `sort_by` by their source id, those without one last.
-    /// Turns off the sort trials of `encoder`.
+    /// Orders the output layer's features that tie on `sort_by` by their source id, those without one last. Turns off
+    /// the sort trials of `encoder`.
     pub id_order: Option<IdOrder>,
-    /// Run on the layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order here.
-    /// Zoom ranges of one kind of operation must not overlap.
+    /// Run on the output layer's features in each tile after `sort_by`, in [`TileOp`] order whatever their order
+    /// here, clamped into the zooms of all its definitions. Zoom ranges of one kind of operation must not overlap.
     pub per_tile: Vec<TileOpDef>,
 }
 
@@ -152,6 +180,7 @@ impl LayerDef {
     pub fn new(name: impl Into<String>, zooms: RangeInclusive<u8>, grid: LayerGrid) -> Self {
         Self {
             name: name.into(),
+            output: None,
             zooms,
             grid,
             clip_mode: ClipMode::Clipped,
@@ -159,8 +188,7 @@ impl LayerDef {
             min_size: PixelThreshold::DEFAULT_MIN_SIZE,
             bounds: None,
             encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
-            geometry: None,
-            point: None,
+            geometry: Vec::new(),
             filter: None,
             minzoom_expr: None,
             maxzoom_expr: None,
@@ -256,6 +284,20 @@ impl TileOp {
             Self::Limit { .. } => 5,
         }
     }
+
+    /// The names of the operations, in the order they run.
+    const KEYS: [&str; 5] = ["merge_lines", "merge_polygons", "thinning", "merge_multi", "limit"];
+
+    /// The operation's name as configurations write it.
+    const fn key(&self) -> &'static str {
+        match self {
+            Self::MergeLines { .. } => "merge_lines",
+            Self::MergePolygons { .. } => "merge_polygons",
+            Self::Thinning { .. } => "thinning",
+            Self::MergeMulti { .. } => "merge_multi",
+            Self::Limit { .. } => "limit",
+        }
+    }
 }
 
 /// How [`TileOp::Thinning`] decides that an earlier kept feature crowds a feature out.
@@ -322,27 +364,155 @@ pub enum GeometryType {
     Polygon,
 }
 
+/// One entry of a layer's `geometry`: the features it takes, and what it draws for each.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GeometryDef {
+    /// Only features of this type, if set.
+    pub takes: Option<GeometryType>,
+    /// Each feature it takes becomes this point of its geometry, if set.
+    pub point: Option<DerivedPoint>,
+}
+
+impl GeometryDef {
+    /// Every feature, as it is.
+    pub const ANY: Self = Self {
+        takes: None,
+        point: None,
+    };
+
+    /// The type of the geometry it draws, if it has only one.
+    #[must_use]
+    pub fn draws(self) -> Option<GeometryType> {
+        self.point.map_or(self.takes, |_| Some(GeometryType::Point))
+    }
+
+    /// Whether it takes a feature with `geometry`, projected as `geom`: one of its type, or any but an
+    /// [`Geometry::Outline`], whose polygon it takes instead.
+    pub(crate) fn accepts(self, geometry: &Geometry, geom: FeatureGeom<'_>) -> bool {
+        match self.takes {
+            Some(kind) => kind.matches(geom),
+            None => !matches!(geometry, Geometry::Outline(_)),
+        }
+    }
+}
+
+/// Features of the type, as they are.
+impl From<GeometryType> for GeometryDef {
+    fn from(kind: GeometryType) -> Self {
+        Self {
+            takes: Some(kind),
+            point: None,
+        }
+    }
+}
+
 /// A point computed from a feature's projected geometry, which the layer draws in its place.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DerivedPoint {
     /// The centroid of the highest dimension the geometry has: area-weighted for polygons,
     /// length-weighted for lines, the mean for points.
     Centroid,
+    /// A point on the geometry, as geo's `InteriorPoint` finds it over all parts of a multi-geometry.
+    PointOnSurface,
+    /// As Planetiler's `centroidIfConvex`: the centroid of a convex polygon without holes, a point on the surface
+    /// of any other polygon or multi-polygon, and the centroid of lines and points.
+    CentroidIfConvex,
 }
 
 impl DerivedPoint {
-    /// The point of `geom`, or `None` when it has none, such as an empty geometry.
-    pub(crate) fn of(self, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
+    /// The point of a feature with `geometry`, projected as `geom`, or `None` when it has none, such as an empty
+    /// geometry; that of the polygon of an [`Geometry::Outline`], as Planetiler derives it from a closed way that is
+    /// also an area, and a point on the surface of a multi-polygon of one part for [`Self::CentroidIfConvex`].
+    pub(crate) fn of(self, geometry: &Geometry, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
+        let area;
+        let geom = if let Geometry::Outline(ring) = geometry {
+            area = Polygon::new(ring.clone(), Vec::new());
+            FeatureGeom::Polygons(std::slice::from_ref(&area))
+        } else {
+            geom
+        };
+        if matches!((self, geometry), (Self::CentroidIfConvex, Geometry::Polygons(_))) {
+            return Self::PointOnSurface.of_geom(geom);
+        }
+        self.of_geom(geom)
+    }
+
+    /// The point of `geom`, or `None` when it has none.
+    fn of_geom(self, geom: FeatureGeom<'_>) -> Option<Coord<f64>> {
         let point = match (self, geom) {
-            (Self::Centroid, FeatureGeom::Points([point])) => return Some(*point),
+            (Self::CentroidIfConvex, _) => {
+                let centroid = match geom {
+                    FeatureGeom::Polygons([polygon]) => {
+                        polygon.interiors().is_empty() && is_convex(&polygon.exterior().0)
+                    }
+                    FeatureGeom::Polygons(_) => false,
+                    FeatureGeom::Points(_) | FeatureGeom::Lines(_) => true,
+                };
+                return if centroid { Self::Centroid } else { Self::PointOnSurface }.of_geom(geom);
+            }
+            (Self::Centroid | Self::PointOnSurface, FeatureGeom::Points([point])) => return Some(*point),
             (Self::Centroid, FeatureGeom::Points(points)) => MultiPoint::from(points.to_vec()).centroid(),
             (Self::Centroid, FeatureGeom::Lines([line])) => line.centroid(),
             (Self::Centroid, FeatureGeom::Lines(lines)) => MultiLineString::new(lines.to_vec()).centroid(),
             (Self::Centroid, FeatureGeom::Polygons([polygon])) => polygon.centroid(),
             (Self::Centroid, FeatureGeom::Polygons(polygons)) => MultiPolygon::new(polygons.to_vec()).centroid(),
+            (Self::PointOnSurface, FeatureGeom::Points(points)) => MultiPoint::from(points.to_vec()).interior_point(),
+            (Self::PointOnSurface, FeatureGeom::Lines([line])) => line.interior_point(),
+            (Self::PointOnSurface, FeatureGeom::Lines(lines)) => MultiLineString::new(lines.to_vec()).interior_point(),
+            (Self::PointOnSurface, FeatureGeom::Polygons([polygon])) => polygon.interior_point(),
+            (Self::PointOnSurface, FeatureGeom::Polygons(polygons)) => {
+                MultiPolygon::new(polygons.to_vec()).interior_point()
+            }
         };
         point.map(|point| point.0)
     }
+}
+
+/// Whether `ring` is convex as Planetiler's `GeoUtils.isConvex` decides it: the triangles of consecutive points keep
+/// one orientation, ignoring repeated points and turns below a thousandth of the largest one the other way. Unlike
+/// Planetiler, a repeated point keeps the previous edge, so a repeated corner still turns.
+fn is_convex(ring: &[Coord<f64>]) -> bool {
+    const THRESHOLD: f64 = 1e-3;
+    const MIN_POINTS_TO_CHECK: usize = 10;
+    let ratio = |neg: f64, pos: f64| if neg < pos { neg / pos } else { pos / neg };
+    let size = ring.len();
+    if size <= 3 {
+        return false;
+    }
+    let c0 = ring[0];
+    let mut i = 1;
+    let mut c1 = ring[i];
+    while i < size {
+        c1 = ring[i];
+        if c1 != c0 {
+            break;
+        }
+        i += 1;
+    }
+    let mut d1 = c1 - c0;
+    let (mut neg, mut pos) = (1e-20, 1e-20);
+    while i <= size + 1 {
+        let c2 = ring[if i < size { i } else { i + 1 - size }];
+        let d2 = c2 - c1;
+        let z = d1.x * d2.y - d1.y * d2.x;
+        let mut extended = false;
+        if z < 0.0 && -z > neg {
+            neg = -z;
+            extended = true;
+        } else if z > 0.0 && z > pos {
+            pos = z;
+            extended = true;
+        }
+        if (i == MIN_POINTS_TO_CHECK || (i > MIN_POINTS_TO_CHECK && extended)) && ratio(neg, pos) > THRESHOLD {
+            return false;
+        }
+        c1 = c2;
+        if d2 != Coord::zero() {
+            d1 = d2;
+        }
+        i += 1;
+    }
+    ratio(neg, pos) < THRESHOLD
 }
 
 impl GeometryType {
@@ -396,18 +566,30 @@ pub enum ValueDef {
     Expr(String),
 }
 
-/// Validated [`TableDef`]s, with output layers numbered table by table, then in declaration order: that
-/// number is the layer byte of the sort key, and so the layer's order inside each tile.
+/// Validated [`TableDef`]s, with layer definitions numbered table by table, then in declaration order: that
+/// number is the layer byte of the sort key. Output layers are numbered in the order their first definition comes
+/// in, which is their order inside each tile.
 ///
 /// A plan serves one run: it interns the property keys its sources and layers find.
 #[derive(Debug)]
 pub struct Plan {
     pub(crate) tables: Vec<PlannedTable>,
     pub(crate) layers: Vec<PlannedLayer>,
+    pub(crate) outputs: Vec<PlannedOutput>,
     pub(crate) exprs: Vec<PlannedExpr>,
     keys: Keys,
     /// Whether an expression has logged its first failure.
     warned: Vec<AtomicBool>,
+}
+
+/// An output layer: the definitions writing into it, and what it has once for all of them.
+#[derive(Debug)]
+pub(crate) struct PlannedOutput {
+    pub(crate) info: LayerInfo,
+    /// Indexes into [`Plan::layers`] of its definitions, in plan order.
+    pub(crate) layers: Vec<usize>,
+    /// Its known keys: those of each of its definitions in turn, including those only rules add.
+    pub(crate) keys: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -432,19 +614,21 @@ pub(crate) struct PlannedExpr {
     pub(crate) layer: usize,
 }
 
+/// A layer definition, as it takes features and renders them for its output layer.
 #[derive(Debug)]
 pub(crate) struct PlannedLayer {
+    /// The definition's name.
+    pub(crate) name: String,
+    /// Index into [`Plan::outputs`] of the output layer it writes into.
+    pub(crate) output: usize,
     pub(crate) render: RenderLayer,
-    pub(crate) info: LayerInfo,
     pub(crate) zooms: RangeInclusive<u8>,
-    pub(crate) geometry: Option<GeometryType>,
-    pub(crate) point: Option<DerivedPoint>,
+    /// The entries of [`LayerDef::geometry`], never empty.
+    pub(crate) geometry: Vec<GeometryDef>,
     /// Indexes into [`Plan::exprs`].
     pub(crate) filter: Option<ExprRef<Filter>>,
     pub(crate) id: PlannedId,
     pub(crate) attributes: AttributesDef,
-    /// The output layer's known keys, including those only rules add.
-    pub(crate) keys: Vec<String>,
     /// Output key by table column.
     pub(crate) copy: Vec<Option<KeyId>>,
     /// The layer's rules, in order.
@@ -458,7 +642,37 @@ pub(crate) struct PlannedLayer {
 impl PlannedLayer {
     /// The type of the geometry the layer draws, if it has only one.
     pub(crate) fn output_geometry(&self) -> Option<GeometryType> {
-        self.point.map_or(self.geometry, |_| Some(GeometryType::Point))
+        self.geometry[0].draws()
+    }
+
+    /// The entry of the layer's `geometry` that draws a feature with `geometry`, projected as `geom`, or `None` when
+    /// the layer leaves it out. A layer with an entry taking polygons leaves out every [`Geometry::Outline`], as it
+    /// draws the closed way from its polygon.
+    pub(crate) fn entry(&self, geometry: &Geometry, geom: FeatureGeom<'_>) -> Option<GeometryDef> {
+        if matches!(geometry, Geometry::Outline(_))
+            && self
+                .geometry
+                .iter()
+                .any(|entry| entry.takes.is_none_or(|kind| kind == GeometryType::Polygon))
+        {
+            return None;
+        }
+        self.geometry
+            .iter()
+            .copied()
+            .find(|entry| entry.accepts(geometry, geom))
+    }
+
+    /// The geometry types the layer takes, or `None` when it takes all.
+    pub(crate) fn geometry_condition(&self) -> Option<Condition> {
+        let mut kinds = Vec::new();
+        for entry in &self.geometry {
+            let kind = entry.takes?;
+            if !kinds.contains(&kind) {
+                kinds.push(kind);
+            }
+        }
+        Some(Condition::or(kinds.into_iter().map(Condition::Geometry)))
     }
 
     /// Whether some of the layer's features are thinned by a grid.
@@ -533,9 +747,10 @@ impl Plan {
         if u16::try_from(tables.len()).is_err() {
             return Err(PlanError::TooManyTables(tables.len()));
         }
-        let mut names = HashSet::new();
+        let drafts = OutputDraft::all(&tables)?;
         let mut planned_tables = Vec::with_capacity(tables.len());
         let mut layers = Vec::with_capacity(total);
+        let mut own_keys = Vec::with_capacity(total);
         let mut exprs = Vec::new();
         for table in tables {
             let start = layers.len();
@@ -545,9 +760,6 @@ impl Plan {
             let mut rules = false;
             for def in table.layers {
                 rules |= !def.rules.is_empty();
-                if !names.insert(def.name.clone()) {
-                    return Err(PlanError::DuplicateLayer(def.name));
-                }
                 if *def.zooms.end() > MAX_ZOOM {
                     return Err(PlanError::ZoomTooHigh {
                         layer: def.name,
@@ -555,6 +767,10 @@ impl Plan {
                     });
                 }
                 let index = u8::try_from(layers.len()).expect("at most 256 layers");
+                let output = drafts
+                    .iter()
+                    .position(|draft| draft.layers.contains(&layers.len()))
+                    .expect("every definition writes into an output layer");
                 let mut compiler = Compiler {
                     exprs: &mut exprs,
                     columns: &table.columns,
@@ -564,7 +780,9 @@ impl Plan {
                     layer: layers.len(),
                     name: def.name.clone(),
                 };
-                layers.push(plan_layer(index, def, &mut compiler)?);
+                let (layer, keys) = plan_layer(index, def, output, &drafts[output], &mut compiler)?;
+                own_keys.push((keys, compiler.dynamic_props && layer.attributes == AttributesDef::All));
+                layers.push(layer);
             }
             let table_layers = &mut layers[start..];
             let all_keys = exprs[first_expr..].iter().any(|planned| planned.expr.needs_all_keys());
@@ -608,11 +826,16 @@ impl Plan {
                 evaluates: rules || exprs.len() > first_expr,
             });
         }
+        let outputs = drafts
+            .into_iter()
+            .map(|draft| draft.plan(&mut layers, &own_keys, &mut exprs))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
-            keys: Keys::new(&planned_tables, &layers),
+            keys: Keys::new(&planned_tables, &outputs),
             warned: exprs.iter().map(|_| AtomicBool::new(false)).collect(),
             tables: planned_tables,
             layers,
+            outputs,
             exprs,
         })
     }
@@ -635,10 +858,33 @@ impl Plan {
     /// If the plan has no table `table`.
     #[must_use]
     pub fn row_filter(&self, table: usize, zooms: RangeInclusive<u8>) -> RowFilter {
+        self.layers_row_filter(table, zooms, |_| true)
+    }
+
+    /// The rows of table `table` that some layer of only `geometry` takes at one of `zooms`, leaving out the layers
+    /// of any geometry, for its source to filter readings on that only such layers draw.
+    ///
+    /// # Panics
+    ///
+    /// If the plan has no table `table`.
+    #[must_use]
+    pub fn typed_row_filter(&self, table: usize, zooms: RangeInclusive<u8>, geometry: GeometryType) -> RowFilter {
+        self.layers_row_filter(table, zooms, |layer| {
+            layer.geometry.iter().any(|entry| entry.takes == Some(geometry))
+        })
+    }
+
+    /// The rows of table `table` that some layer for which `of` holds takes at one of `zooms`.
+    fn layers_row_filter(
+        &self,
+        table: usize,
+        zooms: RangeInclusive<u8>,
+        of: impl Fn(&PlannedLayer) -> bool,
+    ) -> RowFilter {
         let table = &self.tables[table];
         let mut conditions = Vec::new();
         for (layer, rows) in self.layers[table.layers.clone()].iter().zip(&table.rows) {
-            if layer.zooms.start() > zooms.end() || layer.zooms.end() < zooms.start() {
+            if !of(layer) || layer.zooms.start() > zooms.end() || layer.zooms.end() < zooms.start() {
                 continue;
             }
             match rows {
@@ -656,6 +902,23 @@ impl Plan {
 }
 
 impl PlannedLayer {
+    /// From the definition's own output keys to those of its output layer, `keys[i]` being that of its key `i`.
+    fn rekey(&mut self, keys: &[KeyId]) {
+        for key in self.copy.iter_mut().flatten() {
+            *key = keys[key.index()];
+        }
+        for case in std::iter::once(&mut self.fallback).chain(&mut self.cases) {
+            let attrs = &mut case.attrs;
+            for key in &mut attrs.overrides {
+                *key = keys[key.index()];
+            }
+            attrs.overrides.sort_unstable();
+            for attr in attrs.computed.iter_mut().chain(&mut attrs.banded) {
+                attr.key = keys[attr.key.index()];
+            }
+        }
+    }
+
     /// From candidate column positions to the scanned ones in `renumbered`.
     fn renumber(&mut self, renumbered: &[Option<KeyId>]) {
         self.copy = self
@@ -714,7 +977,7 @@ impl Compiler<'_> {
             .transpose()
     }
 
-    /// The position of the [`ColumnDef::Value`] named `name`.
+    /// The position of the [`ColumnDef::Value`] or [`ColumnDef::Document`] named `name`.
     fn value_position(&self, name: &str) -> Option<usize> {
         self.columns.iter().position(|column| column.value() == Some(name))
     }
@@ -722,7 +985,7 @@ impl Compiler<'_> {
 
 /// The rows `layer` takes, by geometry type and `where`.
 fn layer_rows(columns: &[ColumnDef], layer: &PlannedLayer, exprs: &[PlannedExpr]) -> Result<Condition, Untranslatable> {
-    let geometry = layer.geometry.map(Condition::Geometry);
+    let geometry = layer.geometry_condition();
     let Some(filter) = layer.filter else {
         return Ok(Condition::and(geometry));
     };
@@ -733,18 +996,187 @@ fn layer_rows(columns: &[ColumnDef], layer: &PlannedLayer, exprs: &[PlannedExpr]
         None => planned.expr.condition(columns),
     };
     let condition = condition.map_err(|reason| Untranslatable {
-        layer: layer.info.name.clone(),
+        layer: layer.name.clone(),
         expr: planned.source.clone(),
         reason,
     })?;
     Ok(Condition::and(geometry.into_iter().chain([condition])))
 }
 
+/// What the definitions writing into one output layer share, gathered before any of them is planned.
+struct OutputDraft {
+    /// The output layer's name.
+    name: String,
+    /// The name of its first definition.
+    first: String,
+    /// Indexes of its definitions in plan order.
+    layers: Vec<usize>,
+    /// The zooms of all its definitions.
+    zooms: RangeInclusive<u8>,
+    /// Their extent, and the widest of their buffers.
+    grid: LayerGrid,
+    /// Their encoder, which they share.
+    encoder: EncoderConfig,
+    /// The `sort_by` of the definitions that set one, and the name of the first of them.
+    sort_by: Option<(Vec<SortDef>, String)>,
+    /// The `id_order` of the definitions that set one, and the name of the first of them.
+    id_order: Option<(IdOrder, String)>,
+    /// Each operation, with the name and index of the definition it was taken from.
+    per_tile: Vec<(TileOpDef, String, usize)>,
+}
+
+impl OutputDraft {
+    /// The output layers of `tables`, in the order their first definitions come in.
+    ///
+    /// # Errors
+    ///
+    /// If two definitions of one output layer disagree on a setting it has once.
+    fn all(tables: &[TableDef]) -> Result<Vec<Self>, PlanError> {
+        let mut drafts: Vec<Self> = Vec::new();
+        for (index, def) in tables.iter().flat_map(|table| &table.layers).enumerate() {
+            let name = def.output.as_ref().unwrap_or(&def.name);
+            let Some(draft) = drafts.iter_mut().find(|draft| draft.name == *name) else {
+                drafts.push(Self {
+                    name: name.clone(),
+                    first: def.name.clone(),
+                    layers: vec![index],
+                    zooms: def.zooms.clone(),
+                    grid: def.grid,
+                    encoder: def.encoder,
+                    sort_by: (!def.sort_by.is_empty()).then(|| (def.sort_by.clone(), def.name.clone())),
+                    id_order: def.id_order.map(|order| (order, def.name.clone())),
+                    per_tile: def
+                        .per_tile
+                        .iter()
+                        .map(|op| (op.clone(), def.name.clone(), index))
+                        .collect(),
+                });
+                continue;
+            };
+            draft.add(index, def)?;
+        }
+        Ok(drafts)
+    }
+
+    /// Adds definition `def`, number `index` in the plan.
+    ///
+    /// # Errors
+    ///
+    /// If it disagrees with the definitions before it on a setting the output layer has once.
+    fn add(&mut self, index: usize, def: &LayerDef) -> Result<(), PlanError> {
+        let mismatch = |first: &str, setting| PlanError::OutputMismatch {
+            output: self.name.clone(),
+            first: first.to_owned(),
+            second: def.name.clone(),
+            setting,
+        };
+        if def.grid.extent != self.grid.extent {
+            return Err(mismatch(&self.first, "extent"));
+        }
+        if def.encoder != self.encoder {
+            return Err(mismatch(&self.first, "encoder"));
+        }
+        match &self.sort_by {
+            Some((sort_by, by)) if !def.sort_by.is_empty() && *sort_by != def.sort_by => {
+                return Err(mismatch(by, "sort_by"));
+            }
+            None if !def.sort_by.is_empty() => self.sort_by = Some((def.sort_by.clone(), def.name.clone())),
+            _ => {}
+        }
+        match (&self.id_order, def.id_order) {
+            (Some((order, by)), Some(other)) if *order != other => return Err(mismatch(by, "id_order")),
+            (None, Some(order)) => self.id_order = Some((order, def.name.clone())),
+            _ => {}
+        }
+        for key in TileOp::KEYS {
+            let ops: Vec<&TileOpDef> = def.per_tile.iter().filter(|op| op.op.key() == key).collect();
+            if ops.is_empty() {
+                continue;
+            }
+            let mut known = self.per_tile.iter().filter(|(op, ..)| op.op.key() == key).peekable();
+            if let Some((_, by, _)) = known.peek() {
+                let by = by.clone();
+                if !known.map(|(op, ..)| op).eq(ops) {
+                    return Err(mismatch(&by, key));
+                }
+            } else {
+                let added = ops.into_iter().map(|op| (op.clone(), def.name.clone(), index));
+                self.per_tile.extend(added);
+            }
+        }
+        self.layers.push(index);
+        self.zooms = (*self.zooms.start()).min(*def.zooms.start())..=(*self.zooms.end()).max(*def.zooms.end());
+        self.grid.buffer = self.grid.buffer.max(def.grid.buffer);
+        Ok(())
+    }
+
+    /// The output layer of `layers`, numbering the output keys of its definitions in the output layer's, and
+    /// planning its operations over them. `own_keys` holds each definition's own output keys, and whether it copies
+    /// every property of a table with dynamic ones.
+    fn plan(
+        self,
+        layers: &mut [PlannedLayer],
+        own_keys: &[(Vec<String>, bool)],
+        exprs: &mut Vec<PlannedExpr>,
+    ) -> Result<PlannedOutput, PlanError> {
+        let mut keys: Vec<String> = Vec::new();
+        for &layer in &self.layers {
+            let map: Vec<KeyId> = own_keys[layer]
+                .0
+                .iter()
+                .map(|name| {
+                    let pos = keys.iter().position(|key| key == name).unwrap_or_else(|| {
+                        keys.push(name.clone());
+                        keys.len() - 1
+                    });
+                    key_id(pos)
+                })
+                .collect();
+            layers[layer].rekey(&map);
+        }
+        let output_props = self.layers.iter().any(|&layer| own_keys[layer].1);
+        check_group_by(&self, &keys, output_props)?;
+        let per_tile = plan_per_tile(&self, &keys, output_props, exprs)?;
+        Ok(PlannedOutput {
+            info: LayerInfo {
+                encoder: if self.sort_by.is_none() && self.id_order.is_none() {
+                    self.encoder
+                } else {
+                    self.encoder
+                        .with_id_sort(false)
+                        .with_spatial_morton_sort(false)
+                        .with_spatial_hilbert_sort(false)
+                },
+                name: self.name,
+                grid: self.grid,
+                per_tile,
+            },
+            layers: self.layers,
+            keys,
+        })
+    }
+}
+
 fn key_id(pos: usize) -> KeyId {
     KeyId::new(u32::try_from(pos).expect("fewer than 2^32 keys"))
 }
 
-fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<PlannedLayer, PlanError> {
+/// The definition as it takes features for output layer `output`, which `draft` describes, and its own output keys.
+fn plan_layer(
+    index: u8,
+    def: LayerDef,
+    output: usize,
+    draft: &OutputDraft,
+    compiler: &mut Compiler<'_>,
+) -> Result<(PlannedLayer, Vec<String>), PlanError> {
+    let geometry = if def.geometry.is_empty() {
+        vec![GeometryDef::ANY]
+    } else {
+        def.geometry.clone()
+    };
+    if geometry.iter().any(|entry| entry.draws() != geometry[0].draws()) {
+        return Err(PlanError::MixedGeometry { layer: def.name });
+    }
     let (mut keys, mut copy) = layer_keys(&def, compiler)?;
     let (computed, banded) = plan_computed(&def, compiler, &mut copy)?;
     let attrs = PlannedAttrs {
@@ -775,16 +1207,17 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         simplify: def.simplify,
         min_size: def.min_size,
         attrs,
-        thinning_grid: clamp_grids(&layer_grids(&def), &def.zooms),
+        thinning_grid: clamp_grids(&layer_grids(draft), &def.zooms),
     };
     let cases = def
         .rules
         .iter()
         .map(|rule| plan_case(&def, rule, compiler, &mut keys, &fallback))
         .collect::<Result<_, PlanError>>()?;
-    let sort_by = def
+    let sort_by = draft
         .sort_by
         .iter()
+        .flat_map(|(keys, _)| keys)
         .map(|key| {
             let expr = compiler.compile(&key.expr)?;
             let role = SortBy {
@@ -793,8 +1226,6 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
             Ok(compiler.add(&key.expr, expr, role))
         })
         .collect::<Result<_, PlanError>>()?;
-    check_group_by(&def, &keys, compiler.dynamic_props)?;
-    let per_tile = plan_per_tile(&def, &keys, compiler)?;
     let render = RenderLayer::new(index, def.zooms.clone(), def.grid)
         .map_err(|error| PlanError::InvalidLayer {
             layer: def.name.clone(),
@@ -805,52 +1236,44 @@ fn plan_layer(index: u8, def: LayerDef, compiler: &mut Compiler<'_>) -> Result<P
         Some(bounds) => render.with_bounds(bounds),
         None => render,
     };
-    Ok(PlannedLayer {
+    let layer = PlannedLayer {
+        name: def.name,
+        output,
         render,
-        info: LayerInfo {
-            name: def.name,
-            grid: def.grid,
-            encoder: if def.sort_by.is_empty() && def.id_order.is_none() {
-                def.encoder
-            } else {
-                def.encoder
-                    .with_id_sort(false)
-                    .with_spatial_morton_sort(false)
-                    .with_spatial_hilbert_sort(false)
-            },
-            per_tile,
-        },
         zooms: def.zooms,
-        geometry: def.geometry,
-        point: def.point,
+        geometry,
         filter,
         id,
         attributes: def.attributes,
-        keys,
         copy,
         cases,
         fallback,
         sort_by,
-        id_order: def.id_order,
-    })
+        id_order: draft.id_order.as_ref().map(|(order, _)| *order),
+    };
+    Ok((layer, keys))
 }
 
-/// Every `group_by` attribute of the layer's operations is one the layer writes: one of `keys`, or, when
-/// it copies every property of a table with dynamic ones, perhaps one of those.
-fn check_group_by(def: &LayerDef, keys: &[String], dynamic_props: bool) -> Result<(), PlanError> {
-    if dynamic_props && def.attributes == AttributesDef::All {
+/// Every `group_by` attribute of the output layer's operations is one it writes: one of `keys`, or, when a
+/// definition copies every property of a table with dynamic ones (`output_props`), perhaps one of those.
+fn check_group_by(draft: &OutputDraft, keys: &[String], output_props: bool) -> Result<(), PlanError> {
+    if output_props {
         return Ok(());
     }
-    for op in def.per_tile.iter().filter(|op| clamped_zooms(op, &def.zooms).is_some()) {
-        let (name, group_by) = match &op.op {
-            TileOp::MergePolygons { group_by, .. } => ("merge_polygons", group_by.as_deref()),
-            TileOp::MergeMulti { group_by, .. } => ("merge_multi", Some(group_by.as_slice())),
+    for (op, layer, _) in draft
+        .per_tile
+        .iter()
+        .filter(|(op, ..)| clamped_zooms(op, &draft.zooms).is_some())
+    {
+        let group_by = match &op.op {
+            TileOp::MergePolygons { group_by, .. } => group_by.as_deref(),
+            TileOp::MergeMulti { group_by, .. } => Some(group_by.as_slice()),
             TileOp::MergeLines { .. } | TileOp::Thinning { .. } | TileOp::Limit { .. } => continue,
         };
         if let Some(attribute) = group_by.into_iter().flatten().find(|name| !keys.contains(name)) {
             return Err(PlanError::UnknownGroupBy {
-                layer: def.name.clone(),
-                op: name,
+                layer: layer.clone(),
+                op: op.op.key(),
                 attribute: attribute.clone(),
             });
         }
@@ -865,41 +1288,42 @@ fn clamped_zooms(op: &TileOpDef, zooms: &RangeInclusive<u8>) -> Option<RangeIncl
     (lo <= hi).then_some(lo..=hi)
 }
 
-/// The layer's operations in the order they run, each clamped into its zooms, without those outside them,
-/// and with `thinning` keys compiled over the layer's output attributes.
+/// The output layer's operations in the order they run, each clamped into its zooms, without those outside them,
+/// and with `thinning` keys compiled over its output attributes `keys` into `exprs`.
 fn plan_per_tile(
-    def: &LayerDef,
+    draft: &OutputDraft,
     keys: &[String],
-    compiler: &mut Compiler<'_>,
+    output_props: bool,
+    exprs: &mut Vec<PlannedExpr>,
 ) -> Result<Vec<PlannedTileOp>, PlanError> {
-    let output_props = compiler.dynamic_props && def.attributes == AttributesDef::All;
     let mut ops = Vec::new();
-    for op in &def.per_tile {
-        let Some(zooms) = clamped_zooms(op, &def.zooms) else {
+    for (op, name, layer) in &draft.per_tile {
+        let Some(zooms) = clamped_zooms(op, &draft.zooms) else {
             continue;
         };
-        let units = f64::from(def.grid.extent) / TILE_PIXELS;
+        let units = f64::from(draft.grid.extent) / TILE_PIXELS;
+        let buffer = |buffer: Option<f64>| buffer.map_or(f64::from(draft.grid.buffer), |px| px * units);
         let planned = match &op.op {
             TileOp::MergeLines {
                 min_length,
                 tolerance,
-                buffer,
+                buffer: px,
             } => PlannedOp::MergeLines(PlannedMergeLines {
                 min_length: min_length * units,
                 tolerance: tolerance * units,
-                buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
+                buffer: buffer(*px),
             }),
             TileOp::MergePolygons {
                 min_area,
                 min_hole_area,
                 distance,
-                buffer,
+                buffer: px,
                 group_by,
             } => PlannedOp::MergePolygons(PlannedMergePolygons {
                 min_area: min_area * units * units,
                 min_hole_area: min_hole_area * units * units,
                 distance: distance * units,
-                buffer: buffer.map_or(f64::from(def.grid.buffer), |px| px * units),
+                buffer: buffer(*px),
                 group_by: group_by.clone(),
                 warned: Arc::default(),
             }),
@@ -909,11 +1333,22 @@ fn plan_per_tile(
                     .map(|source| {
                         let expr = CompiledExpr::compile(source, keys, output_props).map_err(|error| {
                             PlanError::LayerExpr {
-                                layer: def.name.clone(),
+                                layer: name.clone(),
                                 error,
                             }
                         })?;
-                        Ok(compiler.add(source, expr, ThinningKey))
+                        if expr.measures_area() {
+                            return Err(PlanError::ThinningArea {
+                                layer: name.clone(),
+                                expr: source.clone(),
+                            });
+                        }
+                        exprs.push(PlannedExpr {
+                            expr,
+                            source: source.clone(),
+                            layer: *layer,
+                        });
+                        Ok(ExprRef::new(exprs.len() - 1, ThinningKey))
                     })
                     .collect::<Result<_, PlanError>>()?,
                 method: match method {
@@ -1112,11 +1547,12 @@ fn plan_case(
     })
 }
 
-/// The grids of the layer's grid thinning.
-fn layer_grids(def: &LayerDef) -> Vec<ThinningGrid> {
-    def.per_tile
+/// The grids of the output layer's grid thinning.
+fn layer_grids(draft: &OutputDraft) -> Vec<ThinningGrid> {
+    draft
+        .per_tile
         .iter()
-        .filter_map(|op| {
+        .filter_map(|(op, ..)| {
             let TileOp::Thinning {
                 method: ThinningMethod::Grid { size, limit },
                 ..

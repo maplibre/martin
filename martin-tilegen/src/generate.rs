@@ -45,9 +45,34 @@ pub struct Summary {
     pub slice_errors: Vec<LayerSliceErrors>,
     /// Expressions that failed on some features, which then took them as `null`, in plan order.
     pub expr_errors: Vec<ExprErrors>,
+    /// Keys whose values had kinds no single column holds, such as numbers and text, in plan order.
+    pub mixed_kinds: Vec<MixedKinds>,
+    /// Keys whose integers a float column rounded, in plan order.
+    pub rounded: Vec<RoundedValues>,
     /// What each per-tile operation a layer has did to it, by layer in plan order, then in the order
     /// the operations run.
     pub per_tile: Vec<OpSummary>,
+}
+
+/// A key whose values had kinds no single column holds. MLT stores all of its values as text in every
+/// tile; MVT does so in the tiles that hold more than one kind.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MixedKinds {
+    /// The layer's name.
+    pub layer: String,
+    /// The key's name.
+    pub key: String,
+}
+
+/// A key whose integers beyond 2^53 shared a column with floats, which rounded them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RoundedValues {
+    /// The layer's name.
+    pub layer: String,
+    /// The key's name.
+    pub key: String,
+    /// How many values were rounded, over every tile.
+    pub values: u64,
 }
 
 /// What one per-tile operation did to one layer, summed over the tiles it ran on.
@@ -107,6 +132,7 @@ pub fn generate<S: FeatureSource, K: TileSink>(
     let batches = sorter.into_tiles(config.batch_tiles, progress)?;
     let (encoding, mut batches) = TileEncoding::start(
         plan,
+        totals.kinds(),
         batches,
         config.format,
         config.encoding,

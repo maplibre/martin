@@ -97,6 +97,16 @@ impl Layers {
         self.0.keys().map(String::as_str)
     }
 
+    /// The output layers its layers write into, each once, in the order they first appear.
+    pub fn output_names(&self) -> impl Iterator<Item = &str> {
+        let names: indexmap::IndexSet<&str> = self
+            .0
+            .iter()
+            .map(|(name, layer)| layer.layer.as_deref().unwrap_or(name))
+            .collect();
+        names.into_iter()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Layer)> {
         self.0.iter().map(|(name, layer)| (name.as_str(), layer))
     }
@@ -110,8 +120,11 @@ impl Layers {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(from = "RawLayer", into = "RawLayer")]
 pub struct Layer {
+    /// The output layer it writes into, which other layers may share; the layer's own key when unset.
+    pub layer: Option<String>,
     pub r#where: Option<Expr>,
-    pub geometry: Option<OutputGeometry>,
+    /// One value, or a list whose first entry taking a feature's type draws it.
+    pub geometry: Option<NonEmpty<OutputGeometry>>,
     pub minzoom: Option<ZoomSetting>,
     pub maxzoom: Option<ZoomSetting>,
     pub extent: Option<NonZeroU32>,
@@ -133,8 +146,9 @@ pub struct Layer {
 #[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize)]
 struct RawLayer {
+    layer: Option<String>,
     r#where: Option<Expr>,
-    geometry: Option<OutputGeometry>,
+    geometry: Option<NonEmpty<OutputGeometry>>,
     minzoom: Option<ZoomSetting>,
     maxzoom: Option<ZoomSetting>,
     extent: Option<NonZeroU32>,
@@ -162,6 +176,7 @@ struct RawLayer {
 impl From<RawLayer> for Layer {
     fn from(raw: RawLayer) -> Self {
         Self {
+            layer: raw.layer,
             r#where: raw.r#where,
             geometry: raw.geometry,
             minzoom: raw.minzoom,
@@ -192,6 +207,7 @@ impl From<RawLayer> for Layer {
 impl From<Layer> for RawLayer {
     fn from(layer: Layer) -> Self {
         Self {
+            layer: layer.layer,
             r#where: layer.r#where,
             geometry: layer.geometry,
             minzoom: layer.minzoom,
@@ -269,6 +285,26 @@ pub enum OutputGeometry {
     InnermostPoint,
 }
 
+impl OutputGeometry {
+    /// The value as the configuration writes it.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Point => "point",
+            Self::Line => "line",
+            Self::Polygon => "polygon",
+            Self::PolygonCentroid => "polygon_centroid",
+            Self::LineCentroid => "line_centroid",
+            Self::LineMidpoint => "line_midpoint",
+            Self::Centroid => "centroid",
+            Self::PolygonCentroidIfConvex => "polygon_centroid_if_convex",
+            Self::PolygonPointOnSurface => "polygon_point_on_surface",
+            Self::PointOnLine => "point_on_line",
+            Self::InnermostPoint => "innermost_point",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use indoc::indoc;
@@ -313,20 +349,38 @@ mod tests {
             poi: { geometry: polygon_centroid_if_convex }
             water: {}
         "});
-        let geometries: Vec<_> = layers.iter().map(|(name, l)| (name, l.geometry)).collect();
+        let geometries: Vec<_> = layers
+            .iter()
+            .map(|(name, l)| (name, l.geometry.as_ref().map(NonEmpty::as_slice)))
+            .collect();
         assert_eq!(
             geometries,
             [
-                ("roads", Some(OutputGeometry::Line)),
-                ("poi", Some(OutputGeometry::PolygonCentroidIfConvex)),
+                ("roads", Some([OutputGeometry::Line].as_slice())),
+                ("poi", Some([OutputGeometry::PolygonCentroidIfConvex].as_slice())),
                 ("water", None),
             ]
         );
     }
 
     #[test]
+    fn a_layer_lists_several_geometries_in_order() {
+        let layers = parse("pois: { geometry: [point, polygon_point_on_surface] }");
+        let layer = layers.get("pois").expect("layer exists");
+        assert_eq!(
+            layer.geometry.as_ref().map(NonEmpty::as_slice),
+            Some([OutputGeometry::Point, OutputGeometry::PolygonPointOnSurface].as_slice())
+        );
+    }
+
+    #[test]
+    fn an_empty_geometry_list_is_rejected() {
+        insta::assert_snapshot!(rejection("pois: { geometry: [] }"), @"error: line 1 column 9: invalid length 0, expected at least one item");
+    }
+
+    #[test]
     fn an_unknown_geometry_is_rejected() {
-        insta::assert_snapshot!(rejection("roads: { geometry: curve }"), @"error: line 1 column 20: unknown variant `curve`, expected one of point, line, polygon, polygon_centroid, line_centroid, line_midpoint, centroid, polygon_centroid_if_convex, polygon_point_on_surface, point_on_line, innermost_point");
+        insta::assert_snapshot!(rejection("roads: { geometry: curve }"), @"error: line 1 column 10: unknown variant `curve`, expected one of point, line, polygon, polygon_centroid, line_centroid, line_midpoint, centroid, polygon_centroid_if_convex, polygon_point_on_surface, point_on_line, innermost_point");
     }
 
     #[test]

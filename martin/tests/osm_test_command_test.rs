@@ -106,21 +106,12 @@ async fn osm_generate_writes_a_case_per_object_found() {
     - source: monaco
       paths:
       - "roads: dropped, `where` is false"
-      input:
-        geometry: LINESTRING(7.4135618 43.7315191,7.4137377 43.7315542,7.4137378 43.7315543,7.4137977 43.7316116,7.4137109 43.7317658,7.4136638 43.7318296,7.4136169 43.7318931,7.4134669 43.7319786)
-        highway: service
-        id: 42271562
-        name: null
-      output: []
-    - source: monaco
-      paths:
       - "roads: dropped, `highway` is null in `where`"
-      - "roads: dropped, `where` is false"
       input:
-        geometry: LINESTRING(7.4207674 43.7389522,7.4214405 43.7396529,7.4222294 43.7404886,7.4229198 43.7413755,7.4259985 43.7450076,7.4271042 43.7461353,7.4296806 43.7483461,7.4311279 43.7494288,7.4332498 43.750677,7.4350394 43.7515102,7.4361839 43.7518194,7.4368175 43.7519639,7.4377083 43.752058,7.4382402 43.7520705,7.4400577 43.7521133,7.4410334 43.7522008,7.4448047 43.7529662,7.4454096 43.753126,7.4460965 43.7533658,7.4466395 43.7536054,7.4480063 43.7543341)
+        geometry: POLYGON((7.4153692 43.7270029,7.4163084 43.7277046,7.4156948 43.7281335,7.4147556 43.7274319,7.4153692 43.7270029))
         highway: null
-        id: 49782622
-        name: Ligne de Marseille à Vintimille
+        id: 42249782
+        name: null
       output: []
     - source: monaco
       paths:
@@ -189,6 +180,113 @@ async fn osm_cases_of_a_generated_spec_pass() {
         Pass,
         Pass,
         Pass,
+    ]
+    ");
+}
+
+#[tokio::test]
+async fn osm_generate_writes_one_case_for_the_polygon_and_the_outline_of_a_closed_way() {
+    let backend = load(indoc! {"
+        osm:
+          sources:
+            monaco:
+              path: ${MONACO}
+              tags: [aeroway, name]
+              layers:
+                helipad_outlines:
+                  geometry: line
+                  where: aeroway == 'helipad' && name == '1'
+                  attributes: [name]
+                helipads:
+                  geometry: polygon
+                  where: aeroway == 'helipad' && name == '1'
+                  attributes: [name]
+    "});
+    let mut review = review(&backend, 14, None, 0, &Reporter::new()).await.unwrap();
+    review.accept_all();
+    insta::assert_snapshot!(yaml(&review.spec()), @r#"
+    max_zoom: 14
+    cases:
+    - source: monaco
+      paths:
+      - "helipad_outlines: kept by `where`"
+      - "helipads: kept by `where`"
+      input:
+        aeroway: helipad
+        geometry: POLYGON((7.4193719 43.7254854,7.4193949 43.7255006,7.4194098 43.7255204,7.4194151 43.7255426,7.4194101 43.7255649,7.4193954 43.7255848,7.4193726 43.7256002,7.4193441 43.7256094,7.419313 43.7256114,7.4192825 43.725606,7.4192562 43.7255938,7.4192367 43.725576,7.4192264 43.7255546,7.4192263 43.7255319,7.4192364 43.7255104,7.4192556 43.7254925,7.4192818 43.7254801,7.4193122 43.7254745,7.4193433 43.7254763,7.4193719 43.7254854))
+        id: 5729327562
+        name: "1"
+      output:
+      - layer: helipad_outlines
+        id: 5729327562
+        geometry: line
+        zooms: 13-14
+        attributes:
+          name: "1"
+      - layer: helipads
+        id: 5729327562
+        geometry: polygon
+        zooms: 13-14
+        attributes:
+          name: "1"
+    - source: monaco
+      paths:
+      - "helipad_outlines: dropped, `where` is false"
+      - "helipad_outlines: dropped, `aeroway` is null in `where`"
+      input:
+        aeroway: null
+        geometry: LINESTRING(7.4259518 43.7389494,7.4258602 43.7389997,7.4257964 43.739037,7.425743 43.7390849,7.4257083 43.7391243,7.4256818 43.7391636,7.4256611 43.7392238,7.4256536 43.7392768,7.4256563 43.7393298,7.4256802 43.7393746,7.4257083 43.7394273,7.4257117 43.7394671,7.4256947 43.7395025,7.4256666 43.7395255,7.4256203 43.7395471,7.4251395 43.7397104)
+        id: 40976562
+        name: Avenue Princesse Alice
+      output: []
+    - source: monaco
+      paths:
+      - "helipad_outlines: dropped, `name` is null in `where`"
+      - "helipads: dropped, `where` is false"
+      - "helipads: dropped, `aeroway` is null in `where`"
+      - "helipads: dropped, `name` is null in `where`"
+      - "helipad_outlines: dropped, `where` is false"
+      - "helipad_outlines: dropped, `aeroway` is null in `where`"
+      input:
+        aeroway: null
+        geometry: POLYGON((7.4153692 43.7270029,7.4163084 43.7277046,7.4156948 43.7281335,7.4147556 43.7274319,7.4153692 43.7270029))
+        id: 42249782
+        name: null
+      output: []
+    "#);
+}
+
+#[tokio::test]
+async fn osm_cases_of_a_generated_spec_with_closed_ways_pass() {
+    let backend = load(indoc! {"
+        osm:
+          sources:
+            monaco:
+              path: ${MONACO}
+              tags: [aeroway, name]
+              layers:
+                helipad_outlines:
+                  geometry: line
+                  where: aeroway == 'helipad'
+                  attributes: [name]
+                helipads:
+                  geometry: polygon
+                  where: aeroway == 'helipad'
+                  attributes: [name]
+    "});
+    let mut review = review(&backend, 14, None, 0, &Reporter::new()).await.unwrap();
+    review.accept_all();
+    let spec = review.spec();
+    let tables = backend.tables(spec.max_zoom).unwrap();
+    let mut outcomes = Vec::new();
+    for case in &spec.cases {
+        outcomes.push(check(&backend, &tables, case).await.unwrap().status());
+    }
+    insta::assert_debug_snapshot!(outcomes, @"
+    [
+        Pass,
+        Pass,
+        Pass,
         Pass,
     ]
     ");
@@ -250,7 +348,7 @@ fn osm_and_database_sources_together_are_refused() {
     "};
     file.write_all(yaml.replace("${MONACO}", monaco).as_bytes()).unwrap();
     let error = Osm::load(file.path()).err().unwrap();
-    insta::assert_snapshot!(error, @"`martin test` tests OSM sources or database sources, not both; put them in separate configuration files");
+    insta::assert_snapshot!(error, @"`martin test` tests file sources (`osm`, `shapefile`) or database sources, not both; put them in separate configuration files");
 }
 
 #[tokio::test]

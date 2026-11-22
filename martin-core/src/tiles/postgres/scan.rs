@@ -28,6 +28,9 @@ pub struct ScanLayout {
     pub has_id: bool,
     /// How many property columns follow.
     pub properties: usize,
+    /// Whether a `jsonb` column is kept whole as one nested value, instead of spread into one property per
+    /// top-level key as `ST_AsMVT` does. Only a build with `unstable-mlt-v2` reads it.
+    pub keep_documents: bool,
 }
 
 impl ScanLayout {
@@ -234,6 +237,12 @@ fn feature(
             PostgresProperty::Value(value) => {
                 if let Some(value) = prop(value) {
                     props.push((KeyId::new(pos), value));
+                }
+            }
+            #[cfg(feature = "unstable-mlt-v2")]
+            PostgresProperty::Json(document) if layout.keep_documents => {
+                if let Some(document) = document.filter(|document| !document.is_null()) {
+                    props.push((KeyId::new(pos), Prop::Nested(arena.str(&document.to_string()))));
                 }
             }
             PostgresProperty::Json(document) => {

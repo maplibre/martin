@@ -5,10 +5,10 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-use martin_tilegen::LayerGrid;
 use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
-use martin_tilegen::plan::{GeometryType, LayerDef, TableDef};
-use martin_tilegen::source::{FeatureSource as _, SourceFeature};
+use martin_tilegen::plan::{DerivedPoint, GeometryDef, GeometryType, LayerDef, TableDef};
+use martin_tilegen::source::{FeatureSource as _, Geometry, SourceFeature};
+use martin_tilegen::{FeatureGeom, LayerGrid};
 
 const GRID: LayerGrid = LayerGrid {
     extent: 4096,
@@ -21,7 +21,7 @@ fn source(filter: Option<&str>, geometry: Option<GeometryType>) -> OsmSource {
     let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
     let layer = LayerDef {
         filter: filter.map(str::to_owned),
-        geometry,
+        geometry: geometry.map(GeometryDef::from).into_iter().collect(),
         ..LayerDef::new("layer", 0..=14, GRID)
     };
     let table = OsmTable {
@@ -50,14 +50,14 @@ fn read_all(source: &OsmSource) -> Vec<SourceFeature> {
     features
 }
 
-fn taken_by(source: &OsmSource, features: &[SourceFeature]) -> BTreeSet<i64> {
+fn taken_by(source: &OsmSource, features: &[SourceFeature]) -> BTreeSet<(i64, bool)> {
     let mut evaluator = source.plan().evaluator();
     let mut taken = BTreeSet::new();
     for feature in features {
         let geom = feature.geometry.feature_geom().unwrap();
         evaluator
             .evaluate(0, feature, geom, |_| {
-                taken.insert(feature.id.unwrap());
+                taken.insert((feature.id.unwrap(), matches!(feature.geometry, Geometry::Outline(_))));
                 Ok(())
             })
             .unwrap();
@@ -65,13 +65,30 @@ fn taken_by(source: &OsmSource, features: &[SourceFeature]) -> BTreeSet<i64> {
     taken
 }
 
-fn ids(features: &[SourceFeature]) -> BTreeSet<i64> {
-    features.iter().map(|f| f.id.unwrap()).collect()
+fn ids(features: &[SourceFeature]) -> BTreeSet<(i64, bool)> {
+    features
+        .iter()
+        .map(|f| (f.id.unwrap(), matches!(f.geometry, Geometry::Outline(_))))
+        .collect()
 }
 
 #[track_caller]
 fn assert_pushdown_exact(filter: &str, geometry: Option<GeometryType>) {
-    let everything = read_all(&source(None, None));
+    let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
+    let table = OsmTable {
+        path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Every,
+    };
+    let def = TableDef {
+        columns: columns(&tags),
+        layers: vec![LayerDef {
+            geometry: vec![GeometryType::Line.into()],
+            ..LayerDef::new("layer", 0..=14, GRID)
+        }],
+    };
+    let everything = read_all(&OsmSource::new(vec![(def, table)], 16 << 10).unwrap());
     let pushed = source(Some(filter), geometry);
     let expected = taken_by(&pushed, &everything);
     assert!(!expected.is_empty(), "`{filter}` takes no object of Monaco");
@@ -133,7 +150,7 @@ fn untranslatable_where_reads_every_node_and_nothing_else() {
         Some("name != null && size(name.split(' ')) > 1"),
         Some(GeometryType::Point),
     );
-    let nodes: BTreeSet<i64> = ids(&everything).into_iter().filter(|id| id % 10 == 1).collect();
+    let nodes: BTreeSet<(i64, bool)> = ids(&everything).into_iter().filter(|(id, _)| id % 10 == 1).collect();
     assert!(!taken_by(&pushed, &everything).is_empty());
     assert_eq!(ids(&read_all(&pushed)), nodes);
 }
@@ -171,6 +188,46 @@ fn partition_size_changes_neither_the_features_nor_their_order() {
 }
 
 #[test]
+fn a_layer_of_point_and_polygon_geometries_reads_no_lines() {
+    let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
+    let table = OsmTable {
+        path: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/osm/monaco.osm.pbf"),
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: columns(&tags),
+        layers: vec![LayerDef {
+            geometry: vec![
+                GeometryType::Point.into(),
+                GeometryDef {
+                    takes: Some(GeometryType::Polygon),
+                    point: Some(DerivedPoint::PointOnSurface),
+                },
+            ],
+            ..LayerDef::new("layer", 0..=14, GRID)
+        }],
+    };
+    let source = OsmSource::new(vec![(def, table)], 16 << 10).unwrap();
+    let mut kinds = std::collections::BTreeMap::new();
+    for feature in read_all(&source) {
+        let kind = match feature.geometry.feature_geom().unwrap() {
+            FeatureGeom::Points(_) => "points",
+            FeatureGeom::Lines(_) => "lines",
+            FeatureGeom::Polygons(_) => "polygons",
+        };
+        *kinds.entry(kind).or_insert(0) += 1;
+    }
+    insta::assert_debug_snapshot!(kinds, @r#"
+    {
+        "points": 2427,
+        "polygons": 1547,
+    }
+    "#);
+}
+
+#[test]
 fn every_object_reads_what_no_layer_takes() {
     let tags: Vec<String> = TAGS.iter().map(|t| (*t).to_owned()).collect();
     let table = OsmTable {
@@ -183,7 +240,7 @@ fn every_object_reads_what_no_layer_takes() {
         columns: columns(&tags),
         layers: vec![LayerDef {
             filter: Some("highway == 'primary'".to_owned()),
-            geometry: Some(GeometryType::Point),
+            geometry: vec![GeometryType::Point.into()],
             ..LayerDef::new("layer", 0..=14, GRID)
         }],
     };
@@ -253,7 +310,7 @@ fn a_shared_store_loads_the_nodes_once_and_only_for_ways(#[case] reads: &[Geomet
             let def = TableDef {
                 columns: columns(&tags),
                 layers: vec![LayerDef {
-                    geometry: Some(*geometry),
+                    geometry: vec![GeometryDef::from(*geometry)],
                     ..LayerDef::new("layer", 0..=14, GRID)
                 }],
             };

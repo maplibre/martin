@@ -1580,9 +1580,38 @@
           "description": "Allow string grouping into shared dictionaries.",
           "type": ["boolean", "null"]
         },
+        "network": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MltNetwork"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How tiles reach the client, which the `web` and `native` profiles and `tessellate: auto` weigh bytes by.\n\nWhen unset, `offline`, except that `martin cp --mode bulk` uses `4g` for compressed tiles."
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MltProfile"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The tile consumer whose encoder defaults the other fields override.\n\nWhen unset, `web`."
+        },
         "tessellate": {
-          "description": "Generate tessellation data for polygons and multi-polygons.",
-          "type": ["boolean", "null"]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MltTessellate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Store the triangles of polygons: `true`, `false`, or `auto` for when they spare `MapLibre Native` more\ndrawing time than the `network` spends on their bytes.\n\nWhen unset, the `profile` decides."
         },
         "try_id_sort": {
           "description": "Try sorting features by their feature ID in ascending order.",
@@ -1598,6 +1627,73 @@
         }
       },
       "type": "object"
+    },
+    "MltNetwork": {
+      "description": "How tiles reach the client, which prices a stored byte against the client time it spares.",
+      "oneOf": [
+        {
+          "const": "offline",
+          "description": "Local storage, where a byte costs nothing.",
+          "type": "string"
+        },
+        {
+          "const": "3g",
+          "description": "2 Mbit/s.",
+          "type": "string"
+        },
+        {
+          "const": "4g",
+          "description": "20 Mbit/s.",
+          "type": "string"
+        },
+        {
+          "const": "5g",
+          "description": "200 Mbit/s.",
+          "type": "string"
+        }
+      ]
+    },
+    "MltProfile": {
+      "description": "The tile consumer an MLT encoder tunes its defaults for.",
+      "oneOf": [
+        {
+          "const": "web",
+          "description": "`MapLibre GL JS`: no triangles, which it ignores; `FastPFOR` and `FSST` only `offline`.",
+          "type": "string"
+        },
+        {
+          "const": "native",
+          "description": "`MapLibre Native`: `tessellate: auto` and every codec.",
+          "type": "string"
+        },
+        {
+          "const": "min-size",
+          "description": "The fewest stored bytes: no triangles, Hilbert and feature-ID sorts.",
+          "type": "string"
+        },
+        {
+          "const": "diffable",
+          "description": "Small binary diffs between releases: no triangles, no `FSST` or shared dictionaries.",
+          "type": "string"
+        },
+        {
+          "const": "fast-encoding",
+          "description": "The quickest encode: no triangles, sorts or optional codecs, so tiles come out larger.",
+          "type": "string"
+        }
+      ]
+    },
+    "MltTessellate": {
+      "description": "Whether MLT stores the triangles of polygons.",
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "enum": ["auto"],
+          "type": "string"
+        }
+      ]
     },
     "MvtEncoderConfig": {
       "additionalProperties": true,
@@ -2220,6 +2316,13 @@
         "renderers_per_worker": {
           "description": "Renderers each tile worker keeps loaded, one per style and pixel ratio.\nBeyond this, the least recently used is dropped. \\[default: 8\\]",
           "examples": [16],
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
+        },
+        "static_renderers_per_worker": {
+          "description": "Renderers each static worker keeps loaded, one per style and pixel ratio.\nBeyond this, the least recently used one is replaced. \\[default: 2\\]",
+          "examples": [4],
           "format": "uint",
           "minimum": 1,
           "type": ["integer", "null"]

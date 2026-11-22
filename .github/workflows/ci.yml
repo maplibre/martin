@@ -59,11 +59,11 @@ jobs:
         if: github.event_name == 'push'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Check whether a crate version on main has not been released yet
+      - name: Check whether a binary crate's version on main has not been released yet
         id: release-pending
         if: github.event_name == 'push'
         run: |
-          tags=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.publish != []) | "\(.name)-v\(.version)"')
+          tags=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.publish != []) | select(any(.targets[]; .kind | index("bin"))) | "\(.name)-v\(.version)"')
           pending=false
           for tag in $tags; do
             if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
@@ -254,6 +254,41 @@ jobs:
       id-token: write
       attestations: write
 
+  # Main saves a new generation of each Rust build cache whenever Cargo.lock or
+  # the toolchain changes, and the old ones stay until the 100GB quota evicts
+  # them. Restores fall back to the newest entry with the same prefix, so the
+  # older generations of each cache are never read again.
+  prune-caches:
+    name: Delete superseded build caches
+    needs:
+      - rust
+      - security
+    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      actions: write
+    steps:
+      - name: Keep only the newest generation of each Rust and CodeQL build cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # v0-rust-<key>-<job>-<os>-<arch>-<env hash>-<lockfile hash>, codeql-rust-<os>-<lockfile hash>
+          gh api --paginate "repos/$GH_REPO/actions/caches?ref=refs/heads/main&per_page=100" \
+            --jq '.actions_caches[] | [.id, .key, .created_at] | @tsv' |
+            awk -F'\t' '$2 ~ /^(v0-rust-|codeql-rust-)/ {
+              group = $2; hashes = ($2 ~ /^v0-rust-/) ? 2 : 1
+              for (i = 0; i < hashes; i++) sub(/-[^-]+$/, "", group)
+              print group "\t" $3 "\t" $1 "\t" $2
+            }' |
+            sort -t$'\t' -k1,1 -k2,2r |
+            awk -F'\t' 'seen[$1]++ { print $3 "\t" $4 }' |
+            while IFS=$'\t' read -r id key; do
+              echo "Deleting $key"
+              gh api --method DELETE "repos/$GH_REPO/actions/caches/$id" > /dev/null
+            done
+
   # This final step is needed to mark the whole workflow as successful
   # Don't change its name - it is used by the merge protection rules
   done:
@@ -276,8 +311,8 @@ jobs:
       - name: Result of the needed steps
         run: echo "${{ toJSON(needs) }}" # zizmor: ignore[template-injection]
       # A skip is a pass here: `changes` drops the suites a pull request cannot
-      # affect, and run-heavy defers duplicate platform coverage to the top of a
-      # stack. Failures inside a called workflow still surface, because a
+      # affect, and run-heavy defers to the top of a stack what its run proves
+      # for the whole stack. Failures inside a called workflow still surface, because a
       # reusable-workflow job fails when any job inside it fails.
       - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         name: CI Result

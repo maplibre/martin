@@ -31,6 +31,7 @@ debuginfo
 deckgl
 dedup
 demotiles
+diffable
 dflt
 dpkg
 duckdb
@@ -96,6 +97,7 @@ mbtiles
 minzoom
 moka
 msvc
+multipoint
 multipolygon
 multisurface
 mydb
@@ -105,6 +107,7 @@ newtype
 nextest
 nixpkgs
 nodata
+nonlatin
 notnull
 noto
 NZTM
@@ -115,6 +118,7 @@ onthegomap
 openlayers
 openmaptiles
 optfile
+osmdata
 osmus
 overturemaps
 PDOK
@@ -135,6 +139,7 @@ postgis
 qgis
 quadtree
 queryless
+rans
 reproject
 reprojected
 reprojection
@@ -149,6 +154,7 @@ serde
 setseed
 setsrid
 shapefile
+shapefiles
 spreet
 spritesheet
 sqlx

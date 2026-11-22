@@ -42,8 +42,8 @@ impl OsmConfig {
     }
 }
 
-/// One PBF file: its tagged nodes are points, and its tagged ways are lines, or polygons when closed and their tags
-/// make them areas.
+/// One PBF file: its tagged nodes are points, and its tagged ways are lines, and when closed also polygons, as
+/// Planetiler reads them.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
 pub struct OsmSourceConfig {

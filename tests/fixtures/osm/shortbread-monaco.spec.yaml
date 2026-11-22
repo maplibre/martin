@@ -1,5 +1,17 @@
 max_zoom: 14
 cases:
+- source: ocean
+  paths:
+  - "ocean: every feature"
+  - "ocean: crosses a z14 tile edge"
+  input:
+    geometry: POLYGON((-3000000 0,-3000000 1252344.2714243277,-1747655.7285756723 1252344.2714243277,-1747655.7285756723 0,-3000000 0))
+    record: 1
+  output:
+  - layer: ocean
+    id: 1
+    geometry: polygon
+    zooms: 0-14
 - source: shortbread
   paths:
   - "water_polygons: kept by `where`"
@@ -13,10 +25,22 @@ cases:
   - "water_polygons_labels: dropped, `landuse` is null in `where`"
   - "water_polygons_labels: dropped, `name` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -44,15 +68,29 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "streets_polygons_labels: dropped, `name` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -135,6 +173,7 @@ cases:
     zooms: 11-14
     attributes:
       kind: water
+      way_area: 694.5492257551442
 - source: shortbread
   paths:
   - "water_polygons: dropped, `where` is false"
@@ -173,10 +212,22 @@ cases:
   - "water_polygons_labels: dropped, `landuse` is null in `where`"
   - "water_polygons_labels: dropped, `name` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -201,15 +252,29 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "streets_polygons_labels: dropped, `name` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -309,10 +374,22 @@ cases:
   - "water_polygons_labels: dropped, `landuse` is null in `where`"
   - "water_polygons_labels: dropped, `name` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -337,15 +414,29 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "streets_polygons_labels: dropped, `name` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -447,6 +538,7 @@ cases:
     zooms: 14-14
     attributes:
       kind: water
+      way_area: 51.231241241659895
   - layer: pois
     id: 5729354772
     geometry: point
@@ -471,10 +563,21 @@ cases:
   - "water_polygons: kept only at z14 (`min_size_at_maxzoom`)"
   - "water_polygons_labels: dropped, `landuse` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -499,14 +602,27 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -612,6 +728,7 @@ cases:
     zooms: 14-14
     attributes:
       kind: water
+      way_area: 68.45309372582172
   - layer: water_polygons_labels
     id: 5729354792
     geometry: point
@@ -619,6 +736,7 @@ cases:
     attributes:
       kind: water
       name: Fontaine du Casino
+      way_area: 68.45309372582172
   - layer: pois
     id: 5729354792
     geometry: point
@@ -652,34 +770,6 @@ cases:
   - "aerialways: dropped, `aerialway` is null in `where`"
   - "ferries: dropped, `where` is false"
   - "ferries: dropped, `route` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `highway` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `highway` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `highway` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null
@@ -750,171 +840,6 @@ cases:
       tunnel: false
 - source: shortbread
   paths:
-  - "water_lines: dropped, `where` is false"
-  - "water_lines: dropped, `waterway` is null in `where`"
-  - "water_lines_labels: dropped, `waterway` is null in `where`"
-  - "dam_lines: dropped, `waterway` is null in `where`"
-  - "streets: kept by `where`"
-  - "streets: attributes.kind, `highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway', 'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway']` is true"
-  - "streets: attributes.kind, `aeroway in ['runway', 'taxiway']` is false"
-  - "streets: attributes.kind, `aeroway` is null in `aeroway in ['runway', 'taxiway']`"
-  - "streets: minzoom `((highway != null) && highway.startsWith('trunk')) ? 6 : ((((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))) ? 8 : (((highway != null) && highway.startsWith('secondary')) ? 9 : (((((railway in ['rail', 'narrow_gauge']) && (service == null)) || (railway in ['funicular', 'light_rail', 'monorail', 'subway', 'tram'])) || (highway == 'tertiary')) ? 10 : ((aeroway == 'runway') ? 11 : ((highway in ['bus_guideway', 'busway', 'residential', 'unclassified']) ? 12 : 13)))))`, `(highway != null) && highway.startsWith('motorway')` is false"
-  - "streets: minzoom, `(highway != null) && highway.startsWith('trunk')` is false"
-  - "streets: minzoom, `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))` is true"
-  - "streets: minzoom, `railway` is null in `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))`"
-  - "streets: minzoom, `service` is null in `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))`"
-  - "streets: minzoom, `(highway != null) && highway.startsWith('secondary')` is false"
-  - "streets: minzoom, `(((railway in ['rail', 'narrow_gauge']) && (service == null)) || (railway in ['funicular', 'light_rail', 'monorail', 'subway', 'tram'])) || (highway == 'tertiary')` is false"
-  - "streets: minzoom, `aeroway == 'runway'` is false"
-  - "streets: minzoom, `highway in ['bus_guideway', 'busway', 'residential', 'unclassified']` is false"
-  - "streets: crosses a z14 tile edge"
-  - "street_labels: kept by `where`"
-  - "street_labels: attributes.kind `highway`, `highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway', 'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway']` is true"
-  - "street_labels: attributes.kind, `aeroway in ['runway', 'taxiway']` is false"
-  - "street_labels: attributes.kind, `aeroway` is null in `aeroway in ['runway', 'taxiway']`"
-  - "street_labels: attributes.ref null, `ref != null` is false"
-  - "street_labels: minzoom `(aeroway == 'runway') ? 11 : ((highway in ['trunk', 'primary']) ? 12 : (((highway in ['motorway_link', 'trunk_link', 'primary_link', 'secondary', 'secondary_link', 'tertiary']) || (aeroway == 'taxiway')) ? 13 : 14))`, `(highway == 'motorway') || (railway in ['rail', 'narrow_gauge', 'tram', 'light_rail', 'funicular', 'subway', 'monorail'])` is false"
-  - "street_labels: minzoom, `railway` is null in `(highway == 'motorway') || (railway in ['rail', 'narrow_gauge', 'tram', 'light_rail', 'funicular', 'subway', 'monorail'])`"
-  - "street_labels: minzoom, `aeroway == 'runway'` is false"
-  - "street_labels: minzoom, `highway in ['trunk', 'primary']` is true"
-  - "street_labels: minzoom, `(highway in ['motorway_link', 'trunk_link', 'primary_link', 'secondary', 'secondary_link', 'tertiary']) || (aeroway == 'taxiway')` is false"
-  - "street_labels: crosses a z14 tile edge"
-  - "water_lines_labels: dropped, `where` is false"
-  - "dam_lines: dropped, `where` is false"
-  - "pier_lines: dropped, `where` is false"
-  - "pier_lines: dropped, `man_made` is null in `where`"
-  - "boundaries: dropped, `where` is false"
-  - "boundaries: dropped, `admin_level` is null in `where`"
-  - "boundaries: dropped, `boundary` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
-  - "streets: dropped, `aeroway` is null in `where`"
-  - "streets: dropped, `railway` is null in `where`"
-  - "street_labels: dropped, `aeroway` is null in `where`"
-  - "street_labels: dropped, `railway` is null in `where`"
-  - "street_labels: dropped, `ref` is null in `where`"
-  - "aerialways: dropped, `where` is false"
-  - "aerialways: dropped, `aerialway` is null in `where`"
-  - "ferries: dropped, `where` is false"
-  - "ferries: dropped, `route` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
-  input:
-    "addr:housename": null
-    "addr:housenumber": null
-    admin_level: null
-    aerialway: null
-    aeroway: null
-    amenity: null
-    "area:aeroway": null
-    atm: null
-    bicycle: null
-    boundary: null
-    bridge: null
-    building: null
-    capital: null
-    covered: null
-    cuisine: null
-    denomination: null
-    disputed: null
-    emergency: null
-    geometry: LINESTRING(7.4259518 43.7389494,7.4258602 43.7389997,7.4257964 43.739037,7.425743 43.7390849,7.4257083 43.7391243,7.4256818 43.7391636,7.4256611 43.7392238,7.4256536 43.7392768,7.4256563 43.7393298,7.4256802 43.7393746,7.4257083 43.7394273,7.4257117 43.7394671,7.4256947 43.7395025,7.4256666 43.7395255,7.4256203 43.7395471,7.4251395 43.7397104)
-    highway: primary
-    historic: null
-    horse: null
-    iata: null
-    id: 40976562
-    information: null
-    landuse: null
-    leisure: null
-    man_made: null
-    maritime: null
-    military: null
-    motor_vehicle: null
-    name: Avenue Princesse Alice
-    "name:de": null
-    "name:en": null
-    natural: null
-    office: null
-    oneway: null
-    place: null
-    population: null
-    railway: null
-    "recycling:clothes": null
-    "recycling:glass_bottles": null
-    "recycling:paper": null
-    "recycling:scrap_metal": null
-    ref: null
-    religion: null
-    route: null
-    service: null
-    shop: null
-    sport: null
-    surface: asphalt
-    tourism: null
-    "tower:type": null
-    tracktype: null
-    tunnel: null
-    vending: null
-    waterway: null
-    wetland: null
-  output:
-  - layer: streets
-    id: 40976562
-    geometry: line
-    zooms: 8-14
-    attributes:
-      bridge:
-        value: false
-        minzoom: 11
-      kind: primary
-      link:
-        value: false
-        minzoom: 11
-      oneway:
-        value: false
-        minzoom: 14
-      oneway_reverse:
-        value: false
-        minzoom: 14
-      rail: false
-      surface:
-        value: asphalt
-        minzoom: 11
-      tunnel:
-        value: false
-        minzoom: 11
-  - layer: street_labels
-    id: 40976562
-    geometry: line
-    zooms: 12-14
-    attributes:
-      kind: primary
-      name: Avenue Princesse Alice
-      tunnel: false
-- source: shortbread
-  paths:
   - "water_lines: kept only at z14 (`min_size_at_maxzoom`)"
   - "water_lines: kept by `where`"
   - "water_lines: minzoom 14, `waterway in ['stream', 'ditch']` is true"
@@ -926,18 +851,6 @@ cases:
   - "boundaries: dropped, `where` is false"
   - "boundaries: dropped, `admin_level` is null in `where`"
   - "boundaries: dropped, `boundary` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `highway` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
   - "streets: dropped, `where` is false"
   - "streets: dropped, `aeroway` is null in `where`"
   - "streets: dropped, `highway` is null in `where`"
@@ -952,22 +865,6 @@ cases:
   - "aerialways: dropped, `aerialway` is null in `where`"
   - "ferries: dropped, `where` is false"
   - "ferries: dropped, `route` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `highway` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `highway` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null
@@ -1049,18 +946,6 @@ cases:
   - "boundaries: dropped, `where` is false"
   - "boundaries: dropped, `admin_level` is null in `where`"
   - "boundaries: dropped, `boundary` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `highway` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
   - "streets: dropped, `where` is false"
   - "streets: dropped, `aeroway` is null in `where`"
   - "streets: dropped, `highway` is null in `where`"
@@ -1075,22 +960,6 @@ cases:
   - "aerialways: dropped, `aerialway` is null in `where`"
   - "ferries: dropped, `where` is false"
   - "ferries: dropped, `route` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `highway` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `highway` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null
@@ -1433,18 +1302,6 @@ cases:
   - "dam_lines: dropped, `waterway` is null in `where`"
   - "pier_lines: dropped, `where` is false"
   - "pier_lines: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `highway` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
   - "streets: dropped, `where` is false"
   - "streets: dropped, `aeroway` is null in `where`"
   - "streets: dropped, `highway` is null in `where`"
@@ -1458,22 +1315,6 @@ cases:
   - "aerialways: dropped, `aerialway` is null in `where`"
   - "ferries: dropped, `where` is false"
   - "ferries: dropped, `route` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `highway` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `highway` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null
@@ -1994,10 +1835,21 @@ cases:
   - "water_polygons_labels: dropped, `landuse` is null in `where`"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -2022,14 +1874,27 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -2124,10 +1989,21 @@ cases:
   - "water_polygons_labels: dropped, `where` is false"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -2159,14 +2035,27 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -2267,10 +2156,22 @@ cases:
   - "water_polygons_labels: dropped, `landuse` is null in `where`"
   - "water_polygons_labels: dropped, `name` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -2306,15 +2207,29 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "streets_polygons_labels: dropped, `name` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -2406,10 +2321,21 @@ cases:
   - "water_polygons_labels: dropped, `where` is false"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -2446,14 +2372,27 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -2548,10 +2487,22 @@ cases:
   - "water_polygons_labels: dropped, `name` is null in `where`"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -2588,15 +2539,29 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "streets_polygons_labels: dropped, `name` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -2689,10 +2654,21 @@ cases:
   - "water_polygons_labels: dropped, `landuse` is null in `where`"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -2729,14 +2705,27 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -2836,10 +2825,21 @@ cases:
   - "water_polygons_labels: dropped, `landuse` is null in `where`"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -2862,14 +2862,27 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -2997,10 +3010,22 @@ cases:
   - "water_polygons_labels: dropped, `name` is null in `where`"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -3031,15 +3056,29 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "streets_polygons_labels: dropped, `name` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -3134,10 +3173,22 @@ cases:
   - "water_polygons_labels: dropped, `name` is null in `where`"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -3164,15 +3215,29 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "streets_polygons_labels: dropped, `name` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -3261,6 +3326,146 @@ cases:
       housenumber: "1"
 - source: shortbread
   paths:
+  - "streets: kept by `where`"
+  - "streets: attributes.kind, `highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway', 'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway']` is true"
+  - "streets: attributes.kind, `aeroway in ['runway', 'taxiway']` is false"
+  - "streets: attributes.kind, `aeroway` is null in `aeroway in ['runway', 'taxiway']`"
+  - "streets: minzoom `((highway != null) && highway.startsWith('trunk')) ? 6 : ((((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))) ? 8 : (((highway != null) && highway.startsWith('secondary')) ? 9 : (((((railway in ['rail', 'narrow_gauge']) && (service == null)) || (railway in ['funicular', 'light_rail', 'monorail', 'subway', 'tram'])) || (highway == 'tertiary')) ? 10 : ((aeroway == 'runway') ? 11 : ((highway in ['bus_guideway', 'busway', 'residential', 'unclassified']) ? 12 : 13)))))`, `(highway != null) && highway.startsWith('motorway')` is false"
+  - "streets: minzoom, `(highway != null) && highway.startsWith('trunk')` is false"
+  - "streets: minzoom, `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))` is true"
+  - "streets: minzoom, `railway` is null in `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))`"
+  - "streets: minzoom, `service` is null in `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))`"
+  - "streets: minzoom, `(highway != null) && highway.startsWith('secondary')` is false"
+  - "streets: minzoom, `(((railway in ['rail', 'narrow_gauge']) && (service == null)) || (railway in ['funicular', 'light_rail', 'monorail', 'subway', 'tram'])) || (highway == 'tertiary')` is false"
+  - "streets: minzoom, `aeroway == 'runway'` is false"
+  - "streets: minzoom, `highway in ['bus_guideway', 'busway', 'residential', 'unclassified']` is false"
+  - "streets: crosses a z14 tile edge"
+  - "street_labels: kept by `where`"
+  - "street_labels: attributes.kind `highway`, `highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway', 'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway']` is true"
+  - "street_labels: attributes.kind, `aeroway in ['runway', 'taxiway']` is false"
+  - "street_labels: attributes.kind, `aeroway` is null in `aeroway in ['runway', 'taxiway']`"
+  - "street_labels: attributes.ref null, `ref != null` is false"
+  - "street_labels: minzoom `(aeroway == 'runway') ? 11 : ((highway in ['trunk', 'primary']) ? 12 : (((highway in ['motorway_link', 'trunk_link', 'primary_link', 'secondary', 'secondary_link', 'tertiary']) || (aeroway == 'taxiway')) ? 13 : 14))`, `(highway == 'motorway') || (railway in ['rail', 'narrow_gauge', 'tram', 'light_rail', 'funicular', 'subway', 'monorail'])` is false"
+  - "street_labels: minzoom, `railway` is null in `(highway == 'motorway') || (railway in ['rail', 'narrow_gauge', 'tram', 'light_rail', 'funicular', 'subway', 'monorail'])`"
+  - "street_labels: minzoom, `aeroway == 'runway'` is false"
+  - "street_labels: minzoom, `highway in ['trunk', 'primary']` is true"
+  - "street_labels: minzoom, `(highway in ['motorway_link', 'trunk_link', 'primary_link', 'secondary', 'secondary_link', 'tertiary']) || (aeroway == 'taxiway')` is false"
+  - "street_labels: crosses a z14 tile edge"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
+  input:
+    "addr:housename": null
+    "addr:housenumber": null
+    admin_level: null
+    aerialway: null
+    aeroway: null
+    amenity: null
+    "area:aeroway": null
+    atm: null
+    bicycle: null
+    boundary: null
+    bridge: null
+    building: null
+    capital: null
+    covered: null
+    cuisine: null
+    denomination: null
+    disputed: null
+    emergency: null
+    geometry: LINESTRING(7.4259518 43.7389494,7.4258602 43.7389997,7.4257964 43.739037,7.425743 43.7390849,7.4257083 43.7391243,7.4256818 43.7391636,7.4256611 43.7392238,7.4256536 43.7392768,7.4256563 43.7393298,7.4256802 43.7393746,7.4257083 43.7394273,7.4257117 43.7394671,7.4256947 43.7395025,7.4256666 43.7395255,7.4256203 43.7395471,7.4251395 43.7397104)
+    highway: primary
+    historic: null
+    horse: null
+    iata: null
+    id: 40976562
+    information: null
+    landuse: null
+    leisure: null
+    man_made: null
+    maritime: null
+    military: null
+    motor_vehicle: null
+    name: Avenue Princesse Alice
+    "name:de": null
+    "name:en": null
+    natural: null
+    office: null
+    oneway: null
+    place: null
+    population: null
+    railway: null
+    "recycling:clothes": null
+    "recycling:glass_bottles": null
+    "recycling:paper": null
+    "recycling:scrap_metal": null
+    ref: null
+    religion: null
+    route: null
+    service: null
+    shop: null
+    sport: null
+    surface: asphalt
+    tourism: null
+    "tower:type": null
+    tracktype: null
+    tunnel: null
+    vending: null
+    waterway: null
+    wetland: null
+  output:
+  - layer: streets
+    id: 40976562
+    geometry: line
+    zooms: 8-14
+    attributes:
+      bridge:
+        value: false
+        minzoom: 11
+      kind: primary
+      link:
+        value: false
+        minzoom: 11
+      oneway:
+        value: false
+        minzoom: 14
+      oneway_reverse:
+        value: false
+        minzoom: 14
+      rail: false
+      surface:
+        value: asphalt
+        minzoom: 11
+      tunnel:
+        value: false
+        minzoom: 11
+  - layer: street_labels
+    id: 40976562
+    geometry: line
+    zooms: 12-14
+    attributes:
+      kind: primary
+      name: Avenue Princesse Alice
+      tunnel: false
+- source: shortbread
+  paths:
   - "streets: attributes.kind, `highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway', 'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway']` is false"
   - "streets: attributes.kind, `highway` is null in `highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway', 'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway']`"
   - "streets: minzoom, `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))` is false"
@@ -3281,18 +3486,6 @@ cases:
   - "boundaries: dropped, `where` is false"
   - "boundaries: dropped, `admin_level` is null in `where`"
   - "boundaries: dropped, `boundary` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `highway` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
   - "streets: kept by `where`"
   - "streets: dropped, `aeroway` is null in `where`"
   - "streets: dropped, `highway` is null in `where`"
@@ -3317,21 +3510,6 @@ cases:
   - "aerialways: dropped, `aerialway` is null in `where`"
   - "ferries: dropped, `where` is false"
   - "ferries: dropped, `route` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `highway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `highway` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null
@@ -3440,17 +3618,6 @@ cases:
   - "boundaries: dropped, `where` is false"
   - "boundaries: dropped, `admin_level` is null in `where`"
   - "boundaries: dropped, `boundary` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
   - "streets: kept by `where`"
   - "streets: dropped, `aeroway` is null in `where`"
   - "streets: dropped, `railway` is null in `where`"
@@ -3481,20 +3648,6 @@ cases:
   - "aerialways: dropped, `aerialway` is null in `where`"
   - "ferries: dropped, `where` is false"
   - "ferries: dropped, `route` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null
@@ -3599,17 +3752,6 @@ cases:
   - "boundaries: dropped, `where` is false"
   - "boundaries: dropped, `admin_level` is null in `where`"
   - "boundaries: dropped, `boundary` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
   - "streets: kept by `where`"
   - "streets: dropped, `aeroway` is null in `where`"
   - "streets: dropped, `railway` is null in `where`"
@@ -3641,20 +3783,6 @@ cases:
   - "aerialways: dropped, `aerialway` is null in `where`"
   - "ferries: dropped, `where` is false"
   - "ferries: dropped, `route` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null
@@ -3755,17 +3883,6 @@ cases:
   - "boundaries: dropped, `where` is false"
   - "boundaries: dropped, `admin_level` is null in `where`"
   - "boundaries: dropped, `boundary` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
   - "streets: kept by `where`"
   - "streets: dropped, `aeroway` is null in `where`"
   - "streets: dropped, `railway` is null in `where`"
@@ -3790,20 +3907,6 @@ cases:
   - "aerialways: dropped, `aerialway` is null in `where`"
   - "ferries: dropped, `where` is false"
   - "ferries: dropped, `route` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null
@@ -4315,17 +4418,6 @@ cases:
   - "boundaries: dropped, `where` is false"
   - "boundaries: dropped, `admin_level` is null in `where`"
   - "boundaries: dropped, `boundary` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
   - "streets: kept by `where`"
   - "streets: dropped, `aeroway` is null in `where`"
   - "streets: dropped, `railway` is null in `where`"
@@ -4358,20 +4450,6 @@ cases:
   - "aerialways: dropped, `aerialway` is null in `where`"
   - "ferries: dropped, `where` is false"
   - "ferries: dropped, `route` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null
@@ -4474,9 +4552,20 @@ cases:
   - "water_polygons_labels: dropped, `name` is null in `where`"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
   - "pier_polygons: dropped, `where` is false"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -4504,13 +4593,27 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
   - "street_polygons: dropped, `where` is false"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
   - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
   - "streets_polygons_labels: dropped, `highway` is null in `where`"
   - "streets_polygons_labels: dropped, `name` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -4608,18 +4711,6 @@ cases:
   - "boundaries: dropped, `where` is false"
   - "boundaries: dropped, `admin_level` is null in `where`"
   - "boundaries: dropped, `boundary` is null in `where`"
-  - "addresses: dropped, `where` is false"
-  - "addresses: dropped, `addr:housename` is null in `where`"
-  - "addresses: dropped, `addr:housenumber` is null in `where`"
-  - "addresses: dropped, `amenity` is null in `where`"
-  - "addresses: dropped, `emergency` is null in `where`"
-  - "addresses: dropped, `highway` is null in `where`"
-  - "addresses: dropped, `historic` is null in `where`"
-  - "addresses: dropped, `leisure` is null in `where`"
-  - "addresses: dropped, `man_made` is null in `where`"
-  - "addresses: dropped, `office` is null in `where`"
-  - "addresses: dropped, `shop` is null in `where`"
-  - "addresses: dropped, `tourism` is null in `where`"
   - "streets: dropped, `where` is false"
   - "streets: dropped, `aeroway` is null in `where`"
   - "streets: dropped, `highway` is null in `where`"
@@ -4631,22 +4722,6 @@ cases:
   - "street_labels: dropped, `ref` is null in `where`"
   - "aerialways: dropped, `where` is false"
   - "aerialways: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `where` is false"
-  - "public_transport: dropped, `aerialway` is null in `where`"
-  - "public_transport: dropped, `aeroway` is null in `where`"
-  - "public_transport: dropped, `amenity` is null in `where`"
-  - "public_transport: dropped, `highway` is null in `where`"
-  - "public_transport: dropped, `railway` is null in `where`"
-  - "pois: dropped, `where` is false"
-  - "pois: dropped, `amenity` is null in `where`"
-  - "pois: dropped, `emergency` is null in `where`"
-  - "pois: dropped, `highway` is null in `where`"
-  - "pois: dropped, `historic` is null in `where`"
-  - "pois: dropped, `leisure` is null in `where`"
-  - "pois: dropped, `man_made` is null in `where`"
-  - "pois: dropped, `office` is null in `where`"
-  - "pois: dropped, `shop` is null in `where`"
-  - "pois: dropped, `tourism` is null in `where`"
   input:
     "addr:housename": null
     "addr:housenumber": null

@@ -2,10 +2,14 @@
 FROM maven:3.9-eclipse-temurin-17@sha256:1a352420f7aba21f5ad08df31bab55f74c013fb491f1ae8ab1dd7ff9ed698584 AS build
 ARG ETS_COMMIT=83d256077c8dc620c0945d84f44306cd6b7783a2
 WORKDIR /ets
+# Maven Central rate-limits shared CI runners with 429; the default 3 retries 5 s apart give up within ~30 s.
 RUN git init -q \
  && git fetch -q --depth 1 https://github.com/opengeospatial/ets-ogcapi-maps10.git "$ETS_COMMIT" \
  && git checkout -q FETCH_HEAD \
- && mvn -B -q -DskipTests -Pdocker -Ddocker.skip=true package
+ && mvn -B -q -DskipTests -Pdocker -Ddocker.skip=true \
+      -Daether.connector.http.retryHandler.count=8 \
+      -Daether.connector.http.retryHandler.interval=15000 \
+      package
 RUN mkdir -p /out/teamengine /out/lib /out/te_base/scripts \
  && cd /out/teamengine && jar xf /ets/target/dependency/teamengine-web-*[0-9].war \
  && cd /out/lib && jar xf /ets/target/dependency/teamengine-web-*-common-libs.zip \

@@ -20,6 +20,8 @@ use crate::config::args::WebUiMode;
 use crate::config::file::cog::{CogBackground, CogTileFormat, StacBandConfig, StacOrderConfig};
 #[cfg(feature = "postgres")]
 use crate::config::file::postgres::Srid;
+#[cfg(feature = "_tiles")]
+use crate::config::file::{MltNetwork, MltProfile, MltTessellate};
 use crate::config::file::{OnInvalid, UnrecognizedKeys};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::FunctionIdFormat;
@@ -198,6 +200,9 @@ impl_empty_collect_unrecognized!(TableIdFormat);
 
 #[cfg(feature = "postgres")]
 impl_empty_collect_unrecognized!(RetryTimeout, Srid, FunctionIdFormat);
+
+#[cfg(feature = "_tiles")]
+impl_empty_collect_unrecognized!(MltProfile, MltNetwork, MltTessellate);
 
 #[cfg(feature = "unstable-duckdb")]
 impl_empty_collect_unrecognized!(MacroIdFormat);
