@@ -1,6 +1,7 @@
 import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { usePropertyDocs } from '../property-docs';
+import { specDocText } from '../spec-doc';
 import type { LayerType, PropertyEntry } from '../style-spec';
 import { Popover } from './popover';
 
@@ -18,7 +19,7 @@ export interface AddPropertyProps {
 export function AddProperty({ layerType, entries, onAdd }: AddPropertyProps) {
   const [query, setQuery] = useState('');
   const docOf = usePropertyDocs();
-  const doc = (e: PropertyEntry) => docOf(layerType, e.group, e.name) ?? '';
+  const doc = (e: PropertyEntry) => specDocText(docOf(layerType, e.group, e.name) ?? '');
   const q = query.trim().toLowerCase();
   const shown = entries.filter((e) => e.name.includes(q) || doc(e).toLowerCase().includes(q));
   return (

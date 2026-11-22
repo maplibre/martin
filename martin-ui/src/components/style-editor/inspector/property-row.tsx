@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { colorSites } from '../colors';
 import { usePropertyDocs } from '../property-docs';
 import type { AttributeInfo } from '../source-schema';
+import { SpecDoc } from '../spec-doc';
 import { type PropertyEntry, type PropertyRef, validateProperty } from '../style-spec';
 import { CurveEditor } from '../value-editors/curve-editor';
 import { ExpressionEditor } from '../value-editors/expression-editor';
@@ -108,7 +109,7 @@ export function PropertyRow({
         {spec.type}
         {spec.units ? `, ${spec.units}` : ''} (default {formatDefault(spec.default)})
       </div>
-      {doc ? <div>{doc}</div> : null}
+      {doc ? <SpecDoc markdown={doc} /> : null}
     </TooltipContent>
   );
   const labelNode = (
