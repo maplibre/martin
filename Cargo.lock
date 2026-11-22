@@ -6665,7 +6665,7 @@ checksum = "aa0b9111761885449e894981fa8051dcf69e0bd114aecbd4bcdd830b6be4ed92"
 dependencies = [
  "libc",
  "ndarray",
- "num-complex 0.4.6",
+ "num-complex 0.2.4",
  "num-integer",
  "num-traits",
  "pyo3",
@@ -7567,7 +7567,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ad9c5423459fa2f729b8d9235fab810aa29628b171467744fc86d21460ad70d"
 dependencies = [
  "anyhow",
- "itertools 0.15.0",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -7668,9 +7668,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-stub-gen"
-version = "0.23.2"
+version = "0.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1ad39dbdf4d65a7b4f5cf5d02c0d6fb5d72a1110df4715ebb74634d379ef2ce"
+checksum = "111b01c874bd90a65b31412077467e52a8f2993a0aa5e06d885df93512463526"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7691,9 +7691,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-stub-gen-derive"
-version = "0.23.2"
+version = "0.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9d511131ec1f75fbaba63d70016de31e969273659e4e71ea8fadd339822eb71"
+checksum = "d82a32937b88ef0c95b794628f55a0a98d042ed0ecef92b7265687fb45c9a2ce"
 dependencies = [
  "heck",
  "indexmap 2.14.2",
@@ -9787,7 +9787,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.52.0",
