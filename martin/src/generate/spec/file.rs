@@ -178,6 +178,64 @@ pub enum Attribute {
     Value(Value),
 }
 
+/// The relative difference up to which two floats count as the same, so a spec recorded on one
+/// platform passes on another whose libm rounds the last digits of `sin` or `ln` differently.
+const FLOAT_TOLERANCE: f64 = 1e-9;
+
+/// Whether `a` and `b` are the same outputs, with floats compared up to [`FLOAT_TOLERANCE`].
+#[must_use]
+pub fn same_outputs(a: &[Output], b: &[Output]) -> bool {
+    a.len() == b.len()
+        && a.iter().zip(b).all(|(a, b)| {
+            a.layer == b.layer
+                && a.id == b.id
+                && a.geometry == b.geometry
+                && a.zooms == b.zooms
+                && a.attributes.len() == b.attributes.len()
+                && a.attributes
+                    .iter()
+                    .zip(&b.attributes)
+                    .all(|((ka, va), (kb, vb))| ka == kb && same_attribute(va, vb))
+        })
+}
+
+/// Whether `a` and `b` are the same attribute, with floats compared up to [`FLOAT_TOLERANCE`].
+fn same_attribute(a: &Attribute, b: &Attribute) -> bool {
+    match (a, b) {
+        (
+            Attribute::Zoomed {
+                value,
+                minzoom,
+                maxzoom,
+            },
+            Attribute::Zoomed {
+                value: other,
+                minzoom: other_minzoom,
+                maxzoom: other_maxzoom,
+            },
+        ) => (minzoom, maxzoom) == (other_minzoom, other_maxzoom) && same_value(value, other),
+        (Attribute::Value(value), Attribute::Value(other)) => same_value(value, other),
+        _ => false,
+    }
+}
+
+/// Whether `a` and `b` are the same value, with floats compared up to [`FLOAT_TOLERANCE`].
+fn same_value(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Number(na), Value::Number(nb)) if na.is_f64() || nb.is_f64() => match (na.as_f64(), nb.as_f64()) {
+            (Some(fa), Some(fb)) => (fa - fb).abs() <= FLOAT_TOLERANCE * fa.abs().max(fb.abs()),
+            _ => false,
+        },
+        (Value::Array(aa), Value::Array(ab)) => {
+            aa.len() == ab.len() && aa.iter().zip(ab).all(|(a, b)| same_value(a, b))
+        }
+        (Value::Object(oa), Value::Object(ob)) => {
+            oa.len() == ob.len() && oa.iter().all(|(k, va)| ob.get(k).is_some_and(|vb| same_value(va, vb)))
+        }
+        _ => a == b,
+    }
+}
+
 /// `value` as YAML, with each string on one line.
 pub fn yaml(value: &impl Serialize) -> String {
     let options = serde_saphyr::ser_options! { prefer_block_scalars: false };
@@ -240,6 +298,56 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
+
+    #[test]
+    fn floats_apart_only_in_their_last_digits_are_the_same_output() {
+        let linux: Vec<Output> = serde_saphyr::from_str(indoc! {"
+            - layer: water_polygons
+              id: 1562422442
+              geometry: polygon
+              zooms: 11-14
+              attributes:
+                kind: water
+                way_area: 694.5492257551442
+        "})
+        .unwrap();
+        let macos: Vec<Output> = serde_saphyr::from_str(indoc! {"
+            - layer: water_polygons
+              id: 1562422442
+              geometry: polygon
+              zooms: 11-14
+              attributes:
+                kind: water
+                way_area: 694.5492257508466
+        "})
+        .unwrap();
+        assert!(same_outputs(&linux, &macos));
+    }
+
+    #[test]
+    fn floats_apart_beyond_their_last_digits_are_different_outputs() {
+        let old: Vec<Output> = serde_saphyr::from_str(indoc! {"
+            - layer: water_polygons
+              id: 1562422442
+              geometry: polygon
+              zooms: 11-14
+              attributes:
+                kind: water
+                way_area: 694.5492257551442
+        "})
+        .unwrap();
+        let new: Vec<Output> = serde_saphyr::from_str(indoc! {"
+            - layer: water_polygons
+              id: 1562422442
+              geometry: polygon
+              zooms: 11-14
+              attributes:
+                kind: water
+                way_area: 694.55
+        "})
+        .unwrap();
+        assert!(!same_outputs(&old, &new));
+    }
 
     #[test]
     fn a_long_geometry_is_written_on_one_line() {
