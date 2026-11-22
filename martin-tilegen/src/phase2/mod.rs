@@ -69,7 +69,7 @@ impl<'p> TileEncoding<'p> {
                 .map(|(layer, names)| {
                     let names = names.with_kinds(kinds.layer(layer));
                     #[cfg(feature = "unstable-mlt-v2")]
-                    if plan.layers[layer].info.encoder.wire_version() != mlt_core::encoder::WireVersion::V01
+                    if plan.outputs[layer].info.encoder.wire_version() != mlt_core::encoder::WireVersion::V01
                         && let Some(documents) = kinds.documents(layer)
                     {
                         return names.with_documents(documents);

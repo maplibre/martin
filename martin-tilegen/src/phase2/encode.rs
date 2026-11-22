@@ -1032,6 +1032,7 @@ mod document_tests {
 
     use super::*;
     use crate::props::{KeyInterner, LayerKinds, Prop};
+    use crate::sort::Seq;
     use crate::sort::record::{EncodedProps, Geom, encode};
 
     /// A property of a test feature.
@@ -1084,16 +1085,18 @@ mod document_tests {
             names = names.with_documents(kinds.documents(0).unwrap());
         }
         let keys = [names];
-        let layers = [LayerInfo::new(
-            "roads".to_owned(),
-            LayerGrid {
+        let layers = [LayerInfo {
+            name: "roads".to_owned(),
+            grid: LayerGrid {
                 extent: 4096,
                 buffer: 64,
             },
-            config(wire),
-        )];
+            encoder: config(wire),
+            per_tile: Vec::new(),
+        }];
         let settings = EncodeSettings {
             layers: &layers,
+            definitions: &[DefinitionInfo { output: 0, buffer: 64 }],
             keys: &keys,
             format,
             encoding: Encoding::Uncompressed,
