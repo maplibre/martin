@@ -22,9 +22,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 
 use bit_set::BitSet;
-use jiff::Timestamp;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
+use jiff::Timestamp;
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::prost::Message as _;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};

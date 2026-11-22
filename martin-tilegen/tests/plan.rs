@@ -243,6 +243,23 @@ fn rejects_a_group_by_attribute_the_layer_does_not_write() {
 }
 
 #[test]
+fn rejects_a_hidden_attribute_the_layer_does_not_write() {
+    let err = Plan::new(vec![TableDef {
+        columns: vec![ColumnDef::Value("name".to_owned(), None)],
+        layers: vec![LayerDef {
+            attributes: AttributesDef::Columns(vec!["name".to_owned()]),
+            hidden: vec!["kind".to_owned()],
+            ..LayerDef::new("pois", 0..=14, GRID)
+        }],
+    }])
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "layer `pois`: hidden attribute `kind` is not one the layer writes"
+    );
+}
+
+#[test]
 fn accepts_a_group_by_attribute_of_an_operation_outside_the_layer_zooms() {
     Plan::new(vec![TableDef {
         columns: vec![
