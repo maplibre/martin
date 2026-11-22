@@ -29,8 +29,6 @@ fn geoparquet_source_literal(entry: &GeoParquetEntry) -> String {
 pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> (String, String) {
     let literal = geoparquet_source_literal(entry);
     let from_expr = match entry.location {
-        // Without whole row groups, DuckDB 2.0 re-downloads large column chunks on every
-        // tile instead of serving them from its file cache (duckdb/duckdb#27680).
         Some(GeoParquetLocation::Remote(_)) => format!("read_parquet({literal}, prefetch_strategy = 'whole_group')"),
         Some(GeoParquetLocation::Local(_)) | None => format!("read_parquet({literal})"),
     };
