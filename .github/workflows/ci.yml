@@ -276,8 +276,8 @@ jobs:
       - name: Result of the needed steps
         run: echo "${{ toJSON(needs) }}" # zizmor: ignore[template-injection]
       # A skip is a pass here: `changes` drops the suites a pull request cannot
-      # affect, and run-heavy defers duplicate platform coverage to the top of a
-      # stack. Failures inside a called workflow still surface, because a
+      # affect, and run-heavy defers to the top of a stack what its run proves
+      # for the whole stack. Failures inside a called workflow still surface, because a
       # reusable-workflow job fails when any job inside it fails.
       - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         name: CI Result
