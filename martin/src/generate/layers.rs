@@ -654,10 +654,6 @@ fn lower_layer(
     )]
     documents: Option<&[&str]>,
 ) -> GenerateResult<Option<LayerDef>> {
-    #[cfg(feature = "unstable-mlt-v2")]
-    if let (Attributes::Properties(selectors), Some(documents @ [_, ..])) = (&layer.attributes, documents) {
-        refuse_keys_inside_documents(id, name, selectors.as_slice(), static_columns, documents)?;
-    }
     let geometry = lower_geometry(name, layer.geometry.as_ref())?;
     let output = geometry.first().and_then(|entry| entry.draws());
     let Some(zooms) = layer_zooms(layer, &defaults.zooms) else {
@@ -668,6 +664,10 @@ fn lower_layer(
         );
         return Ok(None);
     };
+    #[cfg(feature = "unstable-mlt-v2")]
+    if let (Attributes::Properties(selectors), Some(documents @ [_, ..])) = (&layer.attributes, documents) {
+        refuse_keys_inside_documents(id, name, selectors.as_slice(), static_columns, documents)?;
+    }
     let threshold = |below: Option<Pixels>, at: Option<Pixels>, default: PixelThreshold| PixelThreshold {
         below_max_zoom: below.map_or(default.below_max_zoom, Pixels::get),
         at_max_zoom: at.map_or(default.at_max_zoom, Pixels::get),
@@ -1601,6 +1601,38 @@ mod tests {
                 err.to_string(),
                 "layer `roads` of source `roads_source` selects `surface`, which is not a column: `--format mlt2` keeps a `jsonb` column (links) whole as one nested column, so a key inside it cannot be selected; select the column instead"
             );
+        }
+
+        #[test]
+        fn v2_skips_a_layer_outside_the_run_zooms_even_when_it_selects_a_key_inside_a_jsonb_column() {
+            let info: TableInfo = serde_saphyr::from_str(indoc! {"
+                schema: public
+                table: roads
+                srid: 4326
+                geometry_column: geom
+                properties:
+                  class: text
+                  links: jsonb
+                layers:
+                  roads:
+                    minzoom: 10
+                    attributes: [class, surface]
+            "})
+            .expect("valid table");
+            let scan = lower_table(
+                "roads_source",
+                info,
+                &LowerOptions {
+                    zooms: 0..=5,
+                    bounds: None,
+                    encoder: Some(
+                        EncoderConfig::from_profile(Profile::Web(Network::Offline)).with_wire_version(WireVersion::V02),
+                    ),
+                    order_by: None,
+                },
+            )
+            .expect("lowers");
+            assert!(scan.is_none());
         }
 
         #[test]
