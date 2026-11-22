@@ -492,7 +492,7 @@ mod tests {
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("15-3.5") // purposely very old and stable
+                .with_tag("15-3.5-alpine") // purposely very old and stable
                 .start()
                 .await
         })
@@ -590,7 +590,7 @@ mod tests {
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("15-3.5")
+                .with_tag("15-3.5-alpine")
                 .with_copy_to(
                     "/certs/server.crt".to_owned(),
                     certs.server_cert_pem.clone().into_bytes(),

@@ -24,7 +24,7 @@ pub(crate) mod pg {
         (|| async {
             Postgres::default()
                 .with_name("postgis/postgis")
-                .with_tag("15-3.5") // purposely very old and stable
+                .with_tag("15-3.5-alpine") // purposely very old and stable
                 .start()
                 .await
         })
