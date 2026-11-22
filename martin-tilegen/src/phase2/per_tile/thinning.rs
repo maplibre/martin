@@ -11,7 +11,7 @@ use mlt_core::PropValueRef;
 use super::{LayerExprs, LayerTile, OpCounts, Shape, TileFeature, lines, narrow, polygons};
 use crate::TileGenResult;
 use crate::expr::{ExprRef, PropSlots, SortValue, ThinningKey};
-use crate::plan::PlannedThinning;
+use crate::plan::{PlannedRank, PlannedThinning};
 use crate::props::{KeyId, Prop};
 use crate::sort::record::{GeomBuf, GeomKind, Vertex};
 
@@ -29,9 +29,9 @@ pub(crate) struct Scratch {
     ids: HashMap<Vec<u8>, u32>,
     /// Kept points per key id and grid square.
     kept: HashMap<(u32, u64), u32>,
-    /// Whether the feature being split kept each of its source points, so every wrapped copy of a point
-    /// shares the choice.
-    choices: HashMap<SourcePoint, bool>,
+    /// The position in its square of each source point the feature being split kept, or `None` for one it
+    /// dropped, so every wrapped copy of a point shares the choice.
+    choices: HashMap<SourcePoint, Option<u32>>,
     /// Earlier kept representative points, by key id.
     near: Vec<Squares>,
     /// The key being encoded.
@@ -54,7 +54,7 @@ pub(super) fn apply(
     errors: &mut Vec<u64>,
 ) -> TileGenResult<Option<OpCounts>> {
     let gridded = features.iter().any(|feature| limit_of(tile, feature).is_some());
-    let spaced = thinning.filter(|op| op.method != PlannedThinning::Grid);
+    let spaced = thinning.filter(|op| !matches!(op.method, PlannedThinning::Grid(_)));
     if !gridded && spaced.is_none() {
         return Ok(None);
     }
@@ -73,12 +73,16 @@ pub(super) fn apply(
         errors.resize(exprs.plan.exprs.len(), 0);
     }
     if gridded {
-        let keys = thinning
-            .filter(|op| op.method == PlannedThinning::Grid)
-            .map_or(&[][..], |op| op.keys);
+        let (keys, rank) = match thinning {
+            Some(Thinning {
+                keys,
+                method: PlannedThinning::Grid(rank),
+            }) => (keys, rank),
+            _ => (&[][..], None),
+        };
         let world = i64::from(tile.grid.extent) << zoom;
         let mut key_ids = KeyIds::new(tile, exprs, keys, ids, slots, errors, key);
-        grid(tile, features, &mut key_ids, kept, choices, geom, world)?;
+        grid(tile, features, &mut key_ids, rank, kept, choices, geom, world)?;
     }
     if let Some(op) = spaced {
         near.clear();
@@ -87,7 +91,7 @@ pub(super) fn apply(
         for feature in features.drain(..) {
             let keep = match (key_ids.id(&feature), op.method) {
                 (None, _) => true,
-                (Some((_, new)), PlannedThinning::Tile | PlannedThinning::Grid) => new,
+                (Some((_, new)), PlannedThinning::Tile | PlannedThinning::Grid(_)) => new,
                 (Some((id, _)), PlannedThinning::Distance(distance)) => {
                     let (kind, _) = tile.geometry(&feature, geom)?;
                     match representative(kind, geom) {
@@ -126,13 +130,16 @@ fn limit_of(tile: &LayerTile<'_, '_>, feature: &TileFeature) -> Option<u32> {
 /// drops each point once its key and square already hold as many kept points as its own limit. Points of
 /// different grid sizes share a counter when their squares are equal, as in Planetiler. A wrapped copy of a
 /// point, in another record of the same feature `world` tile units away, is kept or dropped with the point
-/// instead of counting again. A feature whose key is only `null`s is kept whole.
+/// instead of counting again. A feature whose key is only `null`s is kept whole. With `rank`, each kept point
+/// without the rank attribute gets its position among the kept points of its key and square.
+#[expect(clippy::too_many_arguments, reason = "the scratch parts are borrowed separately")]
 fn grid(
     tile: &LayerTile<'_, '_>,
     features: &mut Vec<TileFeature>,
     key_ids: &mut KeyIds<'_, '_>,
+    rank: Option<PlannedRank>,
     counts: &mut HashMap<(u32, u64), u32>,
-    choices: &mut HashMap<SourcePoint, bool>,
+    choices: &mut HashMap<SourcePoint, Option<u32>>,
     geom: &mut GeomBuf,
     world: i64,
 ) -> TileGenResult<()> {
@@ -155,11 +162,12 @@ fn grid(
             for (&group, &vertex) in geom.groups.iter().zip(&geom.vertices) {
                 let mut count = || {
                     let count = counts.entry((key, group)).or_default();
-                    let keep = *count < limit;
-                    *count += u32::from(keep);
-                    keep
+                    (*count < limit).then(|| {
+                        *count += 1;
+                        *count
+                    })
                 };
-                let keep = if wrapped {
+                let position = if wrapped {
                     match choices.entry(SourcePoint::new(vertex, group, world)) {
                         Entry::Occupied(choice) => *choice.get(),
                         Entry::Vacant(slot) => *slot.insert(count()),
@@ -167,11 +175,19 @@ fn grid(
                 } else {
                     count()
                 };
-                if keep {
-                    kept.push(TileFeature {
+                if let Some(position) = position {
+                    let mut point = TileFeature {
                         shape: Shape::Point(vertex),
                         ..TileFeature::new(record..record + 1, feature.props())
-                    });
+                    };
+                    if let Some(rank) = rank {
+                        tile.add_prop(
+                            &mut point,
+                            rank.key,
+                            PropValueRef::I64(rank.offset + i64::from(position)),
+                        );
+                    }
+                    kept.push(point);
                 }
             }
         }

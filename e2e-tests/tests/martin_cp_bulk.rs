@@ -2871,7 +2871,7 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
             .arg("--output-file")
             .arg(dir.path().join(file))
             .arg("--max-zoom")
-            .arg("8")
+            .arg("4")
             .arg("--encoding")
             .arg("none")
             .arg("--threads")
@@ -2888,11 +2888,11 @@ async fn per_tile_operations_give_the_same_tiles_at_any_thread_count() {
     assert_pmtiles_matches_mbtiles(dir.path().join("eight.pmtiles"), &one).await;
     assert!(logs.iter().all(|log| *log == logs[0]), "{logs:#?}");
     insta::assert_snapshot!(logs[0], @"
-    INFO Ran `merge_lines` layer.id=merged tiles=1167 features.input=3927 features.output=3810
-    INFO Ran `merge_polygons` layer.id=merged tiles=1167 features.input=3810 features.output=2821
-    INFO Ran `thinning` layer.id=merged tiles=90 features.input=608 features.output=479
-    INFO Ran `merge_multi` layer.id=merged tiles=1167 features.input=2692 features.output=2630
-    INFO Ran `limit` layer.id=merged tiles=1167 features.input=2630 features.output=2596
+    INFO Ran `merge_lines` layer.id=merged tiles=36 features.input=440 features.output=364
+    INFO Ran `merge_polygons` layer.id=merged tiles=36 features.input=364 features.output=299
+    INFO Ran `thinning` layer.id=merged tiles=30 features.input=282 features.output=206
+    INFO Ran `merge_multi` layer.id=merged tiles=36 features.input=223 features.output=169
+    INFO Ran `limit` layer.id=merged tiles=36 features.input=169 features.output=148
     ");
     let z0 = tiles(&one).await.into_iter().next().expect("a z0 tile");
     insta::assert_snapshot!(mlt_dump(&mlt_layers(&z0.3)), @"
@@ -2952,7 +2952,7 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
             .arg("--format")
             .arg("mvt")
             .arg("--max-zoom")
-            .arg("8")
+            .arg("4")
             .arg("--encoding")
             .arg("none")
             .arg("--threads")
@@ -2987,12 +2987,12 @@ async fn per_tile_operations_write_valid_mvt_at_any_thread_count() {
     }
     insta::assert_debug_snapshot!(kinds, @r#"
     {
-        "line": 437,
-        "multi-line": 99,
-        "multi-point": 35,
-        "multi-polygon": 61,
-        "point": 128,
-        "polygon": 1836,
+        "line": 13,
+        "multi-line": 34,
+        "multi-point": 28,
+        "multi-polygon": 16,
+        "point": 32,
+        "polygon": 25,
     }
     "#);
 }

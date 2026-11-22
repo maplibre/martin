@@ -24,7 +24,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use crate::generate::spec::backend::{TestBackend, TestTable};
-use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, output_yaml, read_spec, write_spec};
+use crate::generate::spec::file::{Case, CaseName, IdColumns, Spec, output_yaml, read_spec, same_outputs, write_spec};
 use crate::generate::spec::postgres::Postgres;
 use crate::generate::spec::render::{outputs, render_bulk};
 use crate::generate::spec::report::{Change, Look, Reporter, Status, Tone, tally};
@@ -319,7 +319,7 @@ pub async fn check<B: TestBackend>(backend: &B, tables: &[TestTable], case: &Cas
     let output = outputs(&bulk);
     Ok(Outcome {
         row: row_change(case, now.as_ref()),
-        output: (output != case.output || per_tile != case.per_tile).then(|| Change {
+        output: (!same_outputs(&output, &case.output) || per_tile != case.per_tile).then(|| Change {
             old: output_yaml(&case.output, &case.per_tile),
             new: output_yaml(&output, &per_tile),
         }),

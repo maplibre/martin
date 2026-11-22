@@ -19,8 +19,8 @@ use std::fmt::Debug;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 
-use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{info, warn};
@@ -100,7 +100,8 @@ pub struct CatalogStyleEntry {
     /// Distinct colors referenced by the style, for preview swatches.
     pub colors: Option<Vec<String>>,
     /// Timestamp of the style file's last modification.
-    pub last_modified_at: Option<DateTime<Utc>>,
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>", extend("format" = "date-time")))]
+    pub last_modified_at: Option<Timestamp>,
 }
 
 /// Catalog mapping style names to metadata (e.g., "basic" -> `CatalogStyleEntry`).

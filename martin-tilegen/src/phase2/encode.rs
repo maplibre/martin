@@ -14,7 +14,7 @@ use xxhash_rust::xxh3::xxh3_64;
 use crate::phase2::assemble::{AssembledLayer, LayerAssembler, RecordOrigin, Rounded};
 use crate::phase2::per_tile::{LayerOpCounts, OutputExprs, TileOps};
 use crate::plan::PlannedTileOp;
-use crate::props::KeyNames;
+use crate::props::{KeyId, KeyNames};
 use crate::sort::{LayerId, TileRecords};
 use crate::{EncodedTile, LayerGrid, TileGenError, TileGenResult, TileId, TileOrder};
 
@@ -40,6 +40,8 @@ pub struct LayerInfo {
     pub encoder: EncoderConfig,
     /// The layer's per-tile operations, in the order they run.
     pub(crate) per_tile: Vec<PlannedTileOp>,
+    /// Keys of the attributes per-tile operations read but tiles leave out.
+    pub(crate) hidden: Vec<KeyId>,
 }
 
 impl LayerInfo {
@@ -52,6 +54,7 @@ impl LayerInfo {
             grid,
             encoder,
             per_tile: Vec::new(),
+            hidden: Vec::new(),
         }
     }
 }
@@ -357,7 +360,7 @@ impl TileEncoder {
             };
             let assembled = self
                 .assembler
-                .assemble(&info.name, info.grid, names, &records, layer_ops)
+                .assemble(&info.name, info.grid, names, &info.hidden, &records, layer_ops)
                 .map_err(in_layer)?;
             if !assembled.ops.is_empty() {
                 ops.push((layer, assembled.ops));
@@ -380,7 +383,11 @@ impl TileEncoder {
                 ),
                 TileFormat::Mvt => {
                     if settings.mvt_keep_unused_keys {
-                        mvt.preset_keys(names.declared());
+                        mvt.preset_keys(
+                            names
+                                .declared()
+                                .filter(|name| !info.hidden.iter().any(|&key| names.name(key) == *name)),
+                        );
                     }
                     mvt = assembled
                         .layer
@@ -425,6 +432,7 @@ mod tests {
             },
             encoder: EncoderConfig::from_profile(Profile::Web(Network::Offline)),
             per_tile: Vec::new(),
+            hidden: Vec::new(),
         }
     }
 
@@ -1093,6 +1101,7 @@ mod document_tests {
             },
             encoder: config(wire),
             per_tile: Vec::new(),
+            hidden: Vec::new(),
         }];
         let settings = EncodeSettings {
             layers: &layers,

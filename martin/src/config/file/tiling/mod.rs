@@ -13,8 +13,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 pub use crate::config::file::tiling::error::TilingConfigError;
 pub use crate::config::file::tiling::per_tile::{
-    ByZoomRange, Limit, MergeLines, MergeMulti, MergePolygons, MultiGeometry, Op, PerTile, RuleThinning, Thinning,
-    ThinningMethod,
+    ByZoomRange, GridRank, Limit, MergeLines, MergeMulti, MergePolygons, MultiGeometry, Op, PerTile, RuleThinning,
+    Thinning, ThinningMethod,
 };
 pub use crate::config::file::tiling::primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
 pub use crate::config::file::tiling::rule::{Rule, RuleSettings, Rules};

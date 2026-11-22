@@ -21,9 +21,9 @@ use std::fmt::Debug;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 pub use spreet::Spritesheet;
@@ -112,7 +112,8 @@ pub struct CatalogSpriteEntry {
     #[cfg_attr(feature = "unstable-schemas", schema(value_type = u64, minimum = 1))]
     pub size_in_bytes: Option<NonZeroUsize>,
     /// Timestamp of the spritesheet's last modification.
-    pub last_modified_at: Option<DateTime<Utc>>,
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>", extend("format" = "date-time")))]
+    pub last_modified_at: Option<Timestamp>,
 }
 
 /// Catalog mapping sprite names to metadata (e.g., "icons" -> [`CatalogSpriteEntry`]).
