@@ -156,9 +156,13 @@ fn bench_writes(c: &mut Criterion) {
         }
     }
     group.finish();
+    let runs = runs.into_inner();
+    if runs.iter().any(Vec::is_empty) {
+        return;
+    }
     #[expect(clippy::print_stdout, reason = "the table is what this bench reports")]
     {
-        println!("{}", table(&runs.into_inner()));
+        println!("{}", table(&runs));
     }
 }
 

@@ -1032,8 +1032,10 @@ jobs:
         with: { node-version: 26 }
       - name: Build the web UI bundle that martin-ui publishes
         run: just ui::build
+      - name: Only the gitignored bundle may change
+        run: git diff --exit-code && test -z "$(git ls-files --others --exclude-standard)"
       - name: Test packaging
-        run: cargo publish --workspace --dry-run
+        run: cargo publish --workspace --dry-run --allow-dirty
       - name: Test cargo-binstall metadata
         run: just check-binstall
 
