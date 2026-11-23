@@ -59,6 +59,7 @@ impl TestBackend for Memory {
                         .zip(columns)
                         .filter_map(|(i, column)| Some((KeyId::new(i), prop(row.get(column)?)?)))
                         .collect(),
+                    relations: Vec::new(),
                 })
             })
             .collect();

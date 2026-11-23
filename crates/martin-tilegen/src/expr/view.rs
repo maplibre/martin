@@ -1,15 +1,20 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use cel::ExecutionError;
 use cel::common::traits::{Container, Indexer, Iterable, Iterator as CelIterator, Sizer};
-use cel::common::types::{CelBool, CelDouble, CelInt, CelString, CelUInt, MAP_TYPE, Type};
+use cel::common::types::{
+    CelBool, CelDouble, CelInt, CelList, CelMap, CelMapKey, CelNull, CelString, CelUInt, MAP_TYPE, Type,
+};
 use cel::common::value::{CowVal, Val};
 use cel::context::VariableResolver;
 use mlt_core::PropValueRef;
 
 use super::area::{AreaBase, Areas};
 use super::{FEATURE, NULL};
+use crate::plan::{PlannedRelationSet, RELATIONS};
 use crate::props::{KeyId, Prop};
+use crate::source::Membership;
 
 /// Property names of one table and their key ids. Built once per table, shared by every worker.
 #[derive(Debug, Default, Clone)]
@@ -82,6 +87,7 @@ impl PropSlots {
             generation: self.generation,
             props,
             areas: None,
+            relations: None,
         }
     }
 }
@@ -94,6 +100,47 @@ pub struct FeatureView<'a, S> {
     props: &'a [(KeyId, Prop<S>)],
     /// The feature's whole geometry for `area()`, which fails without it.
     areas: Option<&'a Areas<'a>>,
+    /// The relations the feature is a member of, when its table has relation sets.
+    relations: Option<Relations<'a>>,
+}
+
+/// The relation sets of a table, and the relations of them that one feature is a member of.
+#[derive(Clone, Copy, Debug)]
+struct Relations<'a> {
+    sets: &'a [PlannedRelationSet],
+    members: &'a [Membership],
+}
+
+impl<'a> Relations<'a> {
+    /// `relations`: each set by name, as the list of the feature's [`member`](Self::member) maps of it.
+    fn to_val(self) -> CelMap<'a> {
+        let mut sets: HashMap<CelMapKey<'a>, Box<dyn Val + 'a>> = HashMap::with_capacity(self.sets.len());
+        for (index, set) in self.sets.iter().enumerate() {
+            let members: Vec<Box<dyn Val + 'a>> = self
+                .members
+                .iter()
+                .filter(|member| usize::from(member.set) == index)
+                .map(|member| Box::new(Self::member(set, member)) as Box<dyn Val + 'a>)
+                .collect();
+            sets.insert(CelMapKey::from(set.def.name.as_str()), Box::new(CelList::from(members)));
+        }
+        CelMap::from(sets)
+    }
+
+    /// One relation of `set` as its `member` sees it: the set's tags, `null` when missing, its `id` and the `role`.
+    fn member(set: &'a PlannedRelationSet, member: &'a Membership) -> CelMap<'a> {
+        let mut map: HashMap<CelMapKey<'a>, Box<dyn Val + 'a>> = HashMap::with_capacity(set.def.tags.len() + 2);
+        for (tag, value) in set.def.tags.iter().zip(&member.tags) {
+            let value: Box<dyn Val + 'a> = match value {
+                Some(value) => Box::new(CelString::from(&**value)),
+                None => Box::new(CelNull),
+            };
+            map.insert(CelMapKey::from(tag.as_str()), value);
+        }
+        map.insert(CelMapKey::from("id"), Box::new(CelInt::from(member.id)));
+        map.insert(CelMapKey::from("role"), Box::new(CelString::from(&*member.role)));
+        CelMap::from(map)
+    }
 }
 
 impl<S> Clone for FeatureView<'_, S> {
@@ -110,6 +157,16 @@ impl<'a, S> FeatureView<'a, S> {
     pub fn with_areas(self, areas: &'a Areas<'a>) -> Self {
         Self {
             areas: Some(areas),
+            ..self
+        }
+    }
+
+    /// This view, with `relations` reading the relations of `sets` the feature is a member of; a table without sets
+    /// keeps `relations` a property.
+    #[must_use]
+    pub(crate) fn with_relations(self, sets: &'a [PlannedRelationSet], members: &'a [Membership]) -> Self {
+        Self {
+            relations: (!sets.is_empty()).then_some(Relations { sets, members }),
             ..self
         }
     }
@@ -265,6 +322,11 @@ impl<S: AsRef<str> + Debug + Send + Sync> VariableResolver for FeatureView<'_, S
             .find(|base| base.variable() == variable)
         {
             return self.areas.map(|areas| CowVal::owned(CelDouble::from(areas.get(base))));
+        }
+        if variable == RELATIONS
+            && let Some(relations) = self.relations
+        {
+            return Some(CowVal::owned(relations.to_val()));
         }
         let key = self.keys.get(variable)?;
         Some(prop_val(self.prop(key)))

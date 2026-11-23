@@ -492,3 +492,53 @@ async fn layers_writing_into_one_layer_with_different_sort_by_are_refused() {
     insta::assert_snapshot!(stderr.lines().last().unwrap_or_default(), @"ERROR layers `buildings` of source `monaco` and `cafes` of source `monaco` both write into layer `pois` but set `sort_by` differently; set it equal on both, or on only one of them");
     assert!(!output.exists());
 }
+
+#[tokio::test]
+async fn monaco_boundary_lines_take_the_lowest_admin_level_of_their_relations() {
+    let dir = temp_dir();
+    let config = dir.path().join("config.yaml");
+    fs::write(
+        &config,
+        formatdoc! {"
+            osm:
+              sources:
+                monaco:
+                  path: {path}
+                  tags: [name]
+                  relations:
+                    admin:
+                      where: \"type == 'boundary' && boundary == 'administrative'\"
+                      tags: [admin_level, name]
+                  layers:
+                    boundary:
+                      geometry: line
+                      min_size: 0
+                      where: \"size(relations.admin) > 0\"
+                      attributes:
+                        admin_level: \"relations.admin.map(r, int(r.admin_level)).min()\"
+                        relations: \"size(relations.admin)\"
+        ", path = fixture("osm/monaco.osm.pbf").display()},
+    )
+    .expect("failed to write the config");
+    let output = dir.path().join("monaco.mbtiles");
+    MartinCp::bulk()
+        .arg("--config")
+        .arg(&config)
+        .arg("--output-file")
+        .arg(&output)
+        .arg("--format")
+        .arg("mvt")
+        .arg("--encoding")
+        .arg("none")
+        .arg("--min-zoom")
+        .arg("10")
+        .arg("--max-zoom")
+        .arg("10")
+        .arg("--threads")
+        .arg("2")
+        .run()
+        .await;
+    let tiles = tiles(&output).await;
+    let monaco = tiles.iter().max_by_key(|tile| tile.3.len()).expect("Monaco has tiles");
+    insta::assert_snapshot!(mvt_dump(&monaco.3));
+}

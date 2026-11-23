@@ -1,8 +1,9 @@
 use std::sync::{Arc, LazyLock};
 
 use cel::common::types::{CelBool, CelDouble, CelString, Kind};
-use cel::common::value::CowVal;
-use cel::{Context, Env, ExecutionError, FunctionContext, extensions};
+use cel::common::value::{CowVal, Val};
+use cel::extractors::Arguments;
+use cel::{Context, Env, ExecutionError, FunctionContext, Value, extensions};
 
 use super::area::AreaUnit;
 use super::{NULL, text};
@@ -10,7 +11,7 @@ use super::{NULL, text};
 const COALESCE: &str = "coalesce";
 /// The largest of its arguments, or of the one list it is given.
 const MAX: &str = "max";
-/// The smallest of its arguments, or of the one list it is given.
+/// The smallest of its arguments, or of the one list it is given; `null` for an empty list.
 const MIN: &str = "min";
 /// The area of the feature's whole geometry in the unit it is given, e.g. `area('m2')`.
 pub(crate) const AREA: &str = "area";
@@ -42,9 +43,9 @@ impl Shared {
         let mut root = Context::with_env(Arc::clone(&env));
         root.add_function(COALESCE, Box::new(coalesce) as Function)
             .expect("the standard library has no coalesce");
-        root.add_function(MAX, cel::functions::max)
+        root.add_function(MAX, Box::new(max) as Function)
             .expect("the standard library has no max");
-        root.add_function(MIN, cel::functions::min)
+        root.add_function(MIN, Box::new(min) as Function)
             .expect("the standard library has no min");
         root.add_function(AREA, Box::new(area) as Function)
             .expect("the standard library has no area");
@@ -79,6 +80,33 @@ fn coalesce<'c, 'v>(ftx: &mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>,
         .chain(args)
         .find(|v| v.get_type().kind() != Kind::NullType)
         .unwrap_or(CowVal::Borrowed(&NULL)))
+}
+
+/// `max(a, b, ...)`, `max(list)` or `list.max()`: the largest value.
+fn max<'c, 'v>(ftx: &mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>, ExecutionError> {
+    extreme(ftx, cel::functions::max)
+}
+
+/// `min(a, b, ...)`, `min(list)` or `list.min()`: the smallest value.
+fn min<'c, 'v>(ftx: &mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>, ExecutionError> {
+    extreme(ftx, cel::functions::min)
+}
+
+/// The value `pick` takes from the arguments, a target counting as the first one, so `list.min()` is `min(list)`.
+fn extreme<'c, 'v>(
+    ftx: &mut FunctionContext<'c, 'v>,
+    pick: fn(Arguments) -> Result<Value, ExecutionError>,
+) -> Result<CowVal<'c, 'v>, ExecutionError> {
+    let args = std::mem::take(&mut ftx.args);
+    let values = ftx
+        .this
+        .take()
+        .into_iter()
+        .chain(args)
+        .map(|value| Value::try_from(value.as_ref()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let value: Box<dyn Val> = pick(Arguments(Arc::new(values)))?.try_into()?;
+    Ok(CowVal::Owned(value))
 }
 
 /// `area(unit)`: the feature's area in `unit`, from the whole geometry its view measures.
@@ -189,20 +217,12 @@ mod tests {
     #[rstest]
     #[case::of_a_list("max(ref.split(';').map(r, size(r)))", Value::Int(5))]
     #[case::of_arguments("max(size(ref), 3)", Value::Int(10))]
-    fn max_returns_the_largest(#[case] source: &str, #[case] expected: Value) {
-        let columns = ["ref"];
-        let expr = CompiledExpr::compile(source, &columns, false).unwrap();
-        let keys = ExprKeys::columns(&columns);
-        let props = vec![(KeyId::new(0), Prop::Str("B 39;B 39A".to_owned()))];
-        let mut slots = PropSlots::default();
-        let view = slots.bind(&keys, &props);
-        assert_eq!(expr.eval(&view).unwrap(), expected);
-    }
-
-    #[rstest]
-    #[case::of_a_list("min(ref.split(';').map(r, size(r)))", Value::Int(4))]
-    #[case::of_arguments("min(size(ref), 3)", Value::Int(3))]
-    fn min_returns_the_smallest(#[case] source: &str, #[case] expected: Value) {
+    #[case::called_on_a_list("ref.split(';').map(r, size(r)).max()", Value::Int(5))]
+    #[case::min_of_a_list("min(ref.split(';').map(r, size(r)))", Value::Int(4))]
+    #[case::min_of_arguments("min(size(ref), 3)", Value::Int(3))]
+    #[case::min_called_on_a_list("ref.split(';').map(r, size(r)).min()", Value::Int(4))]
+    #[case::min_of_an_empty_list("min([])", Value::Null)]
+    fn max_and_min_return_the_largest_and_smallest(#[case] source: &str, #[case] expected: Value) {
         let columns = ["ref"];
         let expr = CompiledExpr::compile(source, &columns, false).unwrap();
         let keys = ExprKeys::columns(&columns);

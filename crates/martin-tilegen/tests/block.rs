@@ -28,6 +28,7 @@ fn feature(id: i64, geometry: Geometry, rank: i64) -> SourceFeature {
             (KeyId::new(0), Prop::Str(format!("f{id}").into())),
             (KeyId::new(1), Prop::I64(rank)),
         ],
+        relations: Vec::new(),
     }
 }
 
@@ -213,11 +214,13 @@ fn a_block_reports_the_features_it_could_not_render() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
         props,
+        relations: Vec::new(),
     };
     let empty_collection = SourceFeature {
         id: Some(3),
         geometry: Geometry::Wkb(Bytes::from_static(&[1, 7, 0, 0, 0, 0, 0, 0, 0])),
         props: vec![],
+        relations: Vec::new(),
     };
     let mut batches = vec![FeatureBatch {
         table: 0,

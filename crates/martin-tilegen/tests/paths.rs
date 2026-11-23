@@ -38,6 +38,7 @@ fn a_city_takes_the_first_rule() {
         id: Some(1),
         geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
         props: vec![(KeyId::new(0), Prop::Str("city".into()))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &city).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -72,6 +73,7 @@ fn a_capital_skips_the_first_rule_and_takes_the_second() {
         id: Some(2),
         geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
         props: vec![(KeyId::new(0), Prop::Str("capital".into()))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &capital).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -106,6 +108,7 @@ fn a_place_without_a_class_takes_no_rule() {
         id: Some(3),
         geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &unnamed).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -131,6 +134,7 @@ fn a_place_above_the_population_is_where() {
         id: Some(1),
         geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
         props: vec![(KeyId::new(0), Prop::I64(5000))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &big).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -156,6 +160,7 @@ fn a_place_below_the_population_is_not_where() {
         id: Some(2),
         geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
         props: vec![(KeyId::new(0), Prop::I64(10))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &small).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -181,6 +186,7 @@ fn a_place_without_a_population_is_where_with_the_column_null() {
         id: Some(3),
         geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &unknown).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -222,6 +228,7 @@ fn a_city_without_an_english_name_is_labelled_by_its_name() {
             (KeyId::new(0), Prop::Str("city".into())),
             (KeyId::new(1), Prop::Str("Wien".into())),
         ],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &city).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -264,6 +271,7 @@ fn a_town_outside_the_rule_takes_none_of_the_choices_of_its_attributes() {
             (KeyId::new(0), Prop::Str("town".into())),
             (KeyId::new(1), Prop::Str("Baden".into())),
         ],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &town).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -597,6 +605,7 @@ fn a_feature_without_a_known_column_takes_its_null_path() {
         id: Some(1),
         geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &known, Crs::Wgs84, &unknown).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -891,6 +900,7 @@ fn a_stop_sign_takes_the_path_of_its_value() {
         id: Some(1),
         geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
         props: vec![(KeyId::new(0), Prop::Str("stop".into()))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &known, Crs::Wgs84, &stop).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -931,6 +941,7 @@ fn a_value_the_filter_does_not_list_takes_no_path() {
         id: Some(1),
         geometry: Geometry::Point(Coord { x: 0.01, y: 0.01 }),
         props: vec![(KeyId::new(0), Prop::Str("give_way".into()))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &known, Crs::Wgs84, &give_way).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -957,6 +968,7 @@ fn an_integer_property_takes_the_path_of_its_known_integer_value() {
         id: Some(1),
         geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.02, 0.01)])),
         props: vec![(KeyId::new(0), Prop::I64(2))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &known, Crs::Wgs84, &two_lanes).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1015,6 +1027,7 @@ fn a_short_major_road_is_kept_by_the_min_size_of_its_rule() {
         id: Some(1),
         geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.010_002, 0.01)])),
         props: vec![(KeyId::new(0), Prop::Str("major".into()))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &major).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1045,6 +1058,7 @@ fn a_short_minor_road_is_smaller_than_the_layer_min_size_at_every_zoom() {
         id: Some(2),
         geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.010_002, 0.01)])),
         props: vec![(KeyId::new(0), Prop::Str("minor".into()))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &minor).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1292,6 +1306,7 @@ fn a_line_across_a_z14_tile_edge_takes_the_crossing_path() {
         id: Some(1),
         geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.03, 0.01)])),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1318,6 +1333,7 @@ fn a_line_inside_one_z14_tile_takes_no_shape_path() {
         id: Some(1),
         geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.015, 0.01)])),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1343,6 +1359,7 @@ fn a_line_shorter_than_one_z14_tile_unit_takes_the_sub_unit_path() {
         id: Some(1),
         geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.010_002, 0.01)])),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1368,6 +1385,7 @@ fn a_line_just_below_the_default_min_size_is_kept_only_at_z14() {
         id: Some(1),
         geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.010_02, 0.01)])),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1393,6 +1411,7 @@ fn a_tiny_line_is_smaller_than_the_default_min_size_at_every_zoom() {
         id: Some(1),
         geometry: Geometry::Line(LineString::from(vec![(0.01, 0.01), (0.010_002, 0.01)])),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1422,6 +1441,7 @@ fn a_polygon_across_a_z14_tile_edge_takes_the_crossing_path() {
             vec![],
         )),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1451,6 +1471,7 @@ fn a_point_in_a_layer_of_any_geometry_takes_no_shape_path() {
             y: 0.01,
         }),
         props: vec![],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &feature).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1479,6 +1500,7 @@ fn a_large_polygon_takes_the_minzoom_its_area_picks() {
             vec![],
         )),
         props: vec![(KeyId::new(0), Prop::Str("2".into()))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &country).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();
@@ -1622,6 +1644,7 @@ fn an_outline_takes_the_paths_of_a_layer_of_lines_and_not_of_a_layer_of_any_geom
             (0.0, 0.0),
         ])),
         props: vec![(KeyId::new(0), Prop::Str("pedestrian".into()))],
+        relations: Vec::new(),
     };
     let paths = plan.paths_of(0, &[], Crs::Wgs84, &square).unwrap();
     let taken: Vec<String> = paths.iter().map(ToString::to_string).collect();

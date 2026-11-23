@@ -27,6 +27,7 @@ fn limit_keeps_the_first_features_in_sort_by_order() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::I64(rank))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -85,6 +86,7 @@ fn a_limit_of_zero_leaves_the_layer_out_of_the_tile() {
             id: Some(1),
             geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -131,6 +133,7 @@ fn a_tile_whose_every_layer_a_limit_of_zero_empties_is_left_out() {
             id: Some(1),
             geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -163,6 +166,7 @@ fn an_operation_passes_features_through_outside_its_zooms() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
             props: vec![],
+            relations: Vec::new(),
         })
         .collect();
     let batches = vec![FeatureBatch {
@@ -219,6 +223,7 @@ fn grid_thinning_keeps_the_first_points_of_each_square_in_sort_by_order() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::I64(rank))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -290,6 +295,7 @@ fn grid_thinning_with_keys_counts_each_key_apart_and_never_thins_a_null_key() {
                 .map(|kind| (KeyId::new(0), Prop::Str(kind.into())))
                 .into_iter()
                 .collect(),
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -355,6 +361,7 @@ fn grid_thinning_splits_a_multi_point_and_counts_each_point() {
                 Coord { x: -100.0, y: 10.0 },
             ]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -422,6 +429,7 @@ fn grid_thinning_keeps_both_copies_of_a_point_wrapped_across_the_antimeridian() 
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 0.0 }]),
             props: vec![(KeyId::new(0), Prop::I64(rank))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -502,6 +510,7 @@ fn grid_thinning_keeps_the_same_points_of_a_multi_point_in_both_wrapped_copies()
             id: Some(7),
             geometry: Geometry::Points(vec![Coord { x: -179.64, y: 0.0 }, Coord { x: -179.5, y: 0.0 }]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -572,11 +581,13 @@ fn grid_thinning_counts_multi_point_points_rounded_together_in_their_own_squares
                 id: Some(1),
                 geometry: Geometry::Points(vec![Coord { x: -90.0036, y: 10.0 }]),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
                 geometry: Geometry::Points(vec![Coord { x: -90.0036, y: 10.0 }, Coord { x: -89.9964, y: 10.0 }]),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -647,6 +658,7 @@ fn grid_thinning_keeps_the_wrapped_copy_of_the_point_it_keeps_when_only_some_poi
             id: Some(7),
             geometry: Geometry::Points(vec![Coord { x: -144.0, y: 0.0 }, Coord { x: -179.64, y: 0.0 }]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -719,6 +731,7 @@ fn a_rule_replaces_the_layer_grid_thinning_and_an_empty_one_turns_it_off() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -783,6 +796,7 @@ fn grid_rank_writes_each_point_position_in_its_square_plus_the_offset_unless_it_
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: rank.map(|rank| (KeyId::new(0), Prop::I64(rank))).into_iter().collect(),
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -852,6 +866,7 @@ fn grid_rank_counts_only_the_kept_points_of_each_key_and_adds_its_attribute() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -920,6 +935,7 @@ fn grid_rank_ranks_the_points_of_every_definition_of_an_output_layer_in_one_squa
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -998,6 +1014,7 @@ fn points_of_different_grid_sizes_share_a_counter_when_their_groups_are_equal() 
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: lat }]),
             props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1066,6 +1083,7 @@ fn neighboring_tiles_keep_the_same_point_of_a_square_crossing_their_edge() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::I64(rank))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1142,11 +1160,13 @@ fn merge_multi_combines_each_group_and_type_at_its_first_member() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
         props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+        relations: Vec::new(),
     };
     let line = |id, lon, kind: &str| SourceFeature {
         id: Some(id),
         geometry: Geometry::Lines(vec![LineString::from(vec![(lon, 10.0), (lon + 5.0, 12.0)])]),
         props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+        relations: Vec::new(),
     };
     let mut batches = vec![FeatureBatch {
         table: 0,
@@ -1211,11 +1231,13 @@ fn merge_multi_leaves_types_outside_its_geometry_alone() {
         id: Some(id),
         geometry: Geometry::Lines(vec![LineString::from(vec![(lon, 10.0), (lon + 5.0, 12.0)])]),
         props: vec![],
+        relations: Vec::new(),
     };
     let point = |id, lon| SourceFeature {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
         props: vec![],
+        relations: Vec::new(),
     };
     let mut batches = vec![FeatureBatch {
         table: 0,
@@ -1276,6 +1298,7 @@ fn merge_multi_keeps_only_the_group_by_attributes_even_for_a_group_of_one() {
             (KeyId::new(0), Prop::Str(kind.into())),
             (KeyId::new(1), Prop::Str(name.into())),
         ],
+        relations: Vec::new(),
     };
     let mut batches = vec![FeatureBatch {
         table: 0,
@@ -1345,16 +1368,19 @@ fn merge_multi_groups_features_missing_a_group_by_attribute_together() {
                 id: Some(1),
                 geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
                 props: vec![],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
                 geometry: Geometry::Points(vec![Coord { x: 20.0, y: 10.0 }]),
                 props: vec![(KeyId::new(0), Prop::Str("shop".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(3),
                 geometry: Geometry::Points(vec![Coord { x: 30.0, y: 10.0 }]),
                 props: vec![],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -1406,6 +1432,7 @@ fn merge_multi_keeps_an_integer_a_float_and_a_string_of_the_same_value_apart() {
         id: Some(id),
         geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
         props: vec![(KeyId::new(0), kind)],
+        relations: Vec::new(),
     };
     let mut batches = vec![FeatureBatch {
         table: 0,
@@ -1472,6 +1499,7 @@ fn limit_runs_after_merge_multi_whatever_their_order() {
                 y: 10.0,
             }]),
             props: vec![],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1542,6 +1570,7 @@ fn tile_thinning_keeps_the_first_feature_of_each_key_in_the_tile() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::Str(name.into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1597,6 +1626,7 @@ fn tile_thinning_keeps_an_integer_and_an_unsigned_key_of_the_same_value_apart() 
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1652,6 +1682,7 @@ fn distance_thinning_keeps_features_of_one_key_farther_apart() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::Str("Main St".into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1707,6 +1738,7 @@ fn distance_thinning_without_keys_keeps_any_two_features_farther_apart() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1762,6 +1794,7 @@ fn distance_thinning_drops_a_feature_across_a_corner_of_its_square() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: lat }]),
             props: vec![(KeyId::new(0), Prop::Str("Main St".into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1832,6 +1865,7 @@ fn distance_thinning_of_zero_drops_only_features_at_the_same_point() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: lat }]),
             props: vec![(KeyId::new(0), Prop::Str("Main St".into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1905,6 +1939,7 @@ fn thinning_never_drops_a_feature_whose_key_is_all_null_and_counts_failed_keys()
                 .map(|name| (KeyId::new(0), Prop::Str(name.into())))
                 .into_iter()
                 .collect(),
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -1969,6 +2004,7 @@ fn thinning_keys_read_output_attributes_by_their_output_names() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: 10.0, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::Str(name.into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -2035,6 +2071,7 @@ fn a_hidden_attribute_keys_thinning_but_is_left_out_of_the_tile() {
                 (KeyId::new(0), Prop::Str(street.into())),
                 (KeyId::new(1), Prop::Str(number.into())),
             ],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -2114,6 +2151,7 @@ fn an_attribute_one_definition_hides_is_left_out_for_every_definition_of_its_out
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![(KeyId::new(0), Prop::Str(kind.into()))],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -2170,6 +2208,7 @@ fn an_attribute_one_definition_hides_is_left_out_for_every_definition_of_its_out
 }
 
 #[test]
+#[expect(clippy::too_many_lines, reason = "each feature literal also names its relations")]
 fn merge_lines_keeps_lines_apart_whose_hidden_attributes_differ() {
     let mut batches = vec![FeatureBatch {
         table: 0,
@@ -2184,6 +2223,7 @@ fn merge_lines_keeps_lines_apart_whose_hidden_attributes_differ() {
                     (KeyId::new(0), Prop::Str("primary".into())),
                     (KeyId::new(1), Prop::I64(1)),
                 ],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
@@ -2192,16 +2232,19 @@ fn merge_lines_keeps_lines_apart_whose_hidden_attributes_differ() {
                     (KeyId::new(0), Prop::Str("primary".into())),
                     (KeyId::new(1), Prop::I64(2)),
                 ],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(3),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 5e+00), (1e+01, 5e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("primary".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(4),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 5e+00), (2e+01, 5e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("primary".into()))],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -2284,11 +2327,13 @@ fn merge_lines_joins_two_lines_sharing_an_end() {
                 id: Some(1),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 0e+00), (1e+01, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (2e+01, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -2350,16 +2395,19 @@ fn merge_lines_keeps_the_three_lines_of_a_junction() {
                 id: Some(1),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 0e+00), (1e+01, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (2e+01, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(3),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (1e+01, 1e+01)])]),
                 props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -2421,11 +2469,13 @@ fn merge_lines_joins_only_lines_whose_attributes_are_all_equal() {
                 id: Some(1),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 0e+00), (1e+01, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (2e+01, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("b".into()))],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -2488,31 +2538,37 @@ fn merge_lines_drops_short_merged_lines_but_keeps_a_long_line_of_short_pieces() 
                 id: Some(1),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 2e+01), (1e+00, 2e+01)])]),
                 props: vec![(KeyId::new(0), Prop::Str("short".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(0e+00, 0e+00), (1e+00, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(3),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(1e+00, 0e+00), (2e+00, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(4),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(2e+00, 0e+00), (3e+00, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(5),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(3e+00, 0e+00), (4e+00, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(6),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(4e+00, 0e+00), (5e+00, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("long".into()))],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -2578,11 +2634,13 @@ fn merge_lines_simplifies_merged_lines_by_its_tolerance() {
                     (1e+01, 0e+00),
                 ])]),
                 props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
                 geometry: Geometry::Lines(vec![LineString::from(vec![(1e+01, 0e+00), (2e+01, 0e+00)])]),
                 props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -2643,6 +2701,7 @@ fn merge_lines_clips_merged_lines_to_the_tile_and_its_buffer() {
             id: Some(1),
             geometry: Geometry::Lines(vec![LineString::from(vec![(-1e+01, 1e+01), (3e+01, 1e+01)])]),
             props: vec![(KeyId::new(0), Prop::Str("a".into()))],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -2706,6 +2765,7 @@ fn merge_polygons_unions_two_touching_squares() {
                     vec![],
                 )]),
                 props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
@@ -2714,6 +2774,7 @@ fn merge_polygons_unions_two_touching_squares() {
                     vec![],
                 )]),
                 props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -2784,6 +2845,7 @@ fn merge_polygons_joins_squares_closer_than_its_distance_only() {
                     vec![],
                 )]),
                 props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
@@ -2792,6 +2854,7 @@ fn merge_polygons_joins_squares_closer_than_its_distance_only() {
                     vec![],
                 )]),
                 props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(3),
@@ -2800,6 +2863,7 @@ fn merge_polygons_joins_squares_closer_than_its_distance_only() {
                     vec![],
                 )]),
                 props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(4),
@@ -2814,6 +2878,7 @@ fn merge_polygons_joins_squares_closer_than_its_distance_only() {
                     vec![],
                 )]),
                 props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -2892,6 +2957,7 @@ fn merge_polygons_fills_holes_smaller_than_min_hole_area() {
                 ],
             )]),
             props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -2961,6 +3027,7 @@ fn merge_polygons_drops_polygons_smaller_than_min_area() {
                     vec![],
                 )]),
                 props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+                relations: Vec::new(),
             },
             SourceFeature {
                 id: Some(2),
@@ -2975,6 +3042,7 @@ fn merge_polygons_drops_polygons_smaller_than_min_area() {
                     vec![],
                 )]),
                 props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+                relations: Vec::new(),
             },
         ],
     }];
@@ -3050,6 +3118,7 @@ fn merge_polygons_clips_to_the_tile_and_its_buffer_dropping_corners_outside() {
                 vec![],
             )]),
             props: vec![(KeyId::new(0), Prop::Str("park".into()))],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -3113,6 +3182,7 @@ fn the_summary_counts_the_features_each_operation_of_a_layer_took_and_kept() {
             id: Some(id),
             geometry: Geometry::Points(vec![Coord { x: lon, y: 10.0 }]),
             props: vec![],
+            relations: Vec::new(),
         })
         .collect();
     let mut batches = vec![FeatureBatch {
@@ -3197,6 +3267,7 @@ fn reused_tiles_count_in_the_summary_as_if_encoded_again() {
                 vec![],
             )]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -3255,6 +3326,7 @@ fn fill_only_tiles_still_dedup_and_count_after_merge_polygons() {
                 vec![],
             )]),
             props: vec![],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {
@@ -3313,6 +3385,7 @@ fn thinning_key_failures_count_once_per_tile_even_in_reused_tiles() {
                 vec![],
             )]),
             props: vec![(KeyId::new(0), Prop::Str("sea".into()))],
+            relations: Vec::new(),
         }],
     }];
     let plan = Plan::new(vec![TableDef {

@@ -61,6 +61,18 @@ pub enum PlanError {
     #[error("layer `{layer}`: {error}")]
     LayerExpr { layer: String, error: ExprError },
 
+    /// Two relation sets of one table with the same name.
+    #[error("relation set `{set}` is defined more than once")]
+    DuplicateRelationSet { set: String },
+
+    /// A relation set whose `where` does not compile.
+    #[error("relation set `{set}`: {error}")]
+    RelationSetExpr { set: String, error: ExprError },
+
+    /// A relation set listing a tag under a name its members' maps already use.
+    #[error("relation set `{set}`: tag `{tag}` clashes with the `id` and `role` every relation of the set has")]
+    RelationSetTag { set: String, tag: String },
+
     #[error("layer `{layer}`: {error}")]
     InvalidLayer { layer: String, error: RenderLayerError },
 
@@ -114,6 +126,9 @@ pub enum ColumnDef {
     /// A JSON document kept whole as one property named after the column, which no source can filter on, since
     /// a source's `null` is not the document's.
     Document(String),
+    /// The relations of these sets that a feature is a member of, which expressions read as [`RELATIONS`]`.<set>`
+    /// and the source puts in [`SourceFeature::relations`](crate::source::SourceFeature::relations).
+    Relations(Vec<RelationSetDef>),
 }
 
 impl ColumnDef {
@@ -121,16 +136,35 @@ impl ColumnDef {
     pub fn name(&self) -> &str {
         match self {
             Self::Value(name, _) | Self::Keys(name) | Self::Document(name) => name,
+            Self::Relations(_) => RELATIONS,
         }
     }
 
-    /// The property name of a column that is not [`ColumnDef::Keys`].
+    /// The property name of a [`ColumnDef::Value`].
     fn value(&self) -> Option<&str> {
         match self {
             Self::Value(name, _) | Self::Document(name) => Some(name),
-            Self::Keys(_) => None,
+            Self::Keys(_) | Self::Relations(_) => None,
         }
     }
+}
+
+/// The tag that says what a relation is, which a relation set's `where` reads as the tag, not as CEL's `type`.
+const RELATION_TYPE: &str = "type";
+
+/// The name expressions read a feature's relation sets by, e.g. `relations.admin`.
+pub const RELATIONS: &str = "relations";
+
+/// A named set of relations: a feature that is a member of some of them sees them as `relations.<name>`, a list of
+/// maps holding the set's `tags`, the relation's `id`, and the feature's `role` in it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RelationSetDef {
+    /// The name expressions read the set by.
+    pub name: String,
+    /// A CEL expression over a relation's tags, `true` for the relations the set holds.
+    pub filter: String,
+    /// The tags of each relation that its members see, `null` when the relation does not have one.
+    pub tags: Vec<String>,
 }
 
 /// The tile-local square a fill record stands for, including the buffer.
@@ -632,6 +666,21 @@ pub(crate) struct PlannedTable {
     pub(crate) reads: Vec<String>,
     /// The rows each of its layers takes, in the order of `layers`.
     pub(crate) rows: Vec<Result<Condition, Untranslatable>>,
+    /// The relation sets its features may be members of, in [`Membership::set`](crate::source::Membership::set)
+    /// order.
+    pub(crate) relation_sets: Vec<PlannedRelationSet>,
+}
+
+/// A relation set of a table, with its `where` compiled.
+#[derive(Debug)]
+pub(crate) struct PlannedRelationSet {
+    pub(crate) def: RelationSetDef,
+    /// The relations the set holds, by their tags.
+    #[cfg_attr(
+        not(feature = "osm"),
+        expect(dead_code, reason = "only the OSM reader reads relation sets")
+    )]
+    pub(crate) filter: CompiledExpr,
 }
 
 #[derive(Debug)]
@@ -767,22 +816,18 @@ pub(crate) enum PlannedValue {
 
 impl Plan {
     pub fn new(tables: Vec<TableDef>) -> Result<Self, PlanError> {
-        let total = tables.iter().map(|t| t.layers.len()).sum();
-        if total > 256 {
-            return Err(PlanError::TooManyLayers(total));
-        }
-        if u16::try_from(tables.len()).is_err() {
-            return Err(PlanError::TooManyTables(tables.len()));
-        }
+        let total = layer_count(&tables)?;
         let drafts = OutputDraft::all(&tables)?;
         let mut planned_tables = Vec::with_capacity(tables.len());
         let mut layers = Vec::with_capacity(total);
         let mut own_keys = Vec::with_capacity(total);
         let mut exprs = Vec::new();
-        for table in tables {
+        for mut table in tables {
             let start = layers.len();
             let first_expr = exprs.len();
             let mut reads = BTreeSet::new();
+            let relation_sets = plan_relation_sets(&mut table.columns)?;
+            let set_names: Vec<&str> = relation_sets.iter().map(|set| set.def.name.as_str()).collect();
             let values: Vec<&str> = table.columns.iter().filter_map(ColumnDef::value).collect();
             let mut rules = false;
             for def in table.layers {
@@ -803,6 +848,7 @@ impl Plan {
                     columns: &table.columns,
                     values: &values,
                     dynamic_props: values.len() < table.columns.len(),
+                    relation_sets: &set_names,
                     reads: &mut reads,
                     layer: layers.len(),
                     name: def.name.clone(),
@@ -841,7 +887,7 @@ impl Plan {
             let columns: Vec<String> = kept.iter().map(|c| c.name().to_owned()).collect();
             let rows = layers[start..]
                 .iter()
-                .map(|layer| layer_rows(&kept, layer, &exprs))
+                .map(|layer| layer_rows(&kept, &relation_sets, layer, &exprs))
                 .collect();
             planned_tables.push(PlannedTable {
                 rows,
@@ -851,6 +897,7 @@ impl Plan {
                 defs: kept,
                 layers: start..layers.len(),
                 evaluates: rules || exprs.len() > first_expr,
+                relation_sets,
             });
         }
         let outputs = drafts
@@ -876,6 +923,16 @@ impl Plan {
     #[must_use]
     pub fn columns(&self, table: usize) -> &[String] {
         &self.tables[table].columns
+    }
+
+    /// The relation sets of table `table`, in [`Membership::set`](crate::source::Membership::set) order.
+    ///
+    /// # Panics
+    ///
+    /// If the plan has no table `table`.
+    #[cfg(feature = "osm")]
+    pub(crate) fn relation_sets(&self, table: usize) -> &[PlannedRelationSet] {
+        &self.tables[table].relation_sets
     }
 
     /// The rows of table `table` that some layer takes at one of `zooms`, for its source to filter on.
@@ -970,6 +1027,8 @@ struct Compiler<'a> {
     columns: &'a [ColumnDef],
     values: &'a [&'a str],
     dynamic_props: bool,
+    /// The names of the table's relation sets.
+    relation_sets: &'a [&'a str],
     reads: &'a mut BTreeSet<String>,
     layer: usize,
     name: String,
@@ -977,8 +1036,8 @@ struct Compiler<'a> {
 
 impl Compiler<'_> {
     fn compile(&mut self, source: &str) -> Result<CompiledExpr, PlanError> {
-        let expr =
-            CompiledExpr::compile(source, self.values, self.dynamic_props).map_err(|error| PlanError::LayerExpr {
+        let expr = CompiledExpr::compile_with_relations(source, self.values, self.dynamic_props, self.relation_sets)
+            .map_err(|error| PlanError::LayerExpr {
                 layer: self.name.clone(),
                 error,
             })?;
@@ -1010,8 +1069,55 @@ impl Compiler<'_> {
     }
 }
 
-/// The rows `layer` takes, by geometry type and `where`.
-fn layer_rows(columns: &[ColumnDef], layer: &PlannedLayer, exprs: &[PlannedExpr]) -> Result<Condition, Untranslatable> {
+/// The number of layers of `tables`, an error if there are too many layers or tables.
+fn layer_count(tables: &[TableDef]) -> Result<usize, PlanError> {
+    let total = tables.iter().map(|t| t.layers.len()).sum();
+    if total > 256 {
+        return Err(PlanError::TooManyLayers(total));
+    }
+    if u16::try_from(tables.len()).is_err() {
+        return Err(PlanError::TooManyTables(tables.len()));
+    }
+    Ok(total)
+}
+
+/// The relation sets among `columns`, taken out of them, each with its `where` compiled.
+fn plan_relation_sets(columns: &mut Vec<ColumnDef>) -> Result<Vec<PlannedRelationSet>, PlanError> {
+    let mut sets: Vec<PlannedRelationSet> = Vec::new();
+    for column in std::mem::take(columns) {
+        let ColumnDef::Relations(defs) = column else {
+            columns.push(column);
+            continue;
+        };
+        for def in defs {
+            if sets.iter().any(|set| set.def.name == def.name) {
+                return Err(PlanError::DuplicateRelationSet { set: def.name });
+            }
+            if let Some(tag) = def.tags.iter().find(|tag| matches!(tag.as_str(), "id" | "role")) {
+                return Err(PlanError::RelationSetTag {
+                    tag: tag.clone(),
+                    set: def.name,
+                });
+            }
+            let filter = CompiledExpr::compile(&def.filter, &[RELATION_TYPE], true).map_err(|error| {
+                PlanError::RelationSetExpr {
+                    set: def.name.clone(),
+                    error,
+                }
+            })?;
+            sets.push(PlannedRelationSet { def, filter });
+        }
+    }
+    Ok(sets)
+}
+
+/// The rows `layer` takes, by geometry type and `where`, over `columns` and the members of `relation_sets`.
+fn layer_rows(
+    columns: &[ColumnDef],
+    relation_sets: &[PlannedRelationSet],
+    layer: &PlannedLayer,
+    exprs: &[PlannedExpr],
+) -> Result<Condition, Untranslatable> {
     let geometry = layer.geometry_condition();
     let Some(filter) = layer.filter else {
         return Ok(Condition::and(geometry));
@@ -1020,7 +1126,7 @@ fn layer_rows(columns: &[ColumnDef], layer: &PlannedLayer, exprs: &[PlannedExpr]
     let keys = columns.iter().find(|column| matches!(column, ColumnDef::Keys(_)));
     let condition = match keys {
         Some(keys) => Err(TranslateError::KeysMayReplaceColumns(keys.name().to_owned())),
-        None => planned.expr.condition(columns),
+        None => planned.expr.condition(columns, relation_sets),
     };
     let condition = condition.map_err(|reason| Untranslatable {
         layer: layer.name.clone(),
