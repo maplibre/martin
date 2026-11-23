@@ -763,8 +763,8 @@ mod tests {
 
         // U+3320: SQUARE SANTIIMU, U+1F60A: SMILING FACE WITH SMILING EYES
         for codepoint in [0x3320, 0x1f60a] {
-            let font_path =
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("../../tests/fixtures/fonts2/u+{codepoint:x}.ttf"));
+            let font_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("../../tests/fixtures/fonts2/u+{codepoint:x}.ttf"));
             assert!(font_path.is_file(), "{}", font_path.display());
             let face = lib.new_face(&font_path, 0).unwrap();
 

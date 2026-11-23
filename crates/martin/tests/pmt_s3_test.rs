@@ -29,7 +29,8 @@ const FIXTURE: &[u8] = include_bytes!("../../../tests/fixtures/pmtiles/png.pmtil
 /// Distinct fixture used to overwrite [`FIXTURE`] in place. Its tilejson omits the
 /// `name` field, while [`FIXTURE`]'s tilejson reports `name: "ne2sr"`. The contrast
 /// makes it unambiguous whether the reloader replaced the source after an overwrite.
-const STAMEN_FIXTURE: &[u8] = include_bytes!("../../../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
+const STAMEN_FIXTURE: &[u8] =
+    include_bytes!("../../../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
 
 /// rustfs/rustfs writes its startup JSON logs to /logs/rustfs.log, not to stdout.
 /// The entrypoint script prints "Starting: /usr/bin/rustfs <dir>" to stdout just before

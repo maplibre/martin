@@ -133,8 +133,8 @@ pub enum Error {
     /// cql2-text has no literal for an infinity or a NaN, and `f64::to_string` writes them as the
     /// bare words `inf`, `-inf` and `NaN`, which the grammar reads back as *property* names: the
     /// rendering of `1 / 0` would parse as a reference to a column called `inf`. Both values are
-    /// reachable from an expression that parsed — `1 / 0` reduces to an infinity and `0 / 0` to a
-    /// NaN — and there is nothing correct to emit for them, so rendering one is an error.
+    /// reachable from an expression that parsed - `1 / 0` reduces to an infinity and `0 / 0` to a
+    /// NaN - and there is nothing correct to emit for them, so rendering one is an error.
     ///
     /// SQL is not affected: `to_sql` writes them as `CAST('Infinity' AS DOUBLE)` and friends.
     #[error("{0} has no cql2-text spelling: cql2-text has no literal for an infinity or a NaN")]
