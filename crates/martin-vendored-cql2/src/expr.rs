@@ -151,7 +151,7 @@ fn literal(value: &str) -> String {
 ///
 /// `Literal` is tried before `Identifier`, so a bare `true`, `false` or `null` comes back as that
 /// value rather than as a name, and `not` is consumed as the prefix operator, leaving nothing for
-/// the expression that follows. Every other keyword — `and`, `is`, `like`, `between`, `div` — reads
+/// the expression that follows. Every other keyword - `and`, `is`, `like`, `between`, `div` - reads
 /// as an identifier where one is expected, so only these four need the quotes.
 const GRAMMAR_RESERVED: &[&str] = &["true", "false", "null", "not"];
 
@@ -226,7 +226,7 @@ pub(crate) fn canonical_op(name: &str) -> String {
 ///
 /// `eq`, `lt`, `ne` and friends are deliberately absent: the schema defines no such operators, so
 /// they can only arrive as user-defined function names and must be left alone. `div` is likewise not
-/// aliased to `/` — CQL2 defines it as integer division, a distinct operator.
+/// aliased to `/` - CQL2 defines it as integer division, a distinct operator.
 const ALIASES: &[(&str, &str)] = &[
     // A spelling the cql2-text grammar itself accepts: `NotEq = { "<>" | "!=" }`.
     ("!=", "<>"),
@@ -417,7 +417,7 @@ fn arith_op(left: Expr, right: Expr, op: &str) -> Result<Expr, Error> {
         // on integers, what PostgreSQL's `/` and `div()` do, and what the SQL standard requires;
         // flooring instead would make the answer depend on the sign of the operands.
         //
-        // Dividing by zero has no integer answer — the IEEE infinity `/` yields is not one — so it
+        // Dividing by zero has no integer answer - the IEEE infinity `/` yields is not one - so it
         // is reported as a failure, which leaves the operation unfolded exactly as an operand that
         // is not a number does.
         "div" => {
@@ -462,8 +462,8 @@ fn is_defined_operator(op: &str) -> bool {
 /// operands must not be constant-folded, otherwise `reduce` would invent a
 /// truth value for something it does not actually know.
 ///
-/// [`Expr::Null`] is deliberately *not* unknown. It is a value like any other — the third truth
-/// value of the three-valued logic CQL2 and SQL share — and an operation over it folds to what
+/// [`Expr::Null`] is deliberately *not* unknown. It is a value like any other - the third truth
+/// value of the three-valued logic CQL2 and SQL share - and an operation over it folds to what
 /// that logic says it is, rather than being left for someone else to evaluate.
 fn is_unknown(expr: &Expr) -> bool {
     match expr {
@@ -587,7 +587,7 @@ impl Expr {
                     }
                     dedupargs.append(&mut nestedargs);
                     // Operands are sorted so equal ones become adjacent. Not every pair is
-                    // comparable — `Geometry` has no ordering — so incomparable operands fall back
+                    // comparable - `Geometry` has no ordering - so incomparable operands fall back
                     // to a total order over their rendering, which keeps distinct operands distinct.
                     dedupargs.sort_by(|a, b| {
                         a.partial_cmp(b)
@@ -861,8 +861,8 @@ impl Expr {
 
     /// Returns True if the expression evaluates to true.
     ///
-    /// Anything else is false: a predicate admits a record only when it is TRUE, so a NULL — the
-    /// third truth value, which a comparison against a null value evaluates to — is not a match,
+    /// Anything else is false: a predicate admits a record only when it is TRUE, so a NULL - the
+    /// third truth value, which a comparison against a null value evaluates to - is not a match,
     /// and neither is an expression that did not fully reduce to a truth value.
     pub fn is_true(self) -> bool {
         matches!(self, Expr::Bool(true))
@@ -871,7 +871,7 @@ impl Expr {
     /// Filters an iterable of JSON values based on this expression.
     ///
     /// A record is kept only when the predicate is TRUE of it. A record the predicate is FALSE of,
-    /// NULL of, or cannot be decided for — because a property it names is absent — is skipped
+    /// NULL of, or cannot be decided for - because a property it names is absent - is skipped
     /// rather than reported as an error.
     ///
     /// # Examples
@@ -1258,7 +1258,7 @@ mod tests {
     /// An infinity or a NaN has no cql2-text spelling, so rendering one is an error.
     ///
     /// Rendered as the bare word `f64::to_string` writes, `inf` would parse back as a *property*
-    /// named `inf` — a different expression that reads as valid CQL2, which is worse than a failure.
+    /// named `inf` - a different expression that reads as valid CQL2, which is worse than a failure.
     #[test]
     fn non_finite_numbers_have_no_text() {
         for value in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {

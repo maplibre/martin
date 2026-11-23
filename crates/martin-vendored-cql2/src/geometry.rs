@@ -41,7 +41,7 @@ impl Geometry {
             //
             // Skipped for a geometry carrying `M`, which is echoed back as written: GeoJSON has no
             // measure ordinate, so re-rendering would drop it. That preserves the measure in this
-            // rendering only — the cql2-json encoding serializes through `to_geojson`, which does
+            // rendering only - the cql2-json encoding serializes through `to_geojson`, which does
             // not consult `has_measure` and drops the measure ordinate either way.
             Geometry::Wkt(wkt) if has_measure(wkt) => Ok(wkt.clone()),
             Geometry::Wkt(wkt) => Ok(wkt_to_geojson(wkt)
@@ -128,7 +128,7 @@ impl PartialOrd for Geometry {
 /// Every tag is inspected, not only the outermost one: a collection member carries its own marker,
 /// as in `GEOMETRYCOLLECTION(POINT M(1 2 3), ...)`, and its measure is lost just the same. No WKT
 /// tag ends in `M`, so an alphabetic run ending in one immediately before a `(` is a dimension
-/// marker rather than the tag — whether or not the space the grammar makes optional is written.
+/// marker rather than the tag - whether or not the space the grammar makes optional is written.
 fn has_measure(wkt: &str) -> bool {
     wkt.match_indices('(').any(|(paren, _)| {
         let head = wkt[..paren].trim_end();
