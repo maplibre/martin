@@ -1,1 +1,1 @@
-../../martin/CHANGELOG.md
+../../crates/martin/CHANGELOG.md

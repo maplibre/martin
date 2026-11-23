@@ -1,1 +1,1 @@
-../../../mbtiles/sql/init-normalized-with-hash.sql
+../../../crates/mbtiles/sql/init-normalized-with-hash.sql

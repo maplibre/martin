@@ -109,7 +109,7 @@ jobs:
               - 'crates/martin-tilegen/**'
               - 'crates/martin-ui/*.rs' # the bundle itself is covered by the ui filter
               - 'crates/martin/*'
-              - 'martin/benches/**'
+              - 'crates/martin/benches/**'
               - 'crates/martin/src/**'
               - 'crates/martin/tests/**'
             cog-py:

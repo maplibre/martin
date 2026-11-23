@@ -1,1 +1,1 @@
-../../../mbtiles/sql/init-metadata.sql
+../../../crates/mbtiles/sql/init-metadata.sql
