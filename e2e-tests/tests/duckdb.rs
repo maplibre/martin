@@ -1363,6 +1363,49 @@ async fn an_unsigned_s3_geoparquet_is_read_through_the_endpoint_without_credenti
 }
 
 #[tokio::test]
+async fn a_remote_geoparquet_tile_requested_again_is_read_from_the_duckdb_file_cache() {
+    let statics = StaticFiles::serving(&[(
+        "bucket/linestrings.parquet",
+        fixture("duckdb/geoparquet_bbox_column.parquet"),
+    )])
+    .await;
+    let dir = temp_dir();
+    let mut martin = start_with_config(
+        &dir,
+        &formatdoc! {"
+            duckdb:
+              pool_size: 1
+              sources:
+                - geoparquet: s3://bucket/linestrings.parquet
+                  endpoint: {endpoint}
+                  allow_http: true
+                  skip_signature: true
+                  region: us-east-1
+                  layer_id: linestrings
+                  geometry_column: geom
+                  srid: 4326
+            cache:
+              size_mb: 0
+            ",
+            endpoint = statics.base_url(),
+        },
+    )
+    .await;
+
+    assert_eq!(martin.get("/linestrings/0/0/0").await.status(), 200);
+    let requests_before = statics.request_log().await.lines().count();
+    assert_eq!(martin.get("/linestrings/0/0/0").await.status(), 200);
+    let requests = statics.request_log().await;
+    let second_tile_requests = requests.lines().skip(requests_before).collect::<Vec<_>>().join("\n");
+    insta::assert_snapshot!(second_tile_requests, @"HEAD /bucket/linestrings.parquet no range");
+
+    martin.stop().await;
+    martin.assert_log_contains(
+        "Ignoring column with no MVT representation. Vector tiles can only carry text, numeric and boolean properties. source.label=s3://bucket/linestrings.parquet columns=bbox (STRUCT(xmin DOUBLE, xmax DOUBLE, ymin DOUBLE, ymax DOUBLE))",
+    );
+}
+
+#[tokio::test]
 async fn a_signed_s3_geoparquet_signs_with_the_duckdb_level_keys() {
     let statics =
         StaticFiles::serving(&[("bucket/polygons.parquet", fixture("duckdb/geoparquet_polygons.parquet"))]).await;
