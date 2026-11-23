@@ -1,1 +1,1 @@
-../../../mbtiles/sql/init-normalized-dedup-id.sql
+../../../crates/mbtiles/sql/init-normalized-dedup-id.sql

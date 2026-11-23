@@ -1,1 +1,1 @@
-../../../mbtiles/sql/init-flat.sql
+../../../crates/mbtiles/sql/init-flat.sql
