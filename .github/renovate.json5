@@ -79,7 +79,7 @@
     },
     {
       // Test setup intentionally pins Postgres 15 with PostGIS 3.5 (oldest versions we support).
-      // Keep in sync with MINIMUM_POSTGRES_VERSION in martin-core/src/tiles/postgres/pool.rs.
+      // Keep in sync with MINIMUM_POSTGRES_VERSION in crates/martin-core/src/tiles/postgres/pool.rs.
       matchDatasources: ['docker'],
       matchPackageNames: ['postgis/postgis'],
       matchCurrentValue: '/^15-3\\.5/',
