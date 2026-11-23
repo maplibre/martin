@@ -785,9 +785,9 @@ test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
     cargo nextest run --package martin-e2e-tests --features test-pg,test-mlt-v2 --test config_file --test engine_serve --test martin_cp --test martin_cp_bulk --test martin_test_generate --test postgres --test process {{args}}
 
-# Run Rust doc tests, except map-tile-toolkit (see `just toolkit::test`)
+# Run Rust doc tests, except map-tile-toolkit (see `just toolkit::test`) and the vendored crates (their doctests need upstream files)
 test-doc *args: fetch
-    cargo test --doc --workspace --exclude map-tile-toolkit --exclude cog-tiles-py {{args}}
+    cargo test --doc --workspace --exclude map-tile-toolkit --exclude cog-tiles-py --exclude martin-vendored-cql2 {{args}}
 
 # Test code formatting
 test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
@@ -923,6 +923,21 @@ update-lockfile: fetch
     cargo update --precise 1.0.2 sdf_glyph_renderer
     # keeps bindgen's syn and prettyplease on the same major, remove once closed: https://github.com/rust-lang/rust-bindgen/issues/3448
     cargo update -p bindgen
+
+# Re-vendor developmentseed/cql2-rs main as martin-vendored-cql2, with geo's default `earcut` off (geo 0.33.1 pins it to =0.4.5, mlt-core needs ^0.4.10)
+vendor-cql2:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    git clone --quiet --depth 1 https://github.com/developmentseed/cql2-rs "$tmp/repo"
+    sha="$(git -C "$tmp/repo" rev-parse HEAD)"
+    (cd "$tmp/repo" && cargo package --package cql2 --no-verify --allow-dirty --quiet)
+    mkdir "$tmp/pkg"
+    tar -xzf "$tmp"/repo/target/package/cql2-*.crate -C "$tmp/pkg" --strip-components=1
+    python3 -I .github/files/vendor-crate.py "$tmp/pkg" martin-vendored-cql2 martin-vendored-cql2 \
+        "developmentseed/cql2-rs@$sha" src,README.md,LICENSE,NOTICE,rustfmt.toml geo
+    cargo update --workspace
 
 # Validate that all required development tools are installed
 validate-tools:

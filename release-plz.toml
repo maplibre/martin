@@ -54,6 +54,12 @@ name = "martin-tilegen"
 semver_check = false # 0.1.0 was published with --no-verify and its baseline does not build against crates.io mbtiles
 
 [[package]]
+name = "martin-vendored-cql2"
+changelog_update = false
+git_release_enable = false
+semver_check = false # a copy of developmentseed/cql2-rs main, its API is upstream's
+
+[[package]]
 name = "mbtiles"
 changelog_include = ["martin-tile-utils", "mbtiles", ".github", "tests", "docs"]
 

@@ -287,7 +287,7 @@ expression: tile_matrix_set
     {
       "id": "21",
       "scaleDenominator": 133.29559899061155,
-      "cellSize": 0.0000003352761268615723,
+      "cellSize": 0.00000033527612686157227,
       "pointOfOrigin": [
         -180.0,
         90.0
@@ -313,7 +313,7 @@ expression: tile_matrix_set
     {
       "id": "23",
       "scaleDenominator": 33.32389974765289,
-      "cellSize": 0.00000008381903171539308,
+      "cellSize": 0.00000008381903171539307,
       "pointOfOrigin": [
         -180.0,
         90.0
@@ -339,7 +339,7 @@ expression: tile_matrix_set
     {
       "id": "25",
       "scaleDenominator": 8.330974936913222,
-      "cellSize": 0.00000002095475792884827,
+      "cellSize": 0.000000020954757928848267,
       "pointOfOrigin": [
         -180.0,
         90.0
@@ -352,7 +352,7 @@ expression: tile_matrix_set
     {
       "id": "26",
       "scaleDenominator": 4.165487468456611,
-      "cellSize": 0.000000010477378964424132,
+      "cellSize": 0.000000010477378964424133,
       "pointOfOrigin": [
         -180.0,
         90.0
@@ -365,7 +365,7 @@ expression: tile_matrix_set
     {
       "id": "27",
       "scaleDenominator": 2.0827437342283055,
-      "cellSize": 0.0000000052386894822120675,
+      "cellSize": 0.000000005238689482212067,
       "pointOfOrigin": [
         -180.0,
         90.0
@@ -378,7 +378,7 @@ expression: tile_matrix_set
     {
       "id": "28",
       "scaleDenominator": 1.0413718671141527,
-      "cellSize": 0.000000002619344741106033,
+      "cellSize": 0.0000000026193447411060333,
       "pointOfOrigin": [
         -180.0,
         90.0
@@ -404,7 +404,7 @@ expression: tile_matrix_set
     {
       "id": "30",
       "scaleDenominator": 0.2603429667785382,
-      "cellSize": 0.0000000006548361852765082,
+      "cellSize": 0.0000000006548361852765083,
       "pointOfOrigin": [
         -180.0,
         90.0
