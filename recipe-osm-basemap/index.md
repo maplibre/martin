@@ -8,6 +8,8 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
 >
 > The `osm` section is described in [OpenStreetMap PBF Sources](<https://maplibre.org/martin/sources-osm/index.md>), the `shapefile` section in [Shapefile Sources](<https://maplibre.org/martin/sources-shapefile/index.md>).
 
+One layer differs from Planetiler's: `boundaries` also takes the member ways of `admin_level` 2 and 4 boundary relations, many of which have no tags of their own, with the lowest `admin_level` of the way and its relations. Planetiler's `shortbread.yml` reads only tagged ways and leaves this as a TODO. The configuration reads the relations through [relation membership](<https://maplibre.org/martin/sources-osm/index.md#relation-membership>).
+
 1. Download an extract, for example Berlin from [Geofabrik](<https://download.geofabrik.de/>), and the ocean polygons of the whole world from [osmdata.openstreetmap.de](<https://osmdata.openstreetmap.de/data/water-polygons.html>), about 900 MB:
 
    ```bash
@@ -90,6 +92,10 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >         - vending
    >         - waterway
    >         - wetland
+   >       relations:
+   >         admin:
+   >           where: "type == 'boundary' && boundary == 'administrative' && admin_level in ['2', '4']"
+   >           tags: [admin_level]
    >       layers:
    >         water_polygons:
    >           geometry: polygon
@@ -170,11 +176,15 @@ This builds a basemap tileset from an [OpenStreetMap](<https://www.openstreetmap
    >         boundaries:
    >           geometry: line
    >           min_size: 0
-   >           minzoom: "admin_level == '2' ? 0 : 7"
-   >           where: "boundary == 'administrative' && admin_level in ['2', '4']"
+   >           minzoom: >-
+   >             boundary == 'administrative' && admin_level == '2' || relations.admin.exists(r, r.admin_level == '2') ?
+   >             0 : 7
+   >           where: "boundary == 'administrative' && admin_level in ['2', '4'] || size(relations.admin) > 0"
    >           attributes:
    >             maritime: "maritime != null || natural == 'coastline'"
-   >             admin_level: "int(admin_level)"
+   >             admin_level: >-
+   >               ((boundary == 'administrative' && admin_level in ['2', '4'] ? [int(admin_level)] : []) +
+   >               relations.admin.map(r, int(r.admin_level))).min()
    >             disputed: "disputed == 'yes'"
    >         boundary_labels:
    >           geometry: polygon_point_on_surface

@@ -598,8 +598,8 @@ coalesce(null, null)                 // null
 Martin adds these functions to CEL:
 
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
-- `max(a, b, ...)` or `max(list)` returns the largest value, `null` for an empty list, as `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
-- `min(a, b, ...)` or `min(list)` returns the smallest value, `null` for an empty list.
+- `max(a, b, ...)`, `max(list)` or `list.max()` returns the largest value, `null` for an empty list, as `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
+- `min(a, b, ...)`, `min(list)` or `list.min()` returns the smallest value, `null` for an empty list.
 - `regex.replace(text, pattern, replacement)` replaces each match of `pattern` in `text`, as cel-go's `regex.replace`: `\1` to `\9` in `replacement` insert a group, `\0` the whole match and `\\` a backslash (written `'\\1'` in a CEL string). It returns `null` for a `null` text.
 - `text.isLatin()` is `true` when `text` holds only Latin letters and characters that are no letters, such as digits, punctuation and spaces, as Planetiler's `containsOnlyLatinCharacters`. It is `false` for `null` and `''`.
 - `text.removeLatin()` drops the Latin letters from `text`, then brackets left empty and the spaces, dots, slashes and dashes at both ends, as Planetiler's `removeLatinCharacters`. It returns `null` for `null` and when dropping Latin letters leaves only blanks, so `'日本 (Japan)'.removeLatin()` is `'日本'`. A `text` without Latin letters is only trimmed, so `''.removeLatin()` is `''`.

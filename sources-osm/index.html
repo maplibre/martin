@@ -1688,6 +1688,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#relation-membership" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Relation membership
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reading-only-what-the-layers-take" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2480,6 +2491,10 @@ The tile serving mode can only serve them after they are brought into a more sui
 <td>The tag keys the layers read, each a string property</td>
 </tr>
 <tr>
+<td><code>relations</code></td>
+<td>Named <a href="#relation-membership">relation sets</a> that members can read</td>
+</tr>
+<tr>
 <td><code>layers</code></td>
 <td>Output layers, as for <a href="../sources-pg-layers/">table sources</a></td>
 </tr>
@@ -2505,13 +2520,13 @@ The tile serving mode can only serve them after they are brought into a more sui
 </thead>
 <tbody>
 <tr>
-<td>Node with tags</td>
+<td>Node with tags, or a member of a relation set</td>
 <td>point</td>
 <td><code>node</code></td>
 <td>id * 10 + 1</td>
 </tr>
 <tr>
-<td>Way with tags</td>
+<td>Way with tags, or a member of a relation set</td>
 <td>line, polygon or both, below</td>
 <td><code>way</code></td>
 <td>id * 10 + 2</td>
@@ -2524,7 +2539,7 @@ The tile serving mode can only serve them after they are brought into a more sui
 </tr>
 </tbody>
 </table>
-<p>Martin leaves out objects without tags, and other relations.
+<p>Martin leaves out objects without tags that are in no <a href="#relation-membership">relation set</a>, and other relations.
 Martin reads a way as Planetiler does, whatever its other tags:</p>
 <table>
 <thead>
@@ -2579,6 +2594,70 @@ A way or relation whose nodes are not in the file is left out, as is a relation 
 <code>osm_type</code> is always one.
 An expression reading a key not in <code>tags</code> fails the run. A tag such as <code>name:en</code> is read with
 <code>feature['name:en']</code>.</p>
+<h2 id="relation-membership">Relation membership</h2>
+<p>A node or way can read the relations it is a member of, as Planetiler's <code>relationInfo</code> does.
+<code>relations</code> names sets of relations. Each set has a <code>where</code> over the relation's tags and the <code>tags</code> its members see.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">osm</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">omt</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">berlin-latest.osm.pbf</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">tags</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">highway</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">name</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">relations</span><span class="p">:</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">        </span><span class="nt">admin</span><span class="p">:</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">          </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"type</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">'boundary'</span><span class="nv"> </span><span class="s">&amp;&amp;</span><span class="nv"> </span><span class="s">boundary</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">'administrative'"</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">          </span><span class="nt">tags</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">admin_level</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">disputed</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">name</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">        </span><span class="nt">route</span><span class="p">:</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">          </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"type</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">'route'</span><span class="nv"> </span><span class="s">&amp;&amp;</span><span class="nv"> </span><span class="s">route</span><span class="nv"> </span><span class="s">in</span><span class="nv"> </span><span class="s">['road',</span><span class="nv"> </span><span class="s">'hiking']"</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">          </span><span class="nt">tags</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">network</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">ref</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">name</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">colour</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">layers</span><span class="p">:</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="nt">boundary</span><span class="p">:</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">          </span><span class="nt">geometry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">line</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">          </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"size(relations.admin)</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">0"</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">          </span><span class="nt">attributes</span><span class="p">:</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">            </span><span class="nt">admin_level</span><span class="p">:</span><span class="w"> </span><span class="s">"relations.admin.map(r,</span><span class="nv"> </span><span class="s">int(r.admin_level)).min()"</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">        </span><span class="nt">roads</span><span class="p">:</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">          </span><span class="nt">geometry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">line</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">          </span><span class="nt">where</span><span class="p">:</span><span class="w"> </span><span class="s">"highway</span><span class="nv"> </span><span class="s">!=</span><span class="nv"> </span><span class="s">null"</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">          </span><span class="nt">attributes</span><span class="p">:</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">            </span><span class="nt">highway</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">highway</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">            </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="s">"size(relations.route)</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">0</span><span class="nv"> </span><span class="s">?</span><span class="nv"> </span><span class="s">relations.route[0].network</span><span class="nv"> </span><span class="s">:</span><span class="nv"> </span><span class="s">null"</span>
+</span></code></pre></div>
+<p>In layer expressions, <code>relations.&lt;set&gt;</code> is a list with one map per relation of the set the object is a member of:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>each of the <code>tags</code></td>
+<td>The relation's tag, a string, <code>null</code> where it does not have it</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>The relation's OSM id</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>The object's role in the relation, <code>''</code> without one</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The list is ordered by relation id. An object in the same relation with two roles sees it twice, once per role.</li>
+<li>An object in no relation of the set gets an empty list. Naming a set that <code>relations</code> does not define fails the run.</li>
+<li>A node or way without tags is read when it is a member of a relation of some set, with every tag <code>null</code>, so a
+  layer of lines can draw the member ways of boundaries.</li>
+<li>Only nodes and ways see their relations. A relation drawn as a polygon gets empty lists.</li>
+<li><code>list.min()</code> and <code>list.max()</code>, or <code>min(list)</code> and <code>max(list)</code>, give the smallest and largest element, <code>null</code> for an
+  empty list. <code>min(a, b)</code> and <code>max(a, b)</code> compare their arguments.</li>
+<li>A set's <code>tags</code> cannot be <code>id</code> or <code>role</code>.</li>
+</ul>
+<p>Martin finds the relations of the sets, and the nodes and ways that are their members, while it reads the relations
+before the nodes and ways, in the same pass that reads the <code>multipolygon</code> and <code>boundary</code> relations. Memory grows with
+the number of members: about 16 bytes per membership.</p>
 <h2 id="reading-only-what-the-layers-take">Reading only what the layers take</h2>
 <p>The <code>where</code> and <code>geometry</code> of every layer are checked while the file is read, as PostgreSQL checks them for table
 sources:</p>
@@ -2591,7 +2670,10 @@ sources:</p>
 <li>A closed way is read as a line only if a layer with <code>geometry: line</code> may take it.</li>
 </ol>
 <p>This needs the same equivalent of <code>where</code> as <a href="../sources-pg-layers/#features">table sources</a> do. Without one, Martin
-reads every tagged object and checks <code>where</code> itself, with the same result.</p>
+reads every tagged object and checks <code>where</code> itself, with the same result.
+A <code>where</code> can read <code>relations</code> as <code>size(relations.&lt;set&gt;) &gt; 0</code> or <code>size(relations.&lt;set&gt;) == 0</code>: the object is checked
+against the members the relation pass found, but no block is skipped for it. Any other use of <code>relations</code> in a
+<code>where</code> has no equivalent, and Martin then reads every object that is tagged or a member of a relation set.</p>
 <h2 id="node-locations">Node locations</h2>
 <p>Martin builds ways and relations from node locations, which it loads before it reads the file. For a PBF of up to
 512 MiB, it keeps them in memory, about 30 bytes per node. For a larger file, it keeps them in a file of about

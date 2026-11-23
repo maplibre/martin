@@ -3712,9 +3712,9 @@ which has no lookaround and no backreferences.</p>
 <p>Martin adds these functions to CEL:</p>
 <ul>
 <li><code>coalesce(a, b, ...)</code> returns its first argument that is not <code>null</code>.</li>
-<li><code>max(a, b, ...)</code> or <code>max(list)</code> returns the largest value, <code>null</code> for an empty list, as
+<li><code>max(a, b, ...)</code>, <code>max(list)</code> or <code>list.max()</code> returns the largest value, <code>null</code> for an empty list, as
   <code>max(ref.split(';').map(r, size(r)))</code> for the longest part of a <code>ref</code>.</li>
-<li><code>min(a, b, ...)</code> or <code>min(list)</code> returns the smallest value, <code>null</code> for an empty list.</li>
+<li><code>min(a, b, ...)</code>, <code>min(list)</code> or <code>list.min()</code> returns the smallest value, <code>null</code> for an empty list.</li>
 <li><code>regex.replace(text, pattern, replacement)</code> replaces each match of <code>pattern</code> in <code>text</code>, as cel-go's
   <code>regex.replace</code>: <code>\1</code> to <code>\9</code> in <code>replacement</code> insert a group, <code>\0</code> the whole match and <code>\\</code> a backslash
   (written <code>'\\1'</code> in a CEL string). It returns <code>null</code> for a <code>null</code> text.</li>
