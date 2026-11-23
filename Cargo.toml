@@ -1,18 +1,18 @@
 [workspace]
 resolver = "3"
 members = [
-    "cog-tiles",
-    "cog-tiles-py",
-    "e2e-tests",
-    "map-tile-toolkit",
-    "martin",
-    "martin-config-macros",
-    "martin-core",
-    "martin-tile-utils",
-    "martin-tilegen",
-    "martin-ui",
-    "martin-vendored-cql2",
-    "mbtiles",
+    "crates/cog-tiles",
+    "crates/cog-tiles-py",
+    "crates/e2e-tests",
+    "crates/map-tile-toolkit",
+    "crates/martin",
+    "crates/martin-config-macros",
+    "crates/martin-core",
+    "crates/martin-tile-utils",
+    "crates/martin-tilegen",
+    "crates/martin-ui",
+    "crates/martin-vendored-cql2",
+    "crates/mbtiles",
 ]
 
 [workspace.package]
@@ -109,10 +109,10 @@ bytesize = "2.7.0"
 bytestring = "1.5"
 cel = { version = "0.16", default-features = false, features = ["regex"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-cog-tiles = { path = "cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
+cog-tiles = { path = "crates/cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
-cql2 = { package = "martin-vendored-cql2", version = "0.6.1", path = "martin-vendored-cql2" }
+cql2 = { package = "martin-vendored-cql2", version = "0.6.1", path = "crates/martin-vendored-cql2" }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 crossterm = "0.29.0"
 csscolorparser = "0.9"
@@ -149,14 +149,14 @@ jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
-map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.4.1" }
+map-tile-toolkit = { path = "./crates/map-tile-toolkit", version = "0.4.1" }
 maplibre-native-ffi = "0.202611.0"
-martin-config-macros = { path = "./martin-config-macros", version = "0.1.5" }
-martin-core = { path = "./martin-core", version = "0.17.0", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.3" }
-martin-tilegen = { path = "./martin-tilegen", version = "0.2.1", default-features = false }
-martin-ui = { path = "./martin-ui", version = "=2.0.0-beta.7" }
-mbtiles = { path = "./mbtiles", version = "0.23.0" }
+martin-config-macros = { path = "./crates/martin-config-macros", version = "0.1.5" }
+martin-core = { path = "./crates/martin-core", version = "0.17.0", default-features = false }
+martin-tile-utils = { path = "./crates/martin-tile-utils", version = "0.9.3" }
+martin-tilegen = { path = "./crates/martin-tilegen", version = "0.2.1", default-features = false }
+martin-ui = { path = "./crates/martin-ui", version = "=2.0.0-beta.7" }
+mbtiles = { path = "./crates/mbtiles", version = "0.23.0" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
