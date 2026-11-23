@@ -1,0 +1,460 @@
+use std::path::PathBuf;
+
+use sqlx::{AssertSqlSafe, Connection as _, query};
+use tracing::{debug, info, warn};
+
+use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
+use crate::queries::detach_db;
+use crate::{
+    AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, HashAlgorithm, MbtError, MbtResult,
+    MbtType, Mbtiles, NormalizedSchema, calc_agg_tiles_hash,
+};
+
+#[hotpath::measure]
+pub(crate) fn check_base_hash(
+    base_mbt: &Mbtiles,
+    patch_mbt: &Mbtiles,
+    base_hash: Option<String>,
+    expected_hash: Option<String>,
+    force: bool,
+) -> MbtResult<()> {
+    match (force, base_hash, expected_hash) {
+        (false, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
+            return Err(MbtError::AggHashMismatchWithDiff {
+                patch_file: patch_mbt.filepath().to_owned(),
+                before_apply_hash: expected_hash,
+                file: base_mbt.filepath().to_owned(),
+                agg_hash: base_hash,
+            });
+        }
+        (true, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
+            warn!(
+                mbtiles.file = %base_mbt,
+                agg_tiles_hash.expected = %expected_hash,
+                agg_tiles_hash.actual = %base_hash,
+                "Aggregate tiles hash mismatch with patch file (force mode)"
+            );
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+#[expect(clippy::too_many_lines, reason = "one transaction from hash check to commit")]
+pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool, validate: bool) -> MbtResult<()> {
+    let base_mbt = Mbtiles::new(base_file)?;
+    let patch_mbt = Mbtiles::new(patch_file)?;
+
+    let mut conn = patch_mbt.open_readonly().await?;
+    let patch_info = patch_mbt.examine_diff(&mut conn).await?;
+    if patch_info.patch_type.is_some() {
+        return Err(MbtError::UnsupportedPatchType);
+    }
+    patch_mbt.validate_diff_info(&patch_info, force)?;
+    let patch_type = patch_info.mbt_type;
+    conn.close().await?;
+
+    let mut conn = base_mbt.open().await?;
+    // the patch is written in place with INSERT OR REPLACE, which needs the unique tile index
+    base_mbt.detect_writable_type(&mut conn).await?;
+    let base_info = base_mbt.examine_diff(&mut conn).await?;
+    if matches!(base_info.mbt_type, Cache) {
+        return Err(MbtError::UnsupportedCopyOperation {
+            reason: "applying a patch in-place to a cache file is not supported; copy it to a standard schema first"
+                .to_owned(),
+        });
+    }
+    base_mbt.assert_hashes(&base_info, force)?;
+    let base_hash = base_mbt.resolve_agg_tiles_hash(&mut conn, validate).await?;
+
+    check_base_hash(
+        &base_mbt,
+        &patch_mbt,
+        Some(base_hash),
+        patch_info.agg_tiles_hash_before_apply,
+        force,
+    )?;
+
+    info!(
+        diff.path = %patch_mbt,
+        diff.type = %patch_type,
+        dst.path = %base_mbt,
+        dst.type = %base_info.mbt_type,
+        "Applying patch file"
+    );
+
+    patch_mbt.attach_to(&mut conn, "patchDb").await?;
+    let algorithm = base_mbt.get_hash_algorithm(&mut conn).await?;
+    // ATTACH can't run inside a transaction, so begin only after it
+    let mut tx = conn.begin().await?;
+    let select_from = get_select_from(base_info.mbt_type, patch_type, algorithm);
+    let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, &select_from);
+
+    if base_info.mbt_type.normalized_schema() == Some(NormalizedSchema::DedupId) {
+        let create_tile_ids = NormalizedSchema::create_tile_ids_sql(algorithm);
+        let sql = format!(
+            "
+    {create_tile_ids}
+
+    INSERT OR IGNORE INTO tile_ids (tile_hash)
+    SELECT hash
+    FROM ({select_from})
+    WHERE tile_data NOTNULL;"
+        );
+        sqlx::raw_sql(AssertSqlSafe(sql)).execute(&mut *tx).await?;
+    }
+
+    let sql = format!("{insert1} WHERE tile_data NOTNULL");
+    query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
+
+    if let Some(insert2) = insert2 {
+        let sql = format!("{insert2} WHERE tile_data NOTNULL");
+        query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
+    }
+
+    let sql = format!(
+        "
+    DELETE FROM {main_table}
+    WHERE (zoom_level, tile_column, tile_row) IN (
+        SELECT zoom_level, tile_column, tile_row FROM ({select_from} WHERE tile_data ISNULL)
+    )"
+    );
+    query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
+
+    if let Some(schema) = base_info.mbt_type.normalized_schema() {
+        debug!("Removing unused tiles from the images table (normalized schema)");
+        let (map, img, id) = (schema.map_table(), schema.content_table(), schema.tile_id_column());
+        let sql = format!("DELETE FROM {img} WHERE NOT EXISTS (SELECT 1 FROM {map} WHERE {map}.{id} = {img}.{id})");
+        query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
+    }
+
+    // Copy metadata from patchDb to the destination file, replacing existing values;
+    // agg_tiles_hash is recomputed below. Delete entries whose value is NULL in patchDb
+    let sql = format!(
+        "
+    INSERT OR REPLACE INTO metadata (name, value)
+    SELECT name, value
+    FROM patchDb.metadata
+    WHERE name NOTNULL
+      AND name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}', '{AGG_TILES_HASH_AFTER_APPLY}');"
+    );
+    query(AssertSqlSafe(sql)).execute(&mut *tx).await?;
+
+    let sql = "
+    DELETE FROM metadata
+    WHERE name IN (SELECT name FROM patchDb.metadata WHERE value ISNULL);";
+    query(sql).execute(&mut *tx).await?;
+
+    let new_hash = calc_agg_tiles_hash(&mut *tx, algorithm).await?;
+    if let Some(expected) = patch_info.agg_tiles_hash_after_apply
+        && expected != new_hash
+    {
+        let err = MbtError::AggHashMismatchAfterApply {
+            patch_file: patch_mbt.filepath().to_owned(),
+            after_apply_hash: expected,
+            file: base_mbt.filepath().to_owned(),
+            agg_hash: new_hash.clone(),
+        };
+        if !force {
+            tx.rollback().await?;
+            detach_db(&mut conn, "patchDb").await?;
+            return Err(err);
+        }
+        warn!("{err}");
+    }
+    base_mbt.set_metadata_value(&mut *tx, AGG_TILES_HASH, &new_hash).await?;
+    tx.commit().await?;
+
+    detach_db(&mut conn, "patchDb").await
+}
+
+fn get_select_from(src_type: MbtType, patch_type: MbtType, algorithm: HashAlgorithm) -> String {
+    if src_type == Flat {
+        "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles".to_owned()
+    } else {
+        match patch_type {
+            // A Cache or dedup-id patch file is read via its `tiles` view, like Flat
+            Flat
+            | Cache
+            | Normalized {
+                schema: NormalizedSchema::DedupId,
+                ..
+            } => {
+                let hash = algorithm.sql_hash("tile_data");
+                format!(
+                    "
+        SELECT zoom_level, tile_column, tile_row, tile_data, {hash} as hash
+        FROM patchDb.tiles"
+                )
+            }
+            FlatWithHash | Normalized { hash_view: true, .. } => "
+        SELECT zoom_level, tile_column, tile_row, tile_data, upper(tile_hash) AS hash
+        FROM patchDb.tiles_with_hash"
+                .to_owned(),
+            Normalized {
+                schema,
+                hash_view: false,
+            } => format!(
+                "
+        SELECT zoom_level, tile_column, tile_row, tile_data, upper(hash) AS hash
+        FROM ({})",
+                schema.select_tiles_sql("patchDb", "hash", "LEFT JOIN")
+            ),
+        }
+    }
+}
+
+fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Option<String>) {
+    match src_type {
+        Flat => (
+            "tiles".to_owned(),
+            format!(
+                "
+    INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
+    {select_from}"
+            ),
+            None,
+        ),
+        FlatWithHash => (
+            "tiles_with_hash".to_owned(),
+            format!(
+                "
+    INSERT OR REPLACE INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
+    {select_from}"
+            ),
+            None,
+        ),
+        Normalized {
+            schema: NormalizedSchema::DedupId,
+            ..
+        } => (
+            "tiles_shallow".to_owned(),
+            format!(
+                "
+    INSERT OR REPLACE INTO tiles_shallow (zoom_level, tile_column, tile_row, tile_data_id)
+    SELECT zoom_level, tile_column, tile_row, tile_data_id
+    FROM ({select_from}) JOIN tile_ids ON tile_hash = hash"
+            ),
+            Some(format!(
+                "
+    INSERT OR IGNORE INTO tiles_data (tile_data_id, tile_data)
+    SELECT tile_data_id, tile_data
+    FROM ({select_from}) JOIN tile_ids ON tile_hash = hash"
+            )),
+        ),
+        Normalized { schema, .. } => {
+            let (map, img, id) = (schema.map_table(), schema.content_table(), schema.tile_id_column());
+            (
+                map.to_owned(),
+                format!(
+                    "
+    INSERT OR REPLACE INTO {map} (zoom_level, tile_column, tile_row, {id})
+    SELECT zoom_level, tile_column, tile_row, hash as {id}
+    FROM ({select_from})"
+                ),
+                Some(format!(
+                    "
+    INSERT OR REPLACE INTO {img} ({id}, tile_data)
+    SELECT hash as {id}, tile_data
+    FROM ({select_from})"
+                )),
+            )
+        }
+        // Rejected at the top of apply_patch before any SQL is built
+        Cache => unreachable!("a cache file cannot be patched in place"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sqlx::Executor as _;
+
+    use super::*;
+    use crate::MbtilesCopier;
+    use crate::metadata::temp_named_mbtiles;
+
+    #[actix_rt::test]
+    async fn apply_flat_patch_file() {
+        // Copy the src file to an in-memory DB
+        let script = include_str!("../../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("flat_src_file_mem", script).await;
+
+        let dst_file = PathBuf::from("file:apply_flat_patch_file?mode=memory&cache=shared");
+
+        let mut src_conn = MbtilesCopier {
+            src_file: src_file.clone(),
+            dst_file: dst_file.clone(),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        // Apply patch to the src data in in-memory DB
+        let script = include_str!("../../../tests/fixtures/mbtiles/world_cities_diff.sql");
+        let (_mbt, _conn, patch_file) = temp_named_mbtiles("flat_patch_file_mem", script).await;
+        apply_patch(dst_file, patch_file, true, false).await.unwrap();
+
+        // Verify the data is the same as the file the patch was generated from
+        let script = include_str!("../../../tests/fixtures/mbtiles/world_cities_modified.sql");
+        let (mbt, _conn, _) = temp_named_mbtiles("flat_attached_mem_db", script).await;
+        mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
+
+        assert!(
+            src_conn
+                .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn apply_patch_to_base_without_unique_index_fails() {
+        let script = include_str!("../../../tests/fixtures/mbtiles/webp-no-primary.sql");
+        let (_mbt, _conn, base_file) = temp_named_mbtiles("base_without_unique_index_mem", script).await;
+
+        let script = include_str!("../../../tests/fixtures/mbtiles/world_cities_diff.sql");
+        let (_mbt, _conn, patch_file) = temp_named_mbtiles("patch_onto_no_unique_index_mem", script).await;
+
+        let err = apply_patch(base_file, patch_file, true, false).await.unwrap_err();
+        assert!(matches!(err, MbtError::NoUniquenessConstraint(_)), "{err:?}");
+    }
+
+    #[actix_rt::test]
+    async fn apply_patch_file_to_dedup_id() {
+        let script = include_str!("../../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("dedup_id_src_file_mem", script).await;
+
+        let dst_file = PathBuf::from("file:apply_patch_file_to_dedup_id?mode=memory&cache=shared");
+
+        let mut src_conn = MbtilesCopier {
+            src_file: src_file.clone(),
+            dst_file: dst_file.clone(),
+            dst_type: Some(Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            }),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        let script = include_str!("../../../tests/fixtures/mbtiles/world_cities_diff.sql");
+        let (_mbt, _conn, patch_file) = temp_named_mbtiles("dedup_id_patch_file_mem", script).await;
+        apply_patch(dst_file, patch_file, true, false).await.unwrap();
+
+        let script = include_str!("../../../tests/fixtures/mbtiles/world_cities_modified.sql");
+        let (mbt, _conn, _) = temp_named_mbtiles("dedup_id_attached_mem_db", script).await;
+        mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
+
+        assert!(
+            src_conn
+                .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            src_conn
+                .fetch_optional(
+                    "SELECT * FROM tiles_data WHERE tile_data_id NOT IN (SELECT tile_data_id FROM tiles_shallow);"
+                )
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            src_conn
+                .fetch_optional("SELECT 1 FROM tiles_data GROUP BY tile_data HAVING COUNT(*) > 1;")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn apply_lowercase_hash_patch_adds_no_blobs() {
+        let script = include_str!("../../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("lowercase_patch_src_mem", script).await;
+        let script = include_str!("../../../tests/fixtures/mbtiles/world_cities_modified.sql");
+        let (_mbt, _conn, modified_file) = temp_named_mbtiles("lowercase_patch_modified_mem", script).await;
+
+        let dst_file = PathBuf::from("file:apply_lowercase_hash_patch_adds_no_blobs?mode=memory&cache=shared");
+        let mut dst_conn = MbtilesCopier {
+            src_file: modified_file.clone(),
+            dst_file: dst_file.clone(),
+            dst_type: Some(Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            }),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        let patch_file = PathBuf::from("file:apply_lowercase_hash_patch_adds_no_blobs_patch?mode=memory&cache=shared");
+        let mut patch_conn = MbtilesCopier {
+            src_file,
+            dst_file: patch_file.clone(),
+            diff_with_file: Some((modified_file, None)),
+            dst_type: Some(FlatWithHash),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+        patch_conn
+            .execute("UPDATE tiles_with_hash SET tile_hash = lower(tile_hash)")
+            .await
+            .unwrap();
+
+        apply_patch(dst_file, patch_file, true, false).await.unwrap();
+
+        assert!(
+            dst_conn
+                .fetch_optional("SELECT 1 FROM tiles_data GROUP BY tile_data HAVING COUNT(*) > 1;")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn apply_normalized_patch_file() {
+        // Copy the src file to an in-memory DB
+        let script = include_str!("../../../tests/fixtures/mbtiles/geography-class-jpg.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("normalized_src_file_mem", script).await;
+
+        let dst_file = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
+
+        let mut src_conn = MbtilesCopier {
+            src_file: src_file.clone(),
+            dst_file: dst_file.clone(),
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        // Apply patch to the src data in in-memory DB
+        let script = include_str!("../../../tests/fixtures/mbtiles/geography-class-jpg-diff.sql");
+        let (_mbt, _conn, patch_file) = temp_named_mbtiles("normalized_patch_file_mem", script).await;
+        apply_patch(dst_file, patch_file, true, false).await.unwrap();
+
+        // Verify the data is the same as the file the patch was generated from
+        let script = include_str!("../../../tests/fixtures/mbtiles/geography-class-jpg-modified.sql");
+        let (mbt, _conn, _) = temp_named_mbtiles("normalized_attached_mem_db", script).await;
+        mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
+
+        assert!(
+            src_conn
+                .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+}

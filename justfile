@@ -6,10 +6,10 @@ set shell := ['bash', '-c']
 mod demo 'demo/justfile'
 
 # Import map-tile-toolkit sub-justfile as a module
-mod toolkit 'map-tile-toolkit/justfile'
+mod toolkit 'crates/map-tile-toolkit/justfile'
 
 # Import martin-ui sub-justfile as a module
-mod ui 'martin-ui/justfile'
+mod ui 'crates/martin-ui/justfile'
 
 # list of features we deem stable for release packaging (also the default feature set)
 stable_features := 'cog,lambda,mbtiles,metrics,ogcapi,osm,passthrough,pmtiles,postgres,processing,resources,shapefile,tui,webui'
@@ -106,12 +106,12 @@ gen-schemas: fetch
     # on it as a starting point.
     "$gen" --target config-doc  > docs/content/files/generated_config.md
     # Inside the crate, which embeds it to serve at `/ogc/api`.
-    "$gen" --target openapi     > martin/openapi.json
-    # Regenerate `martin-ui/src/lib/types.gen.ts` from the freshly
-    # written `martin/openapi.json`. Kept after the cargo runs so the spec
+    "$gen" --target openapi     > crates/martin/openapi.json
+    # Regenerate `crates/martin-ui/src/lib/types.gen.ts` from the freshly
+    # written `crates/martin/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
     {{just}} ui::gen-ui-types
-    martin-ui/node_modules/.bin/biome check --write schemas/config.json martin/openapi.json
+    crates/martin-ui/node_modules/.bin/biome check --write schemas/config.json crates/martin/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
@@ -120,8 +120,8 @@ gen-schemas: fetch
 test-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ ! -f schemas/config.json || ! -f martin/openapi.json ]]; then
-        echo "schemas/config.json or martin/openapi.json missing - run 'just gen-schemas' first" >&2
+    if [[ ! -f schemas/config.json || ! -f crates/martin/openapi.json ]]; then
+        echo "schemas/config.json or crates/martin/openapi.json missing - run 'just gen-schemas' first" >&2
         exit 1
     fi
 
@@ -132,7 +132,7 @@ test-schemas:
 
     echo "::group::Validate OpenAPI document against the OpenAPI 3.1 spec"
     uvx --from openapi-spec-validator openapi-spec-validator \
-        martin/openapi.json
+        crates/martin/openapi.json
     echo "::endgroup::"
 
     echo "::group::Validate real config fixtures against the config schema"
@@ -142,8 +142,8 @@ test-schemas:
     # is wrong, not the config. Each snapshot carries an insta header ending in a
     # `---` line, which is dropped to leave the config itself.
     fixtures=(
-        e2e-tests/tests/snapshots/save_config__every_discovered_source_and_resource_is_spelled_out.snap
-        e2e-tests/tests/snapshots/save_config__every_documented_setting_survives_the_round_trip.snap
+        crates/e2e-tests/tests/snapshots/save_config__every_discovered_source_and_resource_is_spelled_out.snap
+        crates/e2e-tests/tests/snapshots/save_config__every_documented_setting_survives_the_round_trip.snap
     )
     for f in "${fixtures[@]}"; do
         if [[ -f "$f" ]]; then
@@ -383,7 +383,7 @@ check *args: fetch (cargo-install 'cargo-hack')
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
-    cargo binstall martin --manifest-path martin/Cargo.toml --dry-run --no-confirm
+    cargo binstall martin --manifest-path crates/martin/Cargo.toml --dry-run --no-confirm
 
 # Test documentation generation
 check-doc:  (docs-build)
@@ -406,7 +406,7 @@ clippy-md:
       'echo -e "/workdir/README.md\n$(find /workdir/docs/content -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
 # folders ignored from coverage
-coverage_ignore_regex := '^e2e-tests/src/'
+coverage_ignore_regex := '^crates/e2e-tests/src/'
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clean start
@@ -596,8 +596,8 @@ sbom-mbtiles target: (cargo-install 'cargo-cyclonedx')
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
     # cargo-cyclonedx writes one file into every workspace member, only the mbtiles one is kept
-    cargo cyclonedx --manifest-path mbtiles/Cargo.toml --format json --target {{quote(trim_end_match(target, '-legacycpu'))}} --no-build-deps --override-filename "$name" --quiet
-    mv "mbtiles/$name.json" "$tmp/sbom.cdx.json"
+    cargo cyclonedx --manifest-path crates/mbtiles/Cargo.toml --format json --target {{quote(trim_end_match(target, '-legacycpu'))}} --no-build-deps --override-filename "$name" --quiet
+    mv "crates/mbtiles/$name.json" "$tmp/sbom.cdx.json"
     rm -f */"$name.json"
     syft convert "$tmp/sbom.cdx.json" --output "spdx-json=$tmp/sbom.spdx.json"
     jq --compact-output --arg name "$name" '.name = $name' "$tmp/sbom.spdx.json" > "target/$name.spdx.json"
@@ -632,7 +632,7 @@ prepare-sqlite: fetch install-sqlx
         # it is safer to handle NULLs than to expect it to never be there
         sed -E -e 's/[[:space:]]+NOT[[:space:]]+NULL//g' \
                -e 's/CREATE (TABLE|VIEW) /CREATE \1 IF NOT EXISTS /' \
-            "mbtiles/sql/$f.sql" | sqlite3 -bail "$db"
+            "crates/mbtiles/sql/$f.sql" | sqlite3 -bail "$db"
     done
     cd mbtiles
     mkdir -p .sqlx
@@ -721,7 +721,7 @@ test-cog-stac: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --no-default-features --features cog
     cargo nextest run --package martin-e2e-tests --features test-stac --test cog_stac
 
-# Regenerate cog-tiles-py/cog_tiles.pyi from the Python bindings
+# Regenerate crates/cog-tiles-py/cog_tiles.pyi from the Python bindings
 sync-cog-py-stubs:
     LD_LIBRARY_PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
         cargo run --package cog-tiles-py --bin stub-gen --features stub-gen

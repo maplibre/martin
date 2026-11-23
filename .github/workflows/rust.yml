@@ -121,7 +121,7 @@ jobs:
         with: { tools: 'just', cache: true }
       - name: Install uv
         uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
-        with: { cache-dependency-glob: 'cog-tiles-py/pyproject.toml' }
+        with: { cache-dependency-glob: 'crates/cog-tiles-py/pyproject.toml' }
       - name: Build the bindings and run their tests
         run: just test-cog-py
   test-duckdb:
