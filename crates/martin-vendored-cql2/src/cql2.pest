@@ -48,7 +48,7 @@ GEOMETRY_SINGLE = ${ WHITESPACE* ~ (POINT | LINESTRING | POLYGON | MULTIPOINT | 
 // what keeps `GEOMETRYCOLLECTION(GEOMETRYCOLLECTION(...), POINT(...))` from falling through to the
 // `Function` production and becoming an operation named `GEOMETRYCOLLECTION`. The cql2-json schema
 // admits only the six non-collection types as members, so `parse_expr` rejects a nested one with a
-// message that says so — an error the author can act on, rather than a silent reinterpretation.
+// message that says so - an error the author can act on, rather than a silent reinterpretation.
 GEOMETRY_MEMBER     = ${ GEOMETRY_SINGLE | GEOMETRY_COLLECTION }
 GEOMETRY_COLLECTION = ${ WHITESPACE* ~ ^"GEOMETRYCOLLECTION" ~ ZM ~ (GEOMETRY_MEMBERS | EMPTYSET) ~ WHITESPACE* }
 GEOMETRY_MEMBERS    = _{ LPAREN ~ GEOMETRY_MEMBER ~ (COMMADELIM ~ GEOMETRY_MEMBER)* ~ RPAREN }
