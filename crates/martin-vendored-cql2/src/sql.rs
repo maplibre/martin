@@ -52,12 +52,12 @@ pub(crate) fn func(name: &str, args: Vec<SqlExpr>) -> Result<SqlExpr, Error> {
 /// A string literal.
 ///
 /// A value holding neither a quote nor a backslash needs no escaping at all, and is written plainly.
-/// Anything else is written as an escape string, `E'...'` — PostgreSQL syntax that DuckDB accepts
+/// Anything else is written as an escape string, `E'...'` - PostgreSQL syntax that DuckDB accepts
 /// with the same meaning. That variant is printed by a dedicated escaper which rewrites every quote
 /// and backslash unconditionally.
 ///
 /// `SingleQuotedString` is deliberately not used for those values. Its printer exists to reproduce
-/// SQL that sqlparser itself parsed, so it steps over a quote that already looks escaped — one
+/// SQL that sqlparser itself parsed, so it steps over a quote that already looks escaped - one
 /// preceded by a backslash, or one of a `''` pair. That is right for a round trip and wrong for
 /// data: `a''b` would be reprinted unchanged and read back as `a'b`, and a value ending in a
 /// backslash would terminate the literal early.
@@ -79,7 +79,7 @@ fn lit_expr(value: &str) -> SqlExpr {
 /// A non-finite value is written as a cast string rather than as a bare number: `inf` on its own is
 /// a bare token that a database reads as a column reference. Both PostgreSQL and DuckDB accept
 /// `'Infinity'`, `'-Infinity'` and `'NaN'` cast to a floating-point type, and compare them as the
-/// IEEE values they name — which is also how `..` interval bounds are already rendered.
+/// IEEE values they name - which is also how `..` interval bounds are already rendered.
 fn float_expr(value: &f64) -> SqlExpr {
     if value.is_finite() {
         return ValExpr(Value::Number(value.to_string(), false).into());
@@ -144,7 +144,7 @@ fn sql_arity(op: &str) -> Arity {
 /// too, so it already carries `ATOM` precedence and demands nothing of its operands.
 ///
 /// The opposite case is *not* handled here: `a_contains`, `a_containedBy`, `a_overlaps` and
-/// `a_equals` are function calls in cql2-text — ATOM, requiring nothing of their operands — but
+/// `a_equals` are function calls in cql2-text - ATOM, requiring nothing of their operands - but
 /// render as the infix `@>`, `<@`, `@@` and, for `a_equals`, a conjunction of two `@>`. Their
 /// operands are therefore never parenthesized, which is sound only because what an array predicate
 /// takes as an operand (an array, a property, a function call) is itself an atom. The `a_equals`
@@ -196,8 +196,8 @@ fn binop(op: BinaryOperator, args: Vec<SqlExpr>) -> SqlExpr {
 /// Array equality, as the *set* comparison the evaluator makes it.
 ///
 /// `array_op` compares two arrays as sets: it collects each into a `HashSet`, so neither the order
-/// of the elements nor a repeat of one changes the answer. SQL's `=` on arrays is positional —
-/// `[1,2,3] = [3,2,1]` is false — so rendering `a_equals` as `=` would give the two backends
+/// of the elements nor a repeat of one changes the answer. SQL's `=` on arrays is positional -
+/// `[1,2,3] = [3,2,1]` is false - so rendering `a_equals` as `=` would give the two backends
 /// different answers for the same expression.
 ///
 /// Mutual containment says exactly what set equality says, and is spelled the same way in both
@@ -445,8 +445,8 @@ fn wrap(arg: SqlExpr) -> SqlExpr {
 ///
 /// An empty name is rejected: it has no SQL spelling, and printing it emits nothing at all, so
 /// `Expr::Property { property: String::new() }` compared against `1` would render as the fragment
-/// ` = 1`. Neither encoding forbids an empty name — `{"property": ""}` is accepted by the schema,
-/// and `""` is a quoted identifier the cql2-text grammar takes — so this is reachable input rather
+/// ` = 1`. Neither encoding forbids an empty name - `{"property": ""}` is accepted by the schema,
+/// and `""` is a quoted identifier the cql2-text grammar takes - so this is reachable input rather
 /// than a defensive check.
 fn ident_inner(property: &str) -> Result<Ident, Error> {
     if property.is_empty() {

@@ -18,7 +18,7 @@ use crate::Expr;
 pub(crate) const OR: u8 = 1;
 pub(crate) const AND: u8 = 2;
 pub(crate) const NOT: u8 = 3;
-/// Comparison, `LIKE`, `BETWEEN`, `IN`, `IS NULL` — one non-associative level.
+/// Comparison, `LIKE`, `BETWEEN`, `IN`, `IS NULL` - one non-associative level.
 pub(crate) const PREDICATE: u8 = 4;
 pub(crate) const ADDITIVE: u8 = 5;
 pub(crate) const MULTIPLICATIVE: u8 = 6;
