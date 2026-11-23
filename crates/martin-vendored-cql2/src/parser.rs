@@ -88,7 +88,7 @@ fn collapse_whitespace(wkt: &str) -> String {
 ///
 /// `(1)` is ambiguous in cql2-text: `AtomicExpr` tries grouping before an array literal, so a
 /// single-element list arrives as the value itself. Only the operators whose operand is a list are
-/// affected, and only a bare scalar is rewrapped — a property or an expression may legitimately
+/// affected, and only a bare scalar is rewrapped - a property or an expression may legitimately
 /// evaluate to an array.
 fn restore_single_element_array(op: &str, args: &mut [Box<Expr>]) {
     if !crate::expr::ARRAYOPS
