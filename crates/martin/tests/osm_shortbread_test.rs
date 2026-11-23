@@ -170,16 +170,19 @@ fn issues(expected: &[Expected], mut actual: Vec<Output>) -> Vec<String> {
 #[tokio::test]
 async fn shortbread_snippet_renders_planetiler_examples() {
     let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures");
-    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/snippets/shortbread.yaml"))
-        .unwrap()
-        .replace(
-            "path: berlin-latest.osm.pbf",
-            &format!("path: {fixtures}/osm/shortbread-examples.osm.pbf"),
-        )
-        .replace(
-            "path: water-polygons-split-3857.zip",
-            &format!("path: {fixtures}/shapefile/ocean.zip"),
-        );
+    let snippet = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/snippets/shortbread.yaml"
+    ))
+    .unwrap()
+    .replace(
+        "path: berlin-latest.osm.pbf",
+        &format!("path: {fixtures}/osm/shortbread-examples.osm.pbf"),
+    )
+    .replace(
+        "path: water-polygons-split-3857.zip",
+        &format!("path: {fixtures}/shapefile/ocean.zip"),
+    );
     let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     config.write_all(snippet.as_bytes()).unwrap();
     let backend = Files::load(config.path()).unwrap().unwrap();
@@ -231,16 +234,19 @@ async fn shortbread_snippet_renders_planetiler_examples() {
 #[tokio::test]
 async fn shortbread_snippet_passes_its_monaco_spec() {
     let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures");
-    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/snippets/shortbread.yaml"))
-        .unwrap()
-        .replace(
-            "path: berlin-latest.osm.pbf",
-            &format!("path: {fixtures}/osm/monaco.osm.pbf"),
-        )
-        .replace(
-            "path: water-polygons-split-3857.zip",
-            &format!("path: {fixtures}/shapefile/ocean.zip"),
-        );
+    let snippet = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/snippets/shortbread.yaml"
+    ))
+    .unwrap()
+    .replace(
+        "path: berlin-latest.osm.pbf",
+        &format!("path: {fixtures}/osm/monaco.osm.pbf"),
+    )
+    .replace(
+        "path: water-polygons-split-3857.zip",
+        &format!("path: {fixtures}/shapefile/ocean.zip"),
+    );
     let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     config.write_all(snippet.as_bytes()).unwrap();
     let backend = Files::load(config.path()).unwrap().unwrap();
@@ -271,12 +277,15 @@ async fn shortbread_snippet_passes_its_monaco_spec() {
 #[tokio::test]
 async fn shortbread_addresses_of_a_concave_building_lie_on_its_surface() {
     let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/osm");
-    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/snippets/shortbread.yaml"))
-        .unwrap()
-        .replace(
-            "path: berlin-latest.osm.pbf",
-            &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
-        );
+    let snippet = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/snippets/shortbread.yaml"
+    ))
+    .unwrap()
+    .replace(
+        "path: berlin-latest.osm.pbf",
+        &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
+    );
     let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     config.write_all(snippet.as_bytes()).unwrap();
     let backend = Osm::load(config.path()).unwrap().unwrap();
@@ -302,12 +311,15 @@ async fn shortbread_addresses_of_a_concave_building_lie_on_its_surface() {
 #[tokio::test]
 async fn shortbread_pois_of_a_concave_area_lie_on_its_surface() {
     let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/osm");
-    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/snippets/shortbread.yaml"))
-        .unwrap()
-        .replace(
-            "path: berlin-latest.osm.pbf",
-            &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
-        );
+    let snippet = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/snippets/shortbread.yaml"
+    ))
+    .unwrap()
+    .replace(
+        "path: berlin-latest.osm.pbf",
+        &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
+    );
     let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     config.write_all(snippet.as_bytes()).unwrap();
     let backend = Osm::load(config.path()).unwrap().unwrap();
@@ -332,12 +344,15 @@ async fn shortbread_pois_of_a_concave_area_lie_on_its_surface() {
 #[tokio::test]
 async fn shortbread_pois_leave_out_a_line() {
     let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/osm");
-    let snippet = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/snippets/shortbread.yaml"))
-        .unwrap()
-        .replace(
-            "path: berlin-latest.osm.pbf",
-            &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
-        );
+    let snippet = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/snippets/shortbread.yaml"
+    ))
+    .unwrap()
+    .replace(
+        "path: berlin-latest.osm.pbf",
+        &format!("path: {fixtures}/shortbread-positions.osm.pbf"),
+    );
     let mut config = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
     config.write_all(snippet.as_bytes()).unwrap();
     let backend = Osm::load(config.path()).unwrap().unwrap();
