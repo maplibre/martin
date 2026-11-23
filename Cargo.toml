@@ -1,17 +1,18 @@
 [workspace]
 resolver = "3"
 members = [
-    "cog-tiles",
-    "cog-tiles-py",
-    "e2e-tests",
-    "map-tile-toolkit",
-    "martin",
-    "martin-config-macros",
-    "martin-core",
-    "martin-tile-utils",
-    "martin-tilegen",
-    "martin-ui",
-    "mbtiles",
+    "crates/cog-tiles",
+    "crates/cog-tiles-py",
+    "crates/e2e-tests",
+    "crates/map-tile-toolkit",
+    "crates/martin",
+    "crates/martin-config-macros",
+    "crates/martin-core",
+    "crates/martin-tile-utils",
+    "crates/martin-tilegen",
+    "crates/martin-ui",
+    "crates/martin-vendored-cql2",
+    "crates/mbtiles",
 ]
 
 [workspace.package]
@@ -108,23 +109,24 @@ bytesize = "2.7.0"
 bytestring = "1.5"
 cel = { version = "0.16", default-features = false, features = ["regex"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-cog-tiles = { path = "cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
+cog-tiles = { path = "crates/cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
-cql2 = "0.6.0"
+cql2 = { package = "martin-vendored-cql2", version = "0.6.1", path = "crates/martin-vendored-cql2" }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 crossterm = "0.29.0"
 csscolorparser = "0.9"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool = "0.13.0"
 deadpool-postgres = "0.14"
-duckdb = { version = ">=1.10503.1, <1.20001", features = ["bundled", "parquet"] }
+duckdb = { version = ">=1.20000.1, <1.20001", features = ["bundled", "parquet"] }
 env_logger = "0.11"
 flate2 = { version = "1", default-features = false, features = ["zlib-rs", "runtime_detection"] }
 flume = "0.12"
 fnv = "1"
 futures = "0.3"
-geo = "0.33.1"
+# no `earcut`: geo 0.33.1 pins it to =0.4.5, mlt-core needs ^0.4.10
+geo = { version = "0.33.1", default-features = false, features = ["multithreading"] }
 geo-index = { version = "0.4.0", features = ["rayon"] }
 geo-traits = "0.3"
 geo-types = "0.7.19"
@@ -147,18 +149,18 @@ jxl-oxide = { version = "0.12.6", features = ["image"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
-map-tile-toolkit = { path = "./map-tile-toolkit", version = "0.4.1" }
-martin-config-macros = { path = "./martin-config-macros", version = "0.1.5" }
-martin-core = { path = "./martin-core", version = "0.17.0", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.9.3" }
-martin-tilegen = { path = "./martin-tilegen", version = "0.2.1", default-features = false }
-martin-ui = { path = "./martin-ui", version = "=2.0.0-beta.7" }
-mbtiles = { path = "./mbtiles", version = "0.23.0" }
+map-tile-toolkit = { path = "./crates/map-tile-toolkit", version = "0.4.1" }
+martin-config-macros = { path = "./crates/martin-config-macros", version = "0.1.5" }
+martin-core = { path = "./crates/martin-core", version = "0.17.0", default-features = false }
+martin-tile-utils = { path = "./crates/martin-tile-utils", version = "0.9.3" }
+martin-tilegen = { path = "./crates/martin-tilegen", version = "0.2.1", default-features = false }
+martin-ui = { path = "./crates/martin-ui", version = "=2.0.0-beta.7" }
+mbtiles = { path = "./crates/mbtiles", version = "0.23.0" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
 mln-rs = "0.0.15"
-mlt-core = { version = "0.22.2", default-features = false }
+mlt-core = { version = "0.23.0", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "9.0.0"
 num_cpus = "1"
@@ -264,7 +266,5 @@ lto = true
 codegen-units = 1
 
 [patch.crates-io]
-# maplibre/maplibre-tile-spec#2092: nested columns in `LayerWriter`
-mlt-core = { git = "https://github.com/CommanderStorm/maplibre-tile-spec", rev = "0530605f02a05979b41a7964e6cf08f051258c86" }
-# georust/geo#1533: unpin `earcut`, which the mlt-core above needs at ^0.4.10
+# georust/geo#1533: unpin `earcut`, which mlt-core needs at ^0.4.10 and mln-rs enables on geo
 geo = { git = "https://github.com/georust/geo", rev = "f34ee562db2a843037fb865d354b82a521cd9796" }

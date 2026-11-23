@@ -4,8 +4,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/python-release.yml'
-      - 'cog-tiles/**'
-      - 'cog-tiles-py/**'
+      - 'crates/cog-tiles/**'
+      - 'crates/cog-tiles-py/**'
   # release-plz drafts the `python-cog-tiles-v*` release and release.yml publishes it with the app token
   release:
     types: [ published ]
@@ -51,7 +51,7 @@ jobs:
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --locked --compatibility pypi --interpreter python${{ matrix.python }} --manifest-path cog-tiles-py/Cargo.toml
+          args: --release --out dist --locked --compatibility pypi --interpreter python${{ matrix.python }} --manifest-path crates/cog-tiles-py/Cargo.toml
           sccache: false
           manylinux: '2_28'
       - name: Import the wheel
@@ -76,7 +76,7 @@ jobs:
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           command: sdist
-          args: --out dist --manifest-path cog-tiles-py/Cargo.toml
+          args: --out dist --manifest-path crates/cog-tiles-py/Cargo.toml
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheels-sdist

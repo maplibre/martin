@@ -121,7 +121,7 @@ jobs:
         with: { tools: 'just', cache: true }
       - name: Install uv
         uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
-        with: { cache-dependency-glob: 'cog-tiles-py/pyproject.toml' }
+        with: { cache-dependency-glob: 'crates/cog-tiles-py/pyproject.toml' }
       - name: Build the bindings and run their tests
         run: just test-cog-py
   test-duckdb:
@@ -1030,8 +1030,10 @@ jobs:
         with: { node-version: 26 }
       - name: Build the web UI bundle that martin-ui publishes
         run: just ui::build
+      - name: Only the gitignored bundle may change
+        run: git diff --exit-code && test -z "$(git ls-files --others --exclude-standard)"
       - name: Test packaging
-        run: cargo publish --workspace --dry-run
+        run: cargo publish --workspace --dry-run --allow-dirty
       - name: Test cargo-binstall metadata
         run: just check-binstall
 

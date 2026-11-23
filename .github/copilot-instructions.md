@@ -46,7 +46,7 @@ You **MUST** correctly determine scope **before** running commands.
 
 #### Frontend-only scope (UI / React)
 
-* Allowed area: `martin-ui/**`
+* Allowed area: `crates/martin-ui/**`
 * **PROHIBITED:**
 
   * `cargo build`
@@ -69,7 +69,7 @@ You **MUST** correctly determine scope **before** running commands.
 
 Steps:
 
-1. `cd martin-ui`
+1. `cd crates/martin-ui`
 2. `npm clean-install --no-fund`
 3. `just test-frontend`
 4. (Optional) `npm run lint`
@@ -166,11 +166,11 @@ cargo run --bin mbtiles -- --help
 
 ## 8. Directory Rules
 
-* `martin-ui/` -> **Frontend-only zone**
+* `crates/martin-ui/` -> **Frontend-only zone**
 * `martin/` -> Rust CLI entry
-* `martin-core/` -> Core logic
+* `crates/martin-core/` -> Core logic
 * `tests/fixtures/` -> Shared test fixtures
-* `e2e-tests/` -> End-to-end tests driving the built binaries
+* `crates/e2e-tests/` -> End-to-end tests driving the built binaries
 
 Rule: **If you enter `martin-ui`, stay there.**
 

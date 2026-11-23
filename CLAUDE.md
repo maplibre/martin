@@ -33,7 +33,7 @@ just bless
 
 ## Workspace Structure
 
-Workspace crates:
+Workspace crates (all live under `crates/`):
 
 - **`martin`** - HTTP server, CLI (including `martin cp`), configuration, routing. Binary: `martin`
 - **`martin-core`** - Core source logic, one directory per source under `src/tiles/` (postgres, mbtiles, pmtiles, cog, duckdb, geojson, ...), and `src/resources/{fonts,sprites,styles}/`

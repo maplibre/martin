@@ -86,8 +86,8 @@ jobs:
               - '**/Cargo.toml'
               - 'deny.toml'
             npm-manifests: &npm-manifests
-              - 'martin-ui/package.json'
-              - 'martin-ui/package-lock.json'
+              - 'crates/martin-ui/package.json'
+              - 'crates/martin-ui/package-lock.json'
               - 'demo/frontend/package.json'
               - 'demo/frontend/package-lock.json'
             rust:
@@ -97,34 +97,34 @@ jobs:
               - 'release-plz.toml'
               - 'docker-compose.yml'
               - 'debian/**'
-              - 'e2e-tests/**'
+              - 'crates/e2e-tests/**'
               - 'tests/**'
-              - 'cog-tiles/**'
-              - 'cog-tiles-py/**'
-              - 'map-tile-toolkit/**'
-              - 'mbtiles/**'
-              - 'martin-config-macros/**'
-              - 'martin-core/**'
-              - 'martin-tile-utils/**'
-              - 'martin-tilegen/**'
-              - 'martin-ui/*.rs' # the bundle itself is covered by the ui filter
-              - 'martin/*'
+              - 'crates/cog-tiles/**'
+              - 'crates/cog-tiles-py/**'
+              - 'crates/map-tile-toolkit/**'
+              - 'crates/mbtiles/**'
+              - 'crates/martin-config-macros/**'
+              - 'crates/martin-core/**'
+              - 'crates/martin-tile-utils/**'
+              - 'crates/martin-tilegen/**'
+              - 'crates/martin-ui/*.rs' # the bundle itself is covered by the ui filter
+              - 'crates/martin/*'
               - 'martin/benches/**'
-              - 'martin/src/**'
-              - 'martin/tests/**'
+              - 'crates/martin/src/**'
+              - 'crates/martin/tests/**'
             cog-py:
               - *shared
               - *cargo-manifests
-              - 'cog-tiles/**'
-              - 'cog-tiles-py/**'
+              - 'crates/cog-tiles/**'
+              - 'crates/cog-tiles-py/**'
               - 'tests/fixtures/cog/**'
             fuzz:
               - '.github/workflows/fuzz.yml'
-              - 'map-tile-toolkit/**'
+              - 'crates/map-tile-toolkit/**'
             ui:
               - *shared
               - 'biome.json'
-              - 'martin-ui/**'
+              - 'crates/martin-ui/**'
             docs:
               - *shared
               - '**/*.md'
@@ -136,9 +136,9 @@ jobs:
             schemas:
               - *shared
               - 'schemas/**'
-              - 'martin/openapi.json'
+              - 'crates/martin/openapi.json'
               - 'docs/content/files/generated_config.md'
-              - 'e2e-tests/tests/snapshots/save_config__*'
+              - 'crates/e2e-tests/tests/snapshots/save_config__*'
             actions:
               - *shared
             cargo-deps:

@@ -31,4 +31,4 @@ site/
 ####
 
 # QGIS project built by `just toolkit::visualize-tests`
-map-tile-toolkit/tests/visualize.qgz
+crates/map-tile-toolkit/tests/visualize.qgz
