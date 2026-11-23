@@ -601,7 +601,7 @@ pub fn lower_source(
     };
     let static_columns: Vec<&str> = columns
         .iter()
-        .filter(|column| matches!(column, ColumnDef::Value(..)))
+        .filter(|column| !matches!(column, ColumnDef::Keys(_) | ColumnDef::Relations(_)))
         .map(ColumnDef::name)
         .collect();
     let documents: Option<Vec<&str>> = documents
