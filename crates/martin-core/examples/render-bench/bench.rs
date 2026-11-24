@@ -16,6 +16,7 @@ use image::RgbaImage;
 use martin_core::overlay::{Color, OverlayFeature, OverlayProperties, OverlaySpec};
 use martin_core::styles::render_pool::RenderPools;
 use martin_core::styles::{DEFAULT_STATIC_RENDERERS_PER_WORKER, RenderParams, TileSize};
+use martin_tile_utils::MAX_ZOOM;
 use serde::Serialize;
 
 /// Latitude and longitude every case is centered on.
@@ -123,9 +124,11 @@ impl FromStr for Case {
     }
 }
 
-/// Parses a zoom written as `z<zoom>`.
+/// Parses a zoom written as `z<zoom>`, up to [`MAX_ZOOM`].
 fn parse_zoom(s: &str) -> anyhow::Result<u8> {
-    Ok(s.strip_prefix('z').context("expected z<zoom>")?.parse()?)
+    let zoom: u8 = s.strip_prefix('z').context("expected z<zoom>")?.parse()?;
+    ensure!(zoom <= MAX_ZOOM, "zoom {zoom} is above the highest zoom, {MAX_ZOOM}");
+    Ok(zoom)
 }
 
 /// Logical size and pixel ratio of a rendered tile, written `<size>@<ratio>`.
@@ -192,28 +195,6 @@ impl Tile {
         }
     }
 
-    /// The tile `d` columns right and `d` rows down of this one.
-    fn shifted(self, d: u32) -> Self {
-        Self {
-            x: self.x + d,
-            y: self.y + d,
-            ..self
-        }
-    }
-
-    /// A `side` x `side` block of tiles at `z` centered on Berlin, row by row.
-    fn block(z: u8, side: u32) -> impl Iterator<Item = Self> {
-        let center = Self::containing(BERLIN, z);
-        let half = side / 2;
-        (0..side).flat_map(move |dy| {
-            (0..side).map(move |dx| Self {
-                z,
-                x: (center.x + dx).saturating_sub(half),
-                y: (center.y + dy).saturating_sub(half),
-            })
-        })
-    }
-
     /// Every tile of zooms 0 to 3.
     fn low_zooms() -> impl Iterator<Item = Self> {
         (0..=3_u8).flat_map(|z| {
@@ -226,6 +207,65 @@ impl Tile {
 impl fmt::Display for Tile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}-{}-{}", self.z, self.x, self.y)
+    }
+}
+
+/// A square block of tiles around Berlin and a tile away from it to warm up on, all inside one zoom's grid.
+#[derive(Debug, Clone, Copy)]
+struct Block {
+    /// North-west tile of the block.
+    origin: Tile,
+    /// Tiles along each side.
+    side: u32,
+    /// Tile `gap` tiles diagonally beyond the block, so warming up loads none of the block's data.
+    warm: Tile,
+}
+
+impl Block {
+    /// The `side` x `side` block at `z` around Berlin and a warm-up tile `gap` tiles beyond, if the grid holds both.
+    fn around_berlin(z: u8, side: u32, gap: u32) -> anyhow::Result<Self> {
+        let n = 1_u32 << z;
+        let center = Tile::containing(BERLIN, z);
+        let start = |c: u32| c.saturating_sub(side / 2).min(n.saturating_sub(side));
+        let beyond = |first: u32| {
+            let after = first + side + gap;
+            if after < n {
+                Some(after)
+            } else {
+                first.checked_sub(gap + 1)
+            }
+        };
+        let (x, y) = (start(center.x), start(center.y));
+        let warm = beyond(x).zip(beyond(y)).with_context(|| {
+            format!(
+                "zoom {z} has {n}x{n} tiles, too few for a {side}x{side} block and a warm-up tile {gap} tiles beyond it"
+            )
+        })?;
+        Ok(Self {
+            origin: Tile { z, x, y },
+            side,
+            warm: Tile {
+                z,
+                x: warm.0,
+                y: warm.1,
+            },
+        })
+    }
+
+    /// The block's tiles, row by row.
+    fn tiles(self) -> impl Iterator<Item = Tile> {
+        let Self {
+            origin: Tile { z, x, y },
+            side,
+            ..
+        } = self;
+        (0..side).flat_map(move |dy| {
+            (0..side).map(move |dx| Tile {
+                z,
+                x: x + dx,
+                y: y + dy,
+            })
+        })
     }
 }
 
@@ -527,10 +567,10 @@ impl Bench {
 
     /// Times an 8x8 block of distinct tiles at `zoom`, one after another.
     async fn sweep(&self, zoom: u8, shape: TileShape) -> anyhow::Result<Run> {
-        let tiles: Vec<_> = Tile::block(zoom, 8).collect();
-        self.warm(|| self.tile(tiles[0].shifted(20), shape)).await?;
+        let block = Block::around_berlin(zoom, 8, 12)?;
+        self.warm(|| self.tile(block.warm, shape)).await?;
         let mut samples = Vec::new();
-        for tile in tiles {
+        for tile in block.tiles() {
             let (img, took) = timed(self.tile(tile, shape)).await;
             samples.push(took);
             self.saver.save(format_args!("sweep-z{zoom}-{shape}-{tile}"), &img?)?;
@@ -614,9 +654,9 @@ impl Bench {
 
     /// Times a 16x16 block of tiles at `zoom` requested all at once.
     async fn throughput(&self, zoom: u8) -> anyhow::Result<Run> {
-        let warm = Tile::containing(BERLIN, zoom).shifted(40);
-        self.warm(|| self.tile(warm, TileShape::default())).await?;
-        let burst = Tile::block(zoom, 16).map(|t| async move {
+        let block = Block::around_berlin(zoom, 16, 32)?;
+        self.warm(|| self.tile(block.warm, TileShape::default())).await?;
+        let burst = block.tiles().map(|t| async move {
             let (img, took) = timed(self.tile(t, TileShape::default())).await;
             img.map(|_| took)
         });
