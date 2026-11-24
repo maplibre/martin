@@ -23,6 +23,7 @@ use rstest::{fixture, rstest};
 use serde::Serialize;
 use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, query, query_as};
 use tokio::runtime::Handle;
+use xxhash_rust::xxh3::xxh3_64;
 
 const GZIP_TILES: &str = "UPDATE tiles SET tile_data = gzip(tile_data);";
 
@@ -880,6 +881,56 @@ async fn diff_and_patch_bsdiff(
         "After applying binary diff patch, content should match {b_db}",
     );
 
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
+async fn zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile() -> MbtResult<()> {
+    let old_tile: Vec<u8> = (0..8_192_u64)
+        .flat_map(|i| xxh3_64(&i.to_le_bytes()).to_le_bytes())
+        .collect();
+    let mut new_tile = old_tile.clone();
+    new_tile[30_000..30_016].copy_from_slice(b"edited-in-the-v2");
+    new_tile.extend_from_slice(b"appended-in-the-v2");
+
+    let (v1_mbt, mut v1_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "v1");
+    init_mbtiles_schema(&mut v1_cn, mbtiles::MbtType::Flat, false).await?;
+    query("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, ?)")
+        .bind(old_tile.as_slice())
+        .execute(&mut v1_cn)
+        .await?;
+    let (v2_mbt, mut v2_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "v2");
+    init_mbtiles_schema(&mut v2_cn, mbtiles::MbtType::Flat, false).await?;
+    query("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, ?)")
+        .bind(new_tile.as_slice())
+        .execute(&mut v2_cn)
+        .await?;
+    let (dif_mbt, mut dif_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "dif");
+    copy! {
+        path(&v1_mbt),
+        path(&dif_mbt),
+        diff_with_file => Some((path(&v2_mbt), ZstdRaw.into())),
+    };
+
+    let patch: Vec<u8> = query("SELECT patch_data FROM zstdpatchraw")
+        .fetch_one(&mut dif_cn)
+        .await?
+        .get(0);
+    assert!(patch.len() < new_tile.len() / 100, "patch is {} bytes", patch.len());
+    assert!(zstd::bulk::decompress(&patch, new_tile.len()).is_err());
+
+    let (patched_mbt, mut patched_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "patched");
+    copy! {
+        path(&v1_mbt),
+        path(&patched_mbt),
+        apply_patch => Some(path(&dif_mbt)),
+    };
+    let patched_tile: Vec<u8> = query("SELECT tile_data FROM tiles WHERE zoom_level = 1")
+        .fetch_one(&mut patched_cn)
+        .await?
+        .get(0);
+    assert_eq!(patched_tile, new_tile);
     Ok(())
 }
 
