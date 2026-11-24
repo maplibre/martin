@@ -177,10 +177,10 @@ fn issues(expected: &[Expected], mut actual: Vec<Output<'_>>, zoom: u8) -> Vec<S
     ignore = "takes minutes without optimizations; `just test-omt` runs it in release"
 )]
 async fn openmaptiles_snippet_renders_planetiler_examples() {
-    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/fixtures");
+    let fixtures = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures");
     let snippet = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../docs/snippets/openmaptiles.yaml"
+        "/../../docs/snippets/openmaptiles.yaml"
     ))
     .unwrap()
     .replace(
