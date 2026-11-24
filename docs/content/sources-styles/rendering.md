@@ -201,7 +201,7 @@ Martin treats any other value as `gl`.
 Vulkan needs a Vulkan loader and driver (`libvulkan1` and `mesa-vulkan-drivers` on Debian and Ubuntu).
 Vulkan pays off on a GPU with several workers: with 8 workers on an NVIDIA GPU, it rendered about 12 times as many z14 tiles per second as OpenGL ES.
 On the CPU, both backends render about as fast.
-To measure your own setup, run the [`render-bench` example](https://github.com/maplibre/martin/tree/main/martin-core/examples) with `MARTIN_MLN_BACKEND` set to each backend.
+To measure your own setup, run the [`render-bench` example](https://github.com/maplibre/martin/tree/main/crates/martin-core/examples) with `MARTIN_MLN_BACKEND` set to each backend.
 
 !!! warning
     Vulkan loaders older than 1.4.345 have a race between concurrent renders that crashed Martin 1.x ([GHSA-5xxm-54w8-h85j](https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j)).
