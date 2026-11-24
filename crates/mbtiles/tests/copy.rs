@@ -886,7 +886,7 @@ async fn diff_and_patch_bsdiff(
 
 #[tokio::test(flavor = "multi_thread")]
 #[tracing_test::traced_test]
-async fn zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile() -> MbtResult<()> {
+async fn zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile() {
     let old_tile: Vec<u8> = (0..8_192_u64)
         .flat_map(|i| xxh3_64(&i.to_le_bytes()).to_le_bytes())
         .collect();
@@ -895,17 +895,23 @@ async fn zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile() -> MbtRe
     new_tile.extend_from_slice(b"appended-in-the-v2");
 
     let (v1_mbt, mut v1_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "v1");
-    init_mbtiles_schema(&mut v1_cn, mbtiles::MbtType::Flat, false).await?;
+    init_mbtiles_schema(&mut v1_cn, mbtiles::MbtType::Flat, false)
+        .await
+        .unwrap();
     query("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, ?)")
         .bind(old_tile.as_slice())
         .execute(&mut v1_cn)
-        .await?;
+        .await
+        .unwrap();
     let (v2_mbt, mut v2_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "v2");
-    init_mbtiles_schema(&mut v2_cn, mbtiles::MbtType::Flat, false).await?;
+    init_mbtiles_schema(&mut v2_cn, mbtiles::MbtType::Flat, false)
+        .await
+        .unwrap();
     query("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, ?)")
         .bind(new_tile.as_slice())
         .execute(&mut v2_cn)
-        .await?;
+        .await
+        .unwrap();
     let (dif_mbt, mut dif_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "dif");
     copy! {
         path(&v1_mbt),
@@ -915,10 +921,11 @@ async fn zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile() -> MbtRe
 
     let patch: Vec<u8> = query("SELECT patch_data FROM zstdpatchraw")
         .fetch_one(&mut dif_cn)
-        .await?
+        .await
+        .unwrap()
         .get(0);
     assert!(patch.len() < new_tile.len() / 100, "patch is {} bytes", patch.len());
-    assert!(zstd::bulk::decompress(&patch, new_tile.len()).is_err());
+    zstd::bulk::decompress(&patch, new_tile.len()).unwrap_err();
 
     let (patched_mbt, mut patched_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "patched");
     copy! {
@@ -928,10 +935,10 @@ async fn zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile() -> MbtRe
     };
     let patched_tile: Vec<u8> = query("SELECT tile_data FROM tiles WHERE zoom_level = 1")
         .fetch_one(&mut patched_cn)
-        .await?
+        .await
+        .unwrap()
         .get(0);
     assert_eq!(patched_tile, new_tile);
-    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
