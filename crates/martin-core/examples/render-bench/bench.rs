@@ -35,7 +35,7 @@ struct Args {
     case: Case,
     /// Style JSON file to render.
     style: PathBuf,
-    /// Render worker threads per pool.
+    /// Render worker threads per pool; `style-switch` takes only 1.
     #[arg(default_value = "1")]
     workers: NonZeroUsize,
 }
@@ -64,7 +64,7 @@ enum Case {
     /// A static image with an overlay added before and removed after, over a view already loaded.
     #[strum(to_string = "overlay:{features}")]
     Overlay { features: u32 },
-    /// One renderer per worker, two styles in turn: every request reloads its style.
+    /// One worker with one renderer, two styles in turn: every request reloads its style.
     #[strum(to_string = "style-switch:{other}")]
     StyleSwitch { other: String },
     /// Every tile of a block at once, as concurrent clients ask: requests per second over all workers.
@@ -677,6 +677,10 @@ impl Bench {
 /// Runs the case the command line names and prints its report.
 pub async fn run() -> anyhow::Result<()> {
     let Args { case, style, workers } = Args::parse();
+    ensure!(
+        workers == NonZeroUsize::MIN || !matches!(case, Case::StyleSwitch { .. }),
+        "style-switch times style reloads on a single renderer, so it needs 1 worker, got {workers}"
+    );
     let saver = Saver::from_env()?;
 
     let cpu_start = cpu_seconds()?;

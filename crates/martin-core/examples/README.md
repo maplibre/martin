@@ -23,7 +23,7 @@ Set `BENCH_SAVE=<dir>` to also write rendered images there as PNG: every image o
 | `lowzoom`                        | every tile of zooms 0 to 3                                            |
 | `static`                         | static images with bearing and pitch, at pixel ratio 2                |
 | `overlay[:<features>]`           | a static image with an overlay of `features` features (default 60)    |
-| `style-switch:<other.json>`      | two styles in turn, so every request reloads its style                |
+| `style-switch:<other.json>`      | two styles in turn on 1 worker, so every request reloads its style    |
 | `throughput[:z<zoom>]`           | every tile of a block at once, in requests per second (default `z14`) |
 
 ```bash
