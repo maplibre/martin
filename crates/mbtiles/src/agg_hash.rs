@@ -148,6 +148,7 @@ where
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    use sqlx::AssertSqlSafe;
 
     use super::*;
     use crate::{
@@ -213,6 +214,114 @@ mod tests {
             AggTilesHasher::new(algorithm).finish(),
             Some(calc_agg_tiles_hash(&mut conn, algorithm).await.unwrap())
         );
+    }
+
+    #[rstest]
+    #[case::md5(HashAlgorithm::Md5, "md5_concat_hex", "md5_hex")]
+    #[case::fnv1a(HashAlgorithm::Fnv1a, "fnv1a_concat_hex", "fnv1a_hex")]
+    #[case::xxh64(HashAlgorithm::Xxh64, "xxh64_concat_hex", "xxh64_hex")]
+    #[case::xxh3(HashAlgorithm::Xxh3, "xxh3_64_concat_hex", "xxh3_64_hex")]
+    #[actix_rt::test]
+    async fn an_empty_tiles_table_hashes_like_the_sql_aggregate(
+        #[case] algorithm: HashAlgorithm,
+        #[case] concat_fn: &str,
+        #[case] hash_fn: &str,
+    ) {
+        let (_, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);",
+        )
+        .await;
+        let sql = format!(
+            "SELECT coalesce(
+                        {concat_fn}(
+                            cast(zoom_level AS text),
+                            cast(tile_column AS text),
+                            cast(tile_row AS text),
+                            tile_data
+                            ORDER BY zoom_level, tile_column, tile_row),
+                        {hash_fn}(''))
+             FROM tiles"
+        );
+        let expected: String = query(AssertSqlSafe(sql)).fetch_one(&mut conn).await.unwrap().get(0);
+
+        assert_eq!(calc_agg_tiles_hash(&mut conn, algorithm).await.unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::md5(HashAlgorithm::Md5, "md5_concat_hex", "md5_hex")]
+    #[case::fnv1a(HashAlgorithm::Fnv1a, "fnv1a_concat_hex", "fnv1a_hex")]
+    #[case::fnv1a_decimal(HashAlgorithm::Fnv1aDecimal, "fnv1a_concat_hex", "fnv1a_decimal")]
+    #[case::xxh64(HashAlgorithm::Xxh64, "xxh64_concat_hex", "xxh64_hex")]
+    #[case::xxh3(HashAlgorithm::Xxh3, "xxh3_64_concat_hex", "xxh3_64_hex")]
+    #[actix_rt::test]
+    async fn null_tile_data_hashes_like_the_sql_aggregate(
+        #[case] algorithm: HashAlgorithm,
+        #[case] concat_fn: &str,
+        #[case] hash_fn: &str,
+    ) {
+        let (_, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
+             INSERT INTO tiles VALUES
+                 (0, 0, 0, cast('root' AS blob)),
+                 (1, 0, 0, NULL),
+                 (1, 1, 0, cast('leaf' AS blob)),
+                 (1, 1, 1, NULL);",
+        )
+        .await;
+        let sql = format!(
+            "SELECT coalesce(
+                        {concat_fn}(
+                            cast(zoom_level AS text),
+                            cast(tile_column AS text),
+                            cast(tile_row AS text),
+                            tile_data
+                            ORDER BY zoom_level, tile_column, tile_row),
+                        {hash_fn}(''))
+             FROM tiles"
+        );
+        let expected: String = query(AssertSqlSafe(sql)).fetch_one(&mut conn).await.unwrap().get(0);
+
+        assert_eq!(calc_agg_tiles_hash(&mut conn, algorithm).await.unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::md5(HashAlgorithm::Md5, "md5_concat_hex", "md5_hex")]
+    #[case::fnv1a(HashAlgorithm::Fnv1a, "fnv1a_concat_hex", "fnv1a_hex")]
+    #[case::fnv1a_decimal(HashAlgorithm::Fnv1aDecimal, "fnv1a_concat_hex", "fnv1a_decimal")]
+    #[case::xxh64(HashAlgorithm::Xxh64, "xxh64_concat_hex", "xxh64_hex")]
+    #[case::xxh3(HashAlgorithm::Xxh3, "xxh3_64_concat_hex", "xxh3_64_hex")]
+    #[actix_rt::test]
+    async fn rows_inserted_out_of_key_order_hash_like_the_sql_aggregate(
+        #[case] algorithm: HashAlgorithm,
+        #[case] concat_fn: &str,
+        #[case] hash_fn: &str,
+    ) {
+        let (_, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
+             INSERT INTO tiles VALUES
+                 (12, 1000, 4095, cast('deep' AS blob)),
+                 (4, 10, 3, cast('ten' AS blob)),
+                 (1, 1, 1, cast('leaf' AS blob)),
+                 (4, 9, 3, cast('nine' AS blob)),
+                 (0, 0, 0, cast('root' AS blob)),
+                 (1, 0, 1, cast('fill' AS blob)),
+                 (1, 0, 0, cast('fill' AS blob));",
+        )
+        .await;
+        let sql = format!(
+            "SELECT coalesce(
+                        {concat_fn}(
+                            cast(zoom_level AS text),
+                            cast(tile_column AS text),
+                            cast(tile_row AS text),
+                            tile_data
+                            ORDER BY zoom_level, tile_column, tile_row),
+                        {hash_fn}(''))
+             FROM tiles"
+        );
+        let expected: String = query(AssertSqlSafe(sql)).fetch_one(&mut conn).await.unwrap().get(0);
+
+        assert_eq!(calc_agg_tiles_hash(&mut conn, algorithm).await.unwrap(), expected);
     }
 
     #[test]
