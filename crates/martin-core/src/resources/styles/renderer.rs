@@ -280,12 +280,6 @@ impl Renderer {
         let (map, created) = runtime.handle.create_map(options)?;
         block_on(&signal, created, "map creation")?;
 
-        let style = Arc::new(StyleListener::default());
-        runtime
-            .listeners
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .insert(map.id(), Arc::clone(&style));
         let target = RenderTarget::Offscreen {
             size,
             device: Some(device.clone()),
@@ -295,6 +289,12 @@ impl Renderer {
             ..AttachOptions::default()
         };
         let (session, attached) = map.attach(target, options)?;
+        let style = Arc::new(StyleListener::default());
+        runtime
+            .listeners
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(map.id(), Arc::clone(&style));
         let renderer = Self {
             runtime: Arc::clone(runtime),
             map,
