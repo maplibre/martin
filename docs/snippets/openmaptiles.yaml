@@ -409,7 +409,10 @@ osm:
               ? landuse : natural in ['wood', 'wetland', 'fell', 'grassland', 'heath', 'scrub',
               'shrubbery', 'tundra', 'glacier', 'bare_rock', 'scree', 'beach', 'sand', 'dune'] ? natural :
               leisure in ['park', 'garden', 'golf_course'] ? leisure : wetland
-            _unmerged: { expr: "landuse == 'forest' || natural == 'wood' ? null : osm_id", hidden: true, minzoom: 8 }
+            _unmerged:
+              expr: "landuse == 'forest' || natural == 'wood' ? null : osm_id * 10 + (osm_type == 'way' ? 2 : 3)"
+              hidden: true
+              minzoom: 8
           merge_polygons: { minzoom: 7, maxzoom: 13, min_area: 4 }
         landcover_z10:
           layer: landcover
@@ -474,7 +477,7 @@ osm:
             class: >-
               coalesce(landuse, amenity, leisure, tourism, place, waterway) == 'grave_yard' ? 'cemetery' :
               coalesce(landuse, amenity, leisure, tourism, place, waterway)
-            _unmerged: { expr: osm_id, hidden: true }
+            _unmerged: { expr: "osm_id * 10 + (osm_type == 'way' ? 2 : 3)", hidden: true }
         landuse_z7:
           layer: landuse
           geometry: polygon

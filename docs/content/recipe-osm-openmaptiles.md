@@ -133,4 +133,5 @@ In `water_lakes_low`, which draws large lakes up to z5, a lake below 25 km^2 get
 
 **Selective merges.** Planetiler merges only some features of a layer, such as only wood and forest in `landcover`.
 The configuration gives every other feature a [hidden attribute](sources-pg-layers.md#hidden-attributes)
-`_unmerged` set to its `osm_id`. No two features share that value, so they never merge.
+`_unmerged` set to its feature id, `osm_id * 10` plus 2 for a way or 3 for a relation.
+A way and a relation can share an `osm_id`, but no two features share a feature id, so they never merge.
