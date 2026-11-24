@@ -27,6 +27,10 @@ pub enum PatchTypeCli {
     BinDiffGz,
     /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
     BinDiffRaw,
+    /// Compress each new tile with zstd, using the gzip-decoded old tile as the prefix to match against.
+    ZstdGz,
+    /// Compress each new tile with zstd, using the old tile blob as the prefix to match against.
+    ZstdRaw,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
@@ -36,6 +40,83 @@ pub enum PatchType {
     BinDiffGz,
     /// Use bin-diff to store only the bytes changed between two versions of each tile. Treats content as blobs without any special encoding.
     BinDiffRaw,
+    /// Compress each new tile with zstd, using the gzip-decoded old tile as the prefix to match against.
+    ZstdGz,
+    /// Compress each new tile with zstd, using the old tile blob as the prefix to match against.
+    ZstdRaw,
+}
+
+impl PatchType {
+    /// Whether tiles are gzip-decoded before diffing and re-encoded after patching.
+    #[must_use]
+    pub const fn is_gz(self) -> bool {
+        matches!(self, Self::BinDiffGz | Self::ZstdGz)
+    }
+
+    /// Creates the patch bytes that turn `old` into `new`.
+    fn diff(self, old: &[u8], new: &[u8]) -> MbtResult<Vec<u8>> {
+        match self {
+            Self::BinDiffGz | Self::BinDiffRaw => {
+                let data = BsdiffRawDiffer::diff(old, new).expect("BinDiff failure");
+                Ok(encode_brotli(&data)?)
+            }
+            Self::ZstdGz | Self::ZstdRaw => Ok(zstd_prefix_diff(old, new)?),
+        }
+    }
+
+    /// Rebuilds the new tile from `old` and the patch bytes.
+    fn patch(self, old: &[u8], patch: &[u8]) -> MbtResult<Vec<u8>> {
+        match self {
+            Self::BinDiffGz | Self::BinDiffRaw => {
+                let patch = decode_brotli(patch)?;
+                Ok(BsdiffRawDiffer::patch(old, &patch)?)
+            }
+            Self::ZstdGz | Self::ZstdRaw => Ok(zstd_prefix_patch(old, patch)?),
+        }
+    }
+}
+
+/// Compresses `new` with `old` as the zstd prefix, so unchanged runs become back-references into `old`.
+fn zstd_prefix_diff(old: &[u8], new: &[u8]) -> std::io::Result<Vec<u8>> {
+    let mut compressor = zstd::bulk::Compressor::new(3)?;
+    compressor.include_contentsize(true)?;
+    let ctx = compressor.context_mut();
+    ctx.set_parameter(zstd::zstd_safe::CParameter::EnableLongDistanceMatching(true))
+        .map_err(zstd_err)?;
+    ctx.set_parameter(zstd::zstd_safe::CParameter::WindowLog(window_log(
+        old.len() + new.len(),
+    )))
+    .map_err(zstd_err)?;
+    ctx.ref_prefix(old).map_err(zstd_err)?;
+    compressor.compress(new)
+}
+
+/// Decompresses a [`zstd_prefix_diff`] patch with the same `old` prefix.
+fn zstd_prefix_patch(old: &[u8], patch: &[u8]) -> std::io::Result<Vec<u8>> {
+    let size = zstd::zstd_safe::get_frame_content_size(patch)
+        .ok()
+        .flatten()
+        .ok_or_else(|| std::io::Error::other("zstd patch has no content size"))?;
+    let mut ctx = zstd::zstd_safe::DCtx::create();
+    ctx.set_parameter(zstd::zstd_safe::DParameter::WindowLogMax(MAX_WINDOW_LOG))
+        .map_err(zstd_err)?;
+    ctx.ref_prefix(old).map_err(zstd_err)?;
+    let mut new = Vec::with_capacity(usize::try_from(size).map_err(std::io::Error::other)?);
+    ctx.decompress(&mut new, patch).map_err(zstd_err)?;
+    Ok(new)
+}
+
+/// Largest window the patcher accepts, 128 MiB, far above any tile.
+const MAX_WINDOW_LOG: u32 = 27;
+
+/// Smallest window covering both tiles, so every byte of the prefix stays reachable.
+fn window_log(len: usize) -> u32 {
+    len.max(1 << 10).bit_width().min(MAX_WINDOW_LOG)
+}
+
+/// Converts a zstd error code into an I/O error.
+fn zstd_err(code: usize) -> std::io::Error {
+    std::io::Error::other(zstd::zstd_safe::get_error_name(code))
 }
 
 impl From<PatchTypeCli> for Option<PatchType> {
@@ -44,6 +125,8 @@ impl From<PatchTypeCli> for Option<PatchType> {
             PatchTypeCli::Whole => None,
             PatchTypeCli::BinDiffGz => Some(PatchType::BinDiffGz),
             PatchTypeCli::BinDiffRaw => Some(PatchType::BinDiffRaw),
+            PatchTypeCli::ZstdGz => Some(PatchType::ZstdGz),
+            PatchTypeCli::ZstdRaw => Some(PatchType::ZstdRaw),
         }
     }
 }
@@ -235,7 +318,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     fn process(&self, value: DifferBefore) -> MbtResult<DifferAfter> {
         let mut old_tile = value.old_tile_data;
         let mut new_tile = value.new_tile_data;
-        if self.patch_type == PatchType::BinDiffGz {
+        if self.patch_type.is_gz() {
             old_tile = decode_gzip(&old_tile).inspect_err(|e| {
                 error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode source tile");
             })?;
@@ -244,8 +327,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
             })?;
         }
         let new_tile_hash = xxh3_64(&new_tile);
-        let data = BsdiffRawDiffer::diff(&old_tile, &new_tile).expect("BinDiff failure");
-        let data = encode_brotli(&data)?;
+        let data = self.patch_type.diff(&old_tile, &new_tile)?;
 
         Ok(DifferAfter {
             coord: value.coord,
@@ -354,7 +436,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     }
 
     fn process(&self, value: ApplierBefore) -> MbtResult<ApplierAfter> {
-        let old_tile = if self.patch_type == PatchType::BinDiffGz {
+        let old_tile = if self.patch_type.is_gz() {
             decode_gzip(&value.old_tile).inspect_err(|e| {
                 error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode source tile");
             })?
@@ -362,10 +444,9 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             value.old_tile
         };
 
-        let patch_data = decode_brotli(&value.patch_data)
-            .inspect_err(|e| error!(tile.coord = ?value.coord, error = %e, "Unable to brotli-decode patch data"))?;
-
-        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data)
+        let mut new_tile = self
+            .patch_type
+            .patch(&old_tile, &value.patch_data)
             .inspect_err(|e| error!(tile.coord = ?value.coord, error = %e, "Unable to patch tile"))?;
 
         // Verify the hash of the patched tile is what we expect
@@ -378,7 +459,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             });
         }
 
-        if self.patch_type == PatchType::BinDiffGz {
+        if self.patch_type.is_gz() {
             new_tile = encode_gzip(&new_tile)?;
         }
 
@@ -423,6 +504,8 @@ pub const fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
     match patch_type {
         PatchType::BinDiffRaw => "bsdiffraw",
         PatchType::BinDiffGz => "bsdiffrawgz",
+        PatchType::ZstdRaw => "zstdpatchraw",
+        PatchType::ZstdGz => "zstdpatchgz",
     }
 }
 
@@ -456,6 +539,8 @@ where
     for (tbl, pt) in [
         ("bsdiffraw", PatchType::BinDiffRaw),
         ("bsdiffrawgz", PatchType::BinDiffGz),
+        ("zstdpatchraw", PatchType::ZstdRaw),
+        ("zstdpatchgz", PatchType::ZstdGz),
     ] {
         //  'bsdiffraw' or 'bsdiffrawgz' table or view columns and their types are as expected:
         //  5 columns (zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash).

@@ -13,7 +13,7 @@ use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Cache, Flat, FlatWithHash, Normalized};
-use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
+use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw, ZstdGz, ZstdRaw};
 use mbtiles::{
     CacheEntryMeta, CopyDuplicateMode, CopyType, HashAlgorithm, MbtError, MbtResult, MbtTypeCli, Mbtiles,
     MbtilesCopier, PatchTypeCli, UnixSeconds, UpdateZoomType, apply_patch, init_mbtiles_schema, invert_y_value,
@@ -314,7 +314,12 @@ fn databases() -> Databases {
 
                 // ----------------- bin-diff (v1 -> v2) -----------------
                 if mbt_typ == Flat || mbt_typ == FlatWithHash {
-                    for (a, b, patch_type, pt) in [("v1", "v2", BinDiffRaw, "bdr"), ("v1z", "v2z", BinDiffGz, "bdz")] {
+                    for (a, b, patch_type, pt) in [
+                        ("v1", "v2", BinDiffRaw, "bdr"),
+                        ("v1z", "v2z", BinDiffGz, "bdz"),
+                        ("v1", "v2", ZstdRaw, "zsr"),
+                        ("v1z", "v2z", ZstdGz, "zsz"),
+                    ] {
                         let (bd_mbt, mut bd_cn) = open!(databases, "{typ}__{pt}");
                         copy! {
                             result.path(a, mbt_typ),
@@ -332,6 +337,12 @@ fn databases() -> Databases {
                                 allow_duplicates!(assert_snapshot!(hash, @"9AFEC3326B465CB939664C47A572D4C6"));
                             }
                             BinDiffRaw => {
+                                allow_duplicates!(assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"));
+                            }
+                            ZstdGz => {
+                                allow_duplicates!(assert_snapshot!(hash, @"9AFEC3326B465CB939664C47A572D4C6"));
+                            }
+                            ZstdRaw => {
                                 allow_duplicates!(assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"));
                             }
                         }
@@ -811,6 +822,8 @@ async fn diff_and_patch(
 type BsDiffTileset = (&'static str, &'static str, &'static str, PatchTypeCli);
 const BIN_DIFF_RAW: BsDiffTileset = ("v1", "v2", "bdr", BinDiffRaw);
 const BIN_DIFF_GZ: BsDiffTileset = ("v1z", "v2z", "bdz", BinDiffGz);
+const ZSTD_RAW: BsDiffTileset = ("v1", "v2", "zsr", ZstdRaw);
+const ZSTD_GZ: BsDiffTileset = ("v1z", "v2z", "zsz", ZstdGz);
 
 #[rstest]
 #[trace]
@@ -821,7 +834,7 @@ async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dif_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
-    #[values(BIN_DIFF_RAW, BIN_DIFF_GZ)] tilesets: BsDiffTileset,
+    #[values(BIN_DIFF_RAW, BIN_DIFF_GZ, ZSTD_RAW, ZSTD_GZ)] tilesets: BsDiffTileset,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db, patch_type) = tilesets;
