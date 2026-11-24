@@ -883,6 +883,42 @@ async fn diff_and_patch_bsdiff(
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
+async fn zstd_patch_declaring_a_huge_tile_fails_to_apply() -> MbtResult<()> {
+    let (v1_mbt, mut v1_cn) = open!(zstd_patch_declaring_a_huge_tile_fails_to_apply, "v1");
+    init_mbtiles_schema(&mut v1_cn, mbtiles::MbtType::Flat, false).await?;
+    v1_cn
+        .execute("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, x'01')")
+        .await?;
+    let (v2_mbt, mut v2_cn) = open!(zstd_patch_declaring_a_huge_tile_fails_to_apply, "v2");
+    init_mbtiles_schema(&mut v2_cn, mbtiles::MbtType::Flat, false).await?;
+    v2_cn
+        .execute("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, x'02')")
+        .await?;
+    let (dif_mbt, mut dif_cn) = open!(zstd_patch_declaring_a_huge_tile_fails_to_apply, "dif");
+    copy! {
+        path(&v1_mbt),
+        path(&dif_mbt),
+        diff_with_file => Some((path(&v2_mbt), ZstdRaw.into())),
+    };
+    dif_cn
+        .execute("UPDATE zstdpatchraw SET patch_data = X'28B52FFDE00000000000010000'")
+        .await?;
+
+    let err = MbtilesCopier {
+        src_file: path(&v1_mbt),
+        dst_file: PathBuf::from("file:zstd_patch_declaring_a_huge_tile_fails_to_apply_dst?mode=memory&cache=shared"),
+        apply_patch: Some(path(&dif_mbt)),
+        ..Default::default()
+    }
+    .run()
+    .await
+    .unwrap_err();
+    assert_matches!(err, MbtError::BindiffError);
+    Ok(())
+}
+
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]

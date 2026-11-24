@@ -78,6 +78,9 @@ impl PatchType {
 
 /// Compresses `new` with `old` as the zstd prefix, so unchanged runs become back-references into `old`.
 fn zstd_prefix_diff(old: &[u8], new: &[u8]) -> std::io::Result<Vec<u8>> {
+    if new.len() > MAX_TILE_SIZE {
+        return Err(tile_too_large(new.len() as u64));
+    }
     let mut compressor = zstd::bulk::Compressor::new(3)?;
     compressor.include_contentsize(true)?;
     let ctx = compressor.context_mut();
@@ -97,17 +100,33 @@ fn zstd_prefix_patch(old: &[u8], patch: &[u8]) -> std::io::Result<Vec<u8>> {
         .ok()
         .flatten()
         .ok_or_else(|| std::io::Error::other("zstd patch has no content size"))?;
+    let size = usize::try_from(size)
+        .ok()
+        .filter(|&len| len <= MAX_TILE_SIZE)
+        .ok_or_else(|| tile_too_large(size))?;
+    let mut new = Vec::new();
+    new.try_reserve_exact(size).map_err(std::io::Error::other)?;
     let mut ctx = zstd::zstd_safe::DCtx::create();
     ctx.set_parameter(zstd::zstd_safe::DParameter::WindowLogMax(MAX_WINDOW_LOG))
         .map_err(zstd_err)?;
     ctx.ref_prefix(old).map_err(zstd_err)?;
-    let mut new = Vec::with_capacity(usize::try_from(size).map_err(std::io::Error::other)?);
     ctx.decompress(&mut new, patch).map_err(zstd_err)?;
     Ok(new)
 }
 
 /// Largest window the patcher accepts, 128 MiB, far above any tile.
 const MAX_WINDOW_LOG: u32 = 27;
+
+/// Largest tile the zstd patch types diff or rebuild, the same 128 MiB as the window.
+const MAX_TILE_SIZE: usize = 1 << MAX_WINDOW_LOG;
+
+/// Error for a tile above [`MAX_TILE_SIZE`], so a malformed patch cannot force a huge allocation.
+fn tile_too_large(size: u64) -> std::io::Error {
+    std::io::Error::new(
+        std::io::ErrorKind::InvalidData,
+        format!("zstd patch tile of {size} bytes is above the {MAX_TILE_SIZE} byte limit"),
+    )
+}
 
 /// Smallest window covering both tiles, so every byte of the prefix stays reachable.
 fn window_log(len: usize) -> u32 {
