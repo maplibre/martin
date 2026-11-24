@@ -1,11 +1,13 @@
 use std::hash::Hasher as _;
 use std::io::Write as _;
 
+use futures::TryStreamExt as _;
 use martin_tile_utils::TileCoord;
+use sqlx::{Row as _, SqliteExecutor, query};
 use xxhash_rust::xxh3::Xxh3;
 use xxhash_rust::xxh64::Xxh64;
 
-use crate::{HashAlgorithm, invert_y_value};
+use crate::{HashAlgorithm, MbtResult, invert_y_value};
 
 /// The decimal digits of a `u8` and two `u32`s.
 const MAX_DIGITS: usize = 3 + 10 + 10;
@@ -35,15 +37,9 @@ impl AggTilesHasher {
     /// A hasher for a file whose tile hashes use `algorithm`.
     #[must_use]
     pub fn new(algorithm: HashAlgorithm) -> Self {
-        let state = match algorithm {
-            HashAlgorithm::Md5 => State::Md5(md5::Context::new()),
-            HashAlgorithm::Fnv1a | HashAlgorithm::Fnv1aDecimal => State::Fnv(fnv::FnvHasher::default()),
-            HashAlgorithm::Xxh64 => State::Xxh64(Xxh64::new(0)),
-            HashAlgorithm::Xxh3 => State::Xxh3(Box::default()),
-        };
         Self {
             algorithm,
-            state: Some(state),
+            state: Some(State::new(algorithm)),
             last: None,
         }
     }
@@ -91,6 +87,16 @@ impl AggTilesHasher {
 }
 
 impl State {
+    /// An empty digest for `algorithm`.
+    fn new(algorithm: HashAlgorithm) -> Self {
+        match algorithm {
+            HashAlgorithm::Md5 => Self::Md5(md5::Context::new()),
+            HashAlgorithm::Fnv1a | HashAlgorithm::Fnv1aDecimal => Self::Fnv(fnv::FnvHasher::default()),
+            HashAlgorithm::Xxh64 => Self::Xxh64(Xxh64::new(0)),
+            HashAlgorithm::Xxh3 => Self::Xxh3(Box::default()),
+        }
+    }
+
     /// Feeds `bytes` to the digest.
     fn update(&mut self, bytes: &[u8]) {
         match self {
@@ -110,6 +116,33 @@ impl State {
             Self::Xxh3(hasher) => format!("{:016X}", hasher.digest()),
         }
     }
+}
+
+/// Computes `agg_tiles_hash` by reading the `tiles` table in key order.
+pub(crate) async fn hash_tiles_table<T>(conn: &mut T, algorithm: HashAlgorithm) -> MbtResult<String>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let mut rows = query(
+        "SELECT cast(zoom_level AS text), cast(tile_column AS text), cast(tile_row AS text), tile_data
+         FROM tiles
+         ORDER BY zoom_level, tile_column, tile_row",
+    )
+    .fetch(conn);
+    let mut state = State::new(algorithm);
+    let mut empty = true;
+    while let Some(row) = rows.try_next().await? {
+        for idx in 0..3 {
+            if let Some(value) = row.try_get::<Option<&str>, _>(idx)? {
+                state.update(value.as_bytes());
+            }
+        }
+        if let Some(data) = row.try_get::<Option<&[u8]>, _>(3)? {
+            state.update(data);
+        }
+        empty = false;
+    }
+    Ok(if empty { algorithm.hash(b"") } else { state.finish() })
 }
 
 #[cfg(test)]
@@ -168,6 +201,7 @@ mod tests {
     #[rstest]
     #[case::md5(HashAlgorithm::Md5)]
     #[case::fnv1a(HashAlgorithm::Fnv1a)]
+    #[case::fnv1a_decimal(HashAlgorithm::Fnv1aDecimal)]
     #[case::xxh64(HashAlgorithm::Xxh64)]
     #[case::xxh3(HashAlgorithm::Xxh3)]
     #[actix_rt::test]
