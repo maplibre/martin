@@ -7,11 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.17.1](https://github.com/maplibre/martin/compare/martin-core-v0.17.0...martin-core-v0.17.1) - 2026-11-12
+## [0.18.0](https://github.com/maplibre/martin/compare/martin-core-v0.17.0...martin-core-v0.18.0) - 2026-11-25
 
-### Other
+### Breaking changes
 
-- updated the following local packages: mbtiles, martin-tilegen
+- `last_modified_at` of `CatalogSourceEntry`, `CatalogFontEntry`, `CatalogSpriteEntry` and `CatalogStyleEntry` is a `jiff::Timestamp` (jiff 1) instead of `chrono::DateTime<Utc>`, and martin-core no longer depends on chrono ([#4055](https://github.com/maplibre/martin/pull/4055), [#4062](https://github.com/maplibre/martin/pull/4062))
+- Rendering goes through `maplibre-native-ffi`: `StaticImage` is an `image::RgbaImage`, and the `StyleError` variants changed ([#3849](https://github.com/maplibre/martin/pull/3849))
+- `RenderPools::new` and `StyleSources::enable_rendering` take the number of renderers each static worker keeps ([#4006](https://github.com/maplibre/martin/pull/4006))
+
+### Added
+
+- Render workers prefer requests for a renderer they already hold ([#4006](https://github.com/maplibre/martin/pull/4006))
+- Contour tiles beyond a variable-depth source's depth are traced from their nearest ancestor ([#3989](https://github.com/maplibre/martin/pull/3989))
+- A `render-tileserver` example serving rendered tiles ([#4043](https://github.com/maplibre/martin/pull/4043))
+
+### Fixed
+
+- GeoJSON sources keep polygons that clipping and snapping turned inside out ([#4011](https://github.com/maplibre/martin/pull/4011))
 
 ## [0.17.0](https://github.com/maplibre/martin/compare/martin-core-v0.16.0...martin-core-v0.17.0) - 2026-11-11
 
