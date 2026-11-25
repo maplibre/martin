@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures"
+FIXTURES = Path(__file__).resolve().parents[3] / "tests" / "fixtures"
 SYNTHETIC = FIXTURES / "cog" / "synthetic"
 CASSETTE = FIXTURES / "render_cassette" / "earth-search.aws.element84.com"
 EARTH_SEARCH = "https://earth-search.aws.element84.com"

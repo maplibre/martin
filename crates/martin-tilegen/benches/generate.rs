@@ -76,6 +76,7 @@ fn city() -> Vec<(TableDef, Vec<SourceFeature>)> {
         id: Some(i64::from(id)),
         geometry,
         props,
+        relations: Vec::new(),
     };
     let (k0, k1) = (KeyId::new(0), KeyId::new(1));
     let names = ["Main St", "Oak Ave", "Elm Rd", "Hauptstraße"];

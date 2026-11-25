@@ -224,7 +224,7 @@ The slicer has no multi-geometries and no feature attributes. Slice a `MultiLine
 caller does that per tile anyway, and it keeps the slicer free of state that grows with the feature.
 Slices of several elements landing in one tile are several slices there, which the caller groups (into
 one `MultiLineString` per tile, say). See
-[`examples/mvt_features.rs`](https://github.com/maplibre/martin/blob/main/map-tile-toolkit/examples/mvt_features.rs)
+[`examples/mvt_features.rs`](https://github.com/maplibre/martin/blob/main/crates/map-tile-toolkit/examples/mvt_features.rs)
 for a round trip emitting per-tile `GeoJSON` with ids and properties.
 
 ```rust

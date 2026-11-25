@@ -1292,7 +1292,8 @@ cases:
 - source: shortbread
   paths:
   - "boundaries: kept by `where`"
-  - "boundaries: minzoom 0, `admin_level == '2'` is true"
+  - "boundaries: attributes.admin_level, `(boundary == 'administrative') && (admin_level in ['2', '4'])` is true"
+  - "boundaries: minzoom 0, `((boundary == 'administrative') && (admin_level == '2')) || (...)` is true"
   - "boundaries: crosses a z14 tile edge"
   - "water_lines: dropped, `where` is false"
   - "water_lines: dropped, `waterway` is null in `where`"
@@ -1381,6 +1382,107 @@ cases:
     zooms: 0-14
     attributes:
       admin_level: 2
+      disputed: false
+      maritime: true
+- source: shortbread
+  paths:
+  - "boundaries: attributes.admin_level, `(boundary == 'administrative') && (admin_level in ['2', '4'])` is false"
+  - "boundaries: attributes.admin_level, `boundary` is null in `(boundary == 'administrative') && (admin_level in ['2', '4'])`"
+  - "boundaries: attributes.admin_level, `admin_level` is null in `(boundary == 'administrative') && (admin_level in ['2', '4'])`"
+  - "boundaries: minzoom 7, `((boundary == 'administrative') && (admin_level == '2')) || (...)` is false"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
+  - "boundaries: kept by `where`"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
+  - "boundaries: crosses a z14 tile edge"
+  - "streets: dropped, `where` is false"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `highway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `highway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
+  input:
+    "addr:housename": null
+    "addr:housenumber": null
+    admin_level: null
+    aerialway: null
+    aeroway: null
+    amenity: null
+    "area:aeroway": null
+    atm: null
+    bicycle: null
+    boundary: null
+    bridge: null
+    building: null
+    capital: null
+    covered: null
+    cuisine: null
+    denomination: null
+    disputed: null
+    emergency: null
+    geometry: LINESTRING(7.4152916 43.7234393,7.415088 43.7234292,7.4151048 43.7232317,7.4165988 43.7233405,7.4185234 43.7247599)
+    highway: null
+    historic: null
+    horse: null
+    iata: null
+    id: 7720815952
+    information: null
+    landuse: null
+    leisure: null
+    man_made: null
+    maritime: null
+    military: null
+    motor_vehicle: null
+    name: null
+    "name:de": null
+    "name:en": null
+    natural: coastline
+    office: null
+    oneway: null
+    place: null
+    population: null
+    railway: null
+    "recycling:clothes": null
+    "recycling:glass_bottles": null
+    "recycling:paper": null
+    "recycling:scrap_metal": null
+    ref: null
+    religion: null
+    route: null
+    service: null
+    shop: null
+    sport: null
+    surface: null
+    tourism: null
+    "tower:type": null
+    tracktype: null
+    tunnel: null
+    vending: null
+    waterway: null
+    wetland: null
+  output:
+  - layer: boundaries
+    id: 7720815952
+    geometry: line
+    zooms: 7-14
+    attributes:
+      admin_level: 4
       disputed: false
       maritime: true
 - source: shortbread
@@ -4132,12 +4234,25 @@ cases:
   - "water_polygons: dropped, `waterway` is null in `where`"
   - "water_polygons_labels: dropped, `where` is false"
   - "water_polygons_labels: dropped, `landuse` is null in `where`"
+  - "water_polygons_labels: dropped, `name` is null in `where`"
   - "water_polygons_labels: dropped, `natural` is null in `where`"
   - "water_polygons_labels: dropped, `waterway` is null in `where`"
+  - "water_lines: dropped, `where` is false"
+  - "water_lines: dropped, `waterway` is null in `where`"
+  - "water_lines_labels: dropped, `where` is false"
+  - "water_lines_labels: dropped, `name` is null in `where`"
+  - "water_lines_labels: dropped, `waterway` is null in `where`"
+  - "dam_lines: dropped, `where` is false"
+  - "dam_lines: dropped, `waterway` is null in `where`"
   - "dam_polygons: dropped, `where` is false"
   - "dam_polygons: dropped, `waterway` is null in `where`"
+  - "pier_lines: dropped, `where` is false"
+  - "pier_lines: dropped, `man_made` is null in `where`"
   - "pier_polygons: dropped, `where` is false"
   - "pier_polygons: dropped, `man_made` is null in `where`"
+  - "boundaries: dropped, `where` is false"
+  - "boundaries: dropped, `admin_level` is null in `where`"
+  - "boundaries: dropped, `boundary` is null in `where`"
   - "boundary_labels: dropped, `where` is false"
   - "boundary_labels: dropped, `admin_level` is null in `where`"
   - "boundary_labels: dropped, `boundary` is null in `where`"
@@ -4165,18 +4280,41 @@ cases:
   - "addresses: dropped, `office` is null in `where`"
   - "addresses: dropped, `shop` is null in `where`"
   - "addresses: dropped, `tourism` is null in `where`"
+  - "streets: kept by `where`"
+  - "streets: dropped, `aeroway` is null in `where`"
+  - "streets: dropped, `railway` is null in `where`"
+  - "streets: attributes.kind, `highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'busway', 'bus_guideway', 'living_street', 'service', 'pedestrian', 'track', 'footway', 'steps', 'path', 'cycleway']` is true"
+  - "streets: attributes.kind, `aeroway in ['runway', 'taxiway']` is false"
+  - "streets: attributes.kind, `aeroway` is null in `aeroway in ['runway', 'taxiway']`"
+  - "streets: minzoom `((highway != null) && highway.startsWith('trunk')) ? 6 : ((((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))) ? 8 : (((highway != null) && highway.startsWith('secondary')) ? 9 : (((((railway in ['rail', 'narrow_gauge']) && (service == null)) || (railway in ['funicular', 'light_rail', 'monorail', 'subway', 'tram'])) || (highway == 'tertiary')) ? 10 : ((aeroway == 'runway') ? 11 : ((highway in ['bus_guideway', 'busway', 'residential', 'unclassified']) ? 12 : 13)))))`, `(highway != null) && highway.startsWith('motorway')` is false"
+  - "streets: minzoom, `(highway != null) && highway.startsWith('trunk')` is false"
+  - "streets: minzoom, `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))` is false"
+  - "streets: minzoom, `railway` is null in `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))`"
+  - "streets: minzoom, `service` is null in `((highway != null) && highway.startsWith('primary')) || ((railway in ['rail', 'narrow_gauge']) && (service != null))`"
+  - "streets: minzoom, `(highway != null) && highway.startsWith('secondary')` is false"
+  - "streets: minzoom, `(((railway in ['rail', 'narrow_gauge']) && (service == null)) || (railway in ['funicular', 'light_rail', 'monorail', 'subway', 'tram'])) || (highway == 'tertiary')` is false"
+  - "streets: minzoom, `aeroway == 'runway'` is false"
+  - "streets: minzoom, `highway in ['bus_guideway', 'busway', 'residential', 'unclassified']` is false"
   - "street_polygons: kept by `where`"
   - "street_polygons: dropped, `area:aeroway` is null in `where`"
   - "street_polygons: attributes.kind `highway`, `feature['area:aeroway'] in ['runway', 'taxiway']` is false"
   - "street_polygons: attributes.kind, `area:aeroway` is null in `feature['area:aeroway'] in ['runway', 'taxiway']`"
   - "street_polygons: minzoom `(feature['area:aeroway'] == 'taxiway') ? 13 : 14`, `feature['area:aeroway'] == 'runway'` is false"
   - "street_polygons: minzoom, `feature['area:aeroway'] == 'taxiway'` is false"
-  - "streets_polygons_labels: kept by `where`"
+  - "street_labels: dropped, `where` is false"
+  - "street_labels: dropped, `aeroway` is null in `where`"
+  - "street_labels: dropped, `name` is null in `where`"
+  - "street_labels: dropped, `railway` is null in `where`"
+  - "street_labels: dropped, `ref` is null in `where`"
+  - "streets_polygons_labels: dropped, `where` is false"
   - "streets_polygons_labels: dropped, `aeroway` is null in `where`"
-  - "streets_polygons_labels: attributes.kind `highway`, `aeroway in ['runway', 'taxiway']` is false"
-  - "streets_polygons_labels: attributes.kind, `aeroway` is null in `aeroway in ['runway', 'taxiway']`"
+  - "streets_polygons_labels: dropped, `name` is null in `where`"
   - "bridges: dropped, `where` is false"
   - "bridges: dropped, `man_made` is null in `where`"
+  - "aerialways: dropped, `where` is false"
+  - "aerialways: dropped, `aerialway` is null in `where`"
+  - "ferries: dropped, `where` is false"
+  - "ferries: dropped, `route` is null in `where`"
   - "public_transport: dropped, `where` is false"
   - "public_transport: dropped, `aerialway` is null in `where`"
   - "public_transport: dropped, `aeroway` is null in `where`"
@@ -4210,12 +4348,12 @@ cases:
     denomination: null
     disputed: null
     emergency: null
-    geometry: POLYGON((7.4222989 43.7305611,7.422283 43.7305374,7.42226 43.7304923,7.4223795 43.7304543,7.4223816 43.7304997,7.4223825 43.7305371,7.4222989 43.7305611))
-    highway: pedestrian
+    geometry: POLYGON((7.4248326 43.7399228,7.4248398 43.7399151,7.4248581 43.7399037,7.4248807 43.7398975,7.4249159 43.7398993,7.4249371 43.7399076,7.4249532 43.7399209,7.424962 43.7399372,7.4249629 43.7399522,7.4249563 43.739969,7.4249429 43.7399825,7.4249231 43.7399926,7.4249028 43.7399968,7.4248787 43.7399961,7.4248556 43.7399891,7.424838 43.7399771,7.4248254 43.7399568,7.4248249 43.7399393,7.4248326 43.7399228))
+    highway: service
     historic: null
     horse: null
     iata: null
-    id: 4594041452
+    id: 2005022652
     information: null
     landuse: null
     leisure: null
@@ -4223,13 +4361,13 @@ cases:
     maritime: null
     military: null
     motor_vehicle: null
-    name: Place Saint Nicolas
+    name: null
     "name:de": null
     "name:en": null
     natural: null
     office: null
-    oneway: null
-    place: square
+    oneway: "yes"
+    place: null
     population: null
     railway: null
     "recycling:clothes": null
@@ -4251,22 +4389,31 @@ cases:
     waterway: null
     wetland: null
   output:
+  - layer: streets
+    id: 2005022652
+    geometry: line
+    zooms: 13-14
+    attributes:
+      bridge: false
+      kind: service
+      link: false
+      oneway:
+        value: true
+        minzoom: 14
+      oneway_reverse:
+        value: false
+        minzoom: 14
+      rail: false
+      tunnel: false
   - layer: street_polygons
-    id: 4594041452
+    id: 2005022652
     geometry: polygon
     zooms: 14-14
     attributes:
       bridge: false
-      kind: pedestrian
+      kind: service
       rail: false
       tunnel: false
-  - layer: streets_polygons_labels
-    id: 4594041452
-    geometry: point
-    zooms: 14-14
-    attributes:
-      kind: pedestrian
-      name: Place Saint Nicolas
 - source: shortbread
   paths:
   - "street_polygons: crosses a z14 tile edge"
@@ -4793,13 +4940,16 @@ cases:
 - source: shortbread
   paths:
   - "public_transport: kept by `where`"
-  - "public_transport: attributes.kind from `highway`"
+  - "public_transport: attributes.kind `(amenity in ['bus_station', 'ferry_terminal']) ? amenity : ((railway in ['station', 'halt', 'tram_stop']) ? railway : ((highway == 'bus_stop') ? highway : 'aerialway_station'))`, `aeroway in ['aerodrome', 'helipad']` is false"
+  - "public_transport: attributes.kind, `aeroway` is null in `aeroway in ['aerodrome', 'helipad']`"
+  - "public_transport: attributes.kind, `amenity in ['bus_station', 'ferry_terminal']` is false"
+  - "public_transport: attributes.kind, `amenity` is null in `amenity in ['bus_station', 'ferry_terminal']`"
+  - "public_transport: attributes.kind, `railway in ['station', 'halt', 'tram_stop']` is false"
+  - "public_transport: attributes.kind, `railway` is null in `railway in ['station', 'halt', 'tram_stop']`"
+  - "public_transport: attributes.kind, `highway == 'bus_stop'` is true"
   - "public_transport: minzoom `(amenity == 'ferry_terminal') ? 12 : ((((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))) ? 13 : 14)`, `aeroway == 'aerodrome'` is false"
-  - "public_transport: minzoom, `aeroway` is null in `aeroway == 'aerodrome'`"
   - "public_transport: minzoom, `amenity == 'ferry_terminal'` is false"
-  - "public_transport: minzoom, `amenity` is null in `amenity == 'ferry_terminal'`"
   - "public_transport: minzoom, `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))` is false"
-  - "public_transport: minzoom, `railway` is null in `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))`"
   - "public_transport: minzoom, `aerialway` is null in `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))`"
   - "place_labels: dropped, `where` is false"
   - "place_labels: dropped, `place` is null in `where`"
@@ -4897,7 +5047,9 @@ cases:
       name: Monte-Carlo (Casino)
 - source: shortbread
   paths:
-  - "public_transport: attributes.kind from `aeroway`"
+  - "public_transport: attributes.kind `aeroway`, `aeroway in ['aerodrome', 'helipad']` is true"
+  - "public_transport: attributes.kind, `highway == 'bus_stop'` is false"
+  - "public_transport: attributes.kind, `highway` is null in `highway == 'bus_stop'`"
   - "public_transport: minzoom, `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))` is true"
   - "place_labels: dropped, `where` is false"
   - "place_labels: dropped, `name` is null in `where`"
@@ -4921,10 +5073,12 @@ cases:
   - "public_transport: dropped, `amenity` is null in `where`"
   - "public_transport: dropped, `highway` is null in `where`"
   - "public_transport: dropped, `railway` is null in `where`"
+  - "public_transport: attributes.kind, `amenity in ['bus_station', 'ferry_terminal']` is false"
+  - "public_transport: attributes.kind, `amenity` is null in `amenity in ['bus_station', 'ferry_terminal']`"
+  - "public_transport: attributes.kind, `railway in ['station', 'halt', 'tram_stop']` is false"
+  - "public_transport: attributes.kind, `railway` is null in `railway in ['station', 'halt', 'tram_stop']`"
   - "public_transport: minzoom `(amenity == 'ferry_terminal') ? 12 : ((((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))) ? 13 : 14)`, `aeroway == 'aerodrome'` is false"
   - "public_transport: minzoom, `amenity == 'ferry_terminal'` is false"
-  - "public_transport: minzoom, `amenity` is null in `amenity == 'ferry_terminal'`"
-  - "public_transport: minzoom, `railway` is null in `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))`"
   - "public_transport: minzoom, `aerialway` is null in `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))`"
   - "pois: dropped, `where` is false"
   - "pois: dropped, `amenity` is null in `where`"
@@ -5004,7 +5158,7 @@ cases:
       kind: helipad
 - source: shortbread
   paths:
-  - "public_transport: attributes.kind from `amenity`"
+  - "public_transport: attributes.kind, `amenity in ['bus_station', 'ferry_terminal']` is true"
   - "public_transport: minzoom, `amenity == 'ferry_terminal'` is true"
   - "place_labels: dropped, `where` is false"
   - "place_labels: dropped, `place` is null in `where`"
@@ -5026,10 +5180,14 @@ cases:
   - "public_transport: dropped, `aeroway` is null in `where`"
   - "public_transport: dropped, `highway` is null in `where`"
   - "public_transport: dropped, `railway` is null in `where`"
+  - "public_transport: attributes.kind `(amenity in ['bus_station', 'ferry_terminal']) ? amenity : ((railway in ['station', 'halt', 'tram_stop']) ? railway : ((highway == 'bus_stop') ? highway : 'aerialway_station'))`, `aeroway in ['aerodrome', 'helipad']` is false"
+  - "public_transport: attributes.kind, `aeroway` is null in `aeroway in ['aerodrome', 'helipad']`"
+  - "public_transport: attributes.kind, `railway in ['station', 'halt', 'tram_stop']` is false"
+  - "public_transport: attributes.kind, `railway` is null in `railway in ['station', 'halt', 'tram_stop']`"
+  - "public_transport: attributes.kind, `highway == 'bus_stop'` is false"
+  - "public_transport: attributes.kind, `highway` is null in `highway == 'bus_stop'`"
   - "public_transport: minzoom `(amenity == 'ferry_terminal') ? 12 : ((((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))) ? 13 : 14)`, `aeroway == 'aerodrome'` is false"
-  - "public_transport: minzoom, `aeroway` is null in `aeroway == 'aerodrome'`"
   - "public_transport: minzoom, `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))` is false"
-  - "public_transport: minzoom, `railway` is null in `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))`"
   - "public_transport: minzoom, `aerialway` is null in `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))`"
   - "pois: dropped, `where` is false"
   - "pois: dropped, `emergency` is null in `where`"
@@ -5109,7 +5267,7 @@ cases:
       name: Terminal Croisiere
 - source: shortbread
   paths:
-  - "public_transport: attributes.kind from `railway`"
+  - "public_transport: attributes.kind, `railway in ['station', 'halt', 'tram_stop']` is true"
   - "place_labels: dropped, `where` is false"
   - "place_labels: dropped, `place` is null in `where`"
   - "addresses: dropped, `where` is false"
@@ -5131,10 +5289,14 @@ cases:
   - "public_transport: dropped, `aeroway` is null in `where`"
   - "public_transport: dropped, `amenity` is null in `where`"
   - "public_transport: dropped, `highway` is null in `where`"
+  - "public_transport: attributes.kind `(amenity in ['bus_station', 'ferry_terminal']) ? amenity : ((railway in ['station', 'halt', 'tram_stop']) ? railway : ((highway == 'bus_stop') ? highway : 'aerialway_station'))`, `aeroway in ['aerodrome', 'helipad']` is false"
+  - "public_transport: attributes.kind, `aeroway` is null in `aeroway in ['aerodrome', 'helipad']`"
+  - "public_transport: attributes.kind, `amenity in ['bus_station', 'ferry_terminal']` is false"
+  - "public_transport: attributes.kind, `amenity` is null in `amenity in ['bus_station', 'ferry_terminal']`"
+  - "public_transport: attributes.kind, `highway == 'bus_stop'` is false"
+  - "public_transport: attributes.kind, `highway` is null in `highway == 'bus_stop'`"
   - "public_transport: minzoom `(amenity == 'ferry_terminal') ? 12 : ((((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))) ? 13 : 14)`, `aeroway == 'aerodrome'` is false"
-  - "public_transport: minzoom, `aeroway` is null in `aeroway == 'aerodrome'`"
   - "public_transport: minzoom, `amenity == 'ferry_terminal'` is false"
-  - "public_transport: minzoom, `amenity` is null in `amenity == 'ferry_terminal'`"
   - "public_transport: minzoom, `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))` is true"
   - "public_transport: minzoom, `aerialway` is null in `((railway in ['station', 'halt']) || (aerialway == 'station')) || ((aeroway == 'helipad') || (amenity == 'bus_station'))`"
   - "pois: dropped, `where` is false"
