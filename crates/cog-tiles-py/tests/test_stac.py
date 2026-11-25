@@ -13,7 +13,7 @@ from PIL import Image
 
 import cog_tiles
 
-FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures"
+FIXTURES = Path(__file__).resolve().parents[3] / "tests" / "fixtures"
 EXPECTED = FIXTURES / "cog" / "stac" / "expected"
 SEARCH = FIXTURES / "render_cassette" / "earth-search.aws.element84.com" / "v1" / "search.post"
 
