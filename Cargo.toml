@@ -142,7 +142,7 @@ indicatif = "0.18.3"
 indoc = "2"
 insta = "1.46.3"
 itertools = "0.15"
-jiff = { version = "0.2.46", default-features = false, features = ["serde", "std"] }
+jiff = { version = "1.0.0", default-features = false, features = ["serde", "std"] }
 jpeg-decoder = "0.3.1"
 json-patch = "5"
 jxl-oxide = { version = "0.12.6", features = ["image"] }
@@ -151,11 +151,11 @@ lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
 map-tile-toolkit = { path = "./crates/map-tile-toolkit", version = "0.4.1" }
 martin-config-macros = { path = "./crates/martin-config-macros", version = "0.1.5" }
-martin-core = { path = "./crates/martin-core", version = "0.17.0", default-features = false }
-martin-tile-utils = { path = "./crates/martin-tile-utils", version = "0.9.3" }
-martin-tilegen = { path = "./crates/martin-tilegen", version = "0.2.1", default-features = false }
-martin-ui = { path = "./crates/martin-ui", version = "=2.0.0-beta.7" }
-mbtiles = { path = "./crates/mbtiles", version = "0.23.0" }
+martin-core = { path = "./crates/martin-core", version = "0.18.0", default-features = false }
+martin-tile-utils = { path = "./crates/martin-tile-utils", version = "0.9.4" }
+martin-tilegen = { path = "./crates/martin-tilegen", version = "0.3.0", default-features = false }
+martin-ui = { path = "./crates/martin-ui", version = "=2.0.0-beta.8" }
+mbtiles = { path = "./crates/mbtiles", version = "0.24.0" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }

@@ -142,6 +142,22 @@ jobs:
         run: just test-duckdb
       - uses: $/.github/actions/upload-coverage
         with: { suite: duckdb }
+  test-omt:
+    name: OpenMapTiles examples test (release)
+    permissions:
+      contents: read
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    needs:
+      - lint-rust
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: $/.github/actions/setup-rust
+        with: { tools: 'just,nextest', cache: true }
+      - name: Run the OpenMapTiles examples test, which debug builds skip
+        run: just test-omt
   test-rendering:
     name: Style rendering tests
     permissions:
@@ -198,6 +214,28 @@ jobs:
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,nextest', rendering: true, cache: true }
+      # Building the suite hits Maven Central, which answers shared runners with 429s,
+      # so the image is cached until its Dockerfile changes.
+      - name: Restore the conformance suite image
+        id: ets-image
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ogc-ets-maps.tar
+          key: ogc-ets-maps-${{ hashFiles('tests/ogc-ets-maps/**') }}
+      - name: Load the conformance suite image
+        if: steps.ets-image.outputs.cache-hit == 'true'
+        run: docker load --input "$RUNNER_TEMP/ogc-ets-maps.tar"
+      - name: Build the conformance suite image
+        if: steps.ets-image.outputs.cache-hit != 'true'
+        run: |
+          docker compose build ogc-ets-maps
+          docker save --output "$RUNNER_TEMP/ogc-ets-maps.tar" martin-ogc-ets-maps
+      - name: Save the conformance suite image
+        if: steps.ets-image.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ogc-ets-maps.tar
+          key: ${{ steps.ets-image.outputs.cache-primary-key }}
       - name: Run the OGC API - Maps conformance suite
         run: just test-ogc-maps
   lint-rust:

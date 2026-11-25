@@ -85,6 +85,9 @@ pub enum TranslateError {
     NegatedMinimum,
     #[error("negates something other than a number")]
     NegatedNonNumber,
+    /// Reads the relations a feature is a member of other than to test whether it has some of a set.
+    #[error("reads `relations` other than as `size(relations.<set>) > 0` or `size(relations.<set>) == 0`")]
+    Relations,
 }
 
 /// A condition on a row with SQL's three-valued logic: the row passes only when it is true.
@@ -127,6 +130,11 @@ pub enum Condition {
     },
     /// The geometry is of this type, single or multi.
     Geometry(GeometryType),
+    /// The feature is a member of a relation of the relation set named `set`, or of none once negated.
+    Member {
+        set: String,
+        polarity: Polarity,
+    },
 }
 
 /// Whether a condition holds as written or negated.
@@ -345,6 +353,10 @@ impl Display for Condition {
                 write!(f, "{term} {}LIKE {pattern}", negated(polarity))
             }
             Self::Geometry(kind) => write!(f, "geometry is a {kind:?}"),
+            Self::Member { set, polarity } => {
+                let op = if polarity.negated() { "=" } else { ">" };
+                write!(f, "size(relations.{set}) {op} 0")
+            }
         }
     }
 }

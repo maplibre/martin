@@ -5,15 +5,22 @@ use std::cmp::Ordering;
 
 use osmflow::BlockStrings;
 
+use crate::osm::OSM_ID;
 use crate::plan::{CompareOp, Condition, GeometryType, Literal, Pattern, Polarity, Term, ValueKind};
 
-/// The values a [`Condition`] reads from one object: its tags by column name, and its geometry type.
+/// The values a [`Condition`] reads from one object: its tags by column name, its OSM id, and its geometry type.
 pub(crate) trait Row {
     /// The value of column `name`, `None` if the object has no such tag.
     fn column(&self, name: &str) -> Option<&str>;
 
+    /// The object's OSM id, the value of the [`OSM_ID`] column.
+    fn id(&self) -> i64;
+
     /// The type of the object's geometry.
     fn geometry(&self) -> GeometryType;
+
+    /// Whether the object is a member of a relation of the relation set named `set`.
+    fn member(&self, set: &str) -> bool;
 }
 
 /// Whether `condition` holds, each comparison, null check, list and pattern decided by `leaf`.
@@ -28,7 +35,8 @@ fn holds(condition: &Condition, leaf: &mut impl FnMut(&Condition) -> bool) -> bo
         | Condition::IsNull { .. }
         | Condition::In { .. }
         | Condition::Like { .. }
-        | Condition::Geometry(_) => leaf(condition),
+        | Condition::Geometry(_)
+        | Condition::Member { .. } => leaf(condition),
     }
 }
 
@@ -43,7 +51,8 @@ pub(crate) fn may_have_type(condition: &Condition, types: &[GeometryType]) -> bo
         | Condition::Distinct { .. }
         | Condition::IsNull { .. }
         | Condition::In { .. }
-        | Condition::Like { .. } => true,
+        | Condition::Like { .. }
+        | Condition::Member { .. } => true,
     })
 }
 
@@ -108,6 +117,7 @@ pub(crate) fn may_be_in_block(
                 ..
             }
             | Condition::Distinct { .. }
+            | Condition::Member { .. }
             | Condition::Const(_)
             | Condition::And(_)
             | Condition::Or(_) => true,
@@ -207,6 +217,7 @@ fn leaf_matches(leaf: &Condition, row: &impl Row) -> Result<bool, Unknown> {
             };
             found != polarity.negated()
         }
+        Condition::Member { set, polarity } => row.member(set) != polarity.negated(),
         Condition::Const(_) | Condition::And(_) | Condition::Or(_) => return Err(Unknown),
     })
 }
@@ -214,6 +225,7 @@ fn leaf_matches(leaf: &Condition, row: &impl Row) -> Result<bool, Unknown> {
 /// The value of `term` in `row`, `None` for null.
 fn value<'a>(term: &'a Term, row: &'a impl Row) -> Result<Option<Value<'a>>, Unknown> {
     Ok(match term {
+        Term::Column(name) if name == OSM_ID => Some(Value::Int(row.id())),
         Term::Column(name) => row.column(name).map(|text| Value::Str(text.into())),
         Term::Literal(literal) => Some(literal_value(literal)),
         Term::Length(inner) => string_function(inner, row, |text| {

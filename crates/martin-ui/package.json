@@ -29,7 +29,7 @@
     "@rolldown/plugin-babel": "^0.3.0",
     "@tailwindcss/postcss": "^4.3.1",
     "@testing-library/react": "16.3.3",
-    "@testing-library/user-event": "14.6.10",
+    "@testing-library/user-event": "14.6.12",
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -72,5 +72,5 @@
     "type-check": "tsc --noEmit"
   },
   "type": "module",
-  "version": "2.0.0-beta.7"
+  "version": "2.0.0-beta.8"
 }

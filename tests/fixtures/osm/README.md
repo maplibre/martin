@@ -29,3 +29,18 @@
     -e 's#water-polygons-split-3857.zip#tests/fixtures/shapefile/ocean.zip#' docs/snippets/shortbread.yaml > /tmp/shortbread.yaml
   martin test generate --config /tmp/shortbread.yaml --output tests/fixtures/osm/shortbread-monaco.spec.yaml
   ```
+- `openmaptiles.spec.yml`: one example per `assertFeatures` call of Planetiler's OpenMapTiles layer tests
+  (`planetiler-openmaptiles/src/test/java/org/openmaptiles/layers/*Test.java`, Planetiler commit
+  `f6f28070ed3c0cf166e47f841ccaed798b035a8c`, planetiler-openmaptiles commit `26b04768330614735ca75ebbef2a67da50e35bef`),
+  under the [Apache License 2.0](https://github.com/onthegomap/planetiler/blob/main/LICENSE): the input, the zoom and
+  the expected features, recorded by running the tests. Written from the workspace root by
+
+  ```bash
+  uv run --with pyyaml --with shapely python -I tests/fixtures/osm/openmaptiles_spec.py ~/planetiler
+  ```
+
+  which runs the tests of a copy of that checkout with `openmaptiles_spec/Recorder.java` added; Maven arguments go
+  after `--`.
+- `openmaptiles-examples.osm.pbf`: one OSM object per `osm` example of `openmaptiles.spec.yml`, with the relations it is
+  a member of, written by
+  `uv run --with osmium --with pyyaml --with shapely python -I tests/fixtures/osm/openmaptiles_examples.py`.

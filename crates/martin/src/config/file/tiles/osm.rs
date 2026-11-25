@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::tiling::Layers;
+use crate::config::file::tiling::{Expr, Layers};
 use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedValues};
 
 /// OpenStreetMap PBF files, by source id (unstable)
@@ -49,7 +49,8 @@ impl OsmConfig {
 pub struct OsmSourceConfig {
     /// The `.osm.pbf` file.
     pub path: PathBuf,
-    /// The tag keys layers read, each a string column; `osm_type` (`node`, `way` or `relation`) is always one.
+    /// The tag keys layers read, each a string column; `osm_type` (`node`, `way` or `relation`) and the integer `osm_id`
+    /// are always columns too.
     #[serde(default)]
     pub tags: Vec<String>,
     /// Raises the lowest zoom of `--min-zoom`.
@@ -62,8 +63,29 @@ pub struct OsmSourceConfig {
     pub buffer: Option<u32>,
     /// Whether tiles get only their part of a line or polygon, `true` when unset.
     pub clip_geom: Option<bool>,
+    /// Named sets of relations: a node or way that is a member of some of them sees them in layer expressions as
+    /// `relations.<name>`, and is read even without tags of its own.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub relations: BTreeMap<String, OsmRelationSet>,
     /// Output layers, keyed by name.
     pub layers: Box<Layers>,
+
+    /// Keys Martin does not know, warned about at startup.
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
+}
+
+/// A set of relations, which each member node and way sees as a list of maps with the set's `tags`, the relation's
+/// `id` and the member's `role`, ordered by relation id.
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+pub struct OsmRelationSet {
+    /// A CEL expression over the relation's tags, `true` for the relations in the set.
+    #[serde(rename = "where")]
+    pub r#where: Expr,
+    /// The relation tags its members see, `null` where the relation does not have one.
+    #[serde(default)]
+    pub tags: Vec<String>,
 
     /// Keys Martin does not know, warned about at startup.
     #[serde(flatten, skip_serializing)]

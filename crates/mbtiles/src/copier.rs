@@ -11,7 +11,6 @@ use tracing::{debug, info, trace, warn};
 use crate::AggHashType::Verify;
 use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
-use crate::bindiff::PatchType::BinDiffGz;
 use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType, get_bsdiff_tbl_name};
 use crate::errors::MbtResult;
 use crate::mbtiles::PatchFileInfo;
@@ -411,7 +410,7 @@ impl MbtileCopierInt {
         // TODO: perhaps disable all except --copy all when using with diffs, or else is not making much sense
         if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
             self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
-            if matches!(dif_info.patch_type, Some(BinDiffGz)) {
+            if dif_info.patch_type.is_some_and(PatchType::is_gz) {
                 info!(
                     "Skipping agg_tiles_hash_after_apply validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value"
                 );
@@ -435,7 +434,7 @@ impl MbtileCopierInt {
             }
         }
 
-        let hash_type = if matches!(dif_info.patch_type, Some(BinDiffGz)) || self.options.skip_agg_tiles_hash {
+        let hash_type = if dif_info.patch_type.is_some_and(PatchType::is_gz) || self.options.skip_agg_tiles_hash {
             AggHashType::Off
         } else {
             Verify
@@ -974,19 +973,49 @@ fn get_select_from_apply_patch(
 
     // Take dif tile_data if it is set, otherwise take the one from src
     // Skip tiles if src and dif both have a matching index, but the dif tile_data is NULL
-    format!(
-        "
-        SELECT COALESCE(srcTiles.zoom_level, difTiles.zoom_level) as zoom_level
+    full_join_tiles(
+        &format!(
+            "COALESCE(srcTiles.zoom_level, difTiles.zoom_level) as zoom_level
              , COALESCE(srcTiles.tile_column, difTiles.tile_column) as tile_column
              , COALESCE(srcTiles.tile_row, difTiles.tile_row) as tile_row
              , COALESCE(difTiles.tile_data, srcTiles.tile_data) as tile_data
-             {tile_hash_expr}
-        FROM {src_tiles} AS srcTiles FULL JOIN {diff_tiles} AS difTiles
-             ON srcTiles.zoom_level = difTiles.zoom_level
-               AND srcTiles.tile_column = difTiles.tile_column
-               AND srcTiles.tile_row = difTiles.tile_row
-             {bindiff_from}
-        WHERE (difTiles.zoom_level ISNULL OR difTiles.tile_data NOTNULL) {bindiff_cond}"
+             {tile_hash_expr}"
+        ),
+        &src_tiles,
+        &diff_tiles,
+        &bindiff_from,
+        &format!("(difTiles.zoom_level ISNULL OR difTiles.tile_data NOTNULL) {bindiff_cond}"),
+    )
+}
+
+/// A row of NULLs for the side of [`full_join_tiles`] that has no tile at a coordinate.
+const NULL_TILE_ROW: &str =
+    "(SELECT NULL AS zoom_level, NULL AS tile_column, NULL AS tile_row, NULL AS tile_data, NULL AS tile_hash)";
+
+/// Returns a `FULL JOIN` of `src` and `dif` on the tile coordinate, written as an inner join plus two anti-joins.
+fn full_join_tiles(columns: &str, src: &str, dif: &str, extra_from: &str, cond: &str) -> String {
+    let on = "srcTiles.zoom_level = difTiles.zoom_level
+              AND srcTiles.tile_column = difTiles.tile_column
+              AND srcTiles.tile_row = difTiles.tile_row";
+    format!(
+        "
+        SELECT * FROM (
+            SELECT {columns}
+            FROM {src} AS srcTiles JOIN {dif} AS difTiles ON {on}
+                 {extra_from}
+            WHERE {cond}
+            UNION ALL
+            SELECT {columns}
+            FROM {src} AS srcTiles LEFT JOIN {NULL_TILE_ROW} AS difTiles ON FALSE
+                 {extra_from}
+            WHERE NOT EXISTS (SELECT 1 FROM {dif} AS difTiles WHERE {on}) AND {cond}
+            UNION ALL
+            SELECT {columns}
+            FROM {dif} AS difTiles LEFT JOIN {NULL_TILE_ROW} AS srcTiles ON FALSE
+                 {extra_from}
+            WHERE NOT EXISTS (SELECT 1 FROM {src} AS srcTiles WHERE {on}) AND {cond}
+        )
+        WHERE TRUE"
     )
 }
 
@@ -1039,20 +1068,18 @@ fn get_select_from_with_diff(
     } else {
         "OR srcTiles.tile_data != difTiles.tile_data"
     };
-    format!(
-        "
-        SELECT COALESCE(srcTiles.zoom_level, difTiles.zoom_level) as zoom_level
+    full_join_tiles(
+        &format!(
+            "COALESCE(srcTiles.zoom_level, difTiles.zoom_level) as zoom_level
              , COALESCE(srcTiles.tile_column, difTiles.tile_column) as tile_column
              , COALESCE(srcTiles.tile_row, difTiles.tile_row) as tile_row
              , difTiles.tile_data as tile_data
-             {tile_hash_expr}
-        FROM sourceDb.tiles AS srcTiles FULL JOIN {diff_tiles} AS difTiles
-             ON srcTiles.zoom_level = difTiles.zoom_level
-               AND srcTiles.tile_column = difTiles.tile_column
-               AND srcTiles.tile_row = difTiles.tile_row
-        WHERE (srcTiles.tile_data ISNULL
-               OR difTiles.tile_data ISNULL
-               {sql_cond})"
+             {tile_hash_expr}"
+        ),
+        "sourceDb.tiles",
+        &diff_tiles,
+        "",
+        &format!("(srcTiles.tile_data ISNULL OR difTiles.tile_data ISNULL {sql_cond})"),
     )
 }
 

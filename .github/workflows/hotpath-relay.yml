@@ -24,12 +24,21 @@ jobs:
           - composite-miss
           - cache-hit
           - toolkit-slice
-    uses: hotpath-rs/hotpath/.github/workflows/hotpath-relay.yml@367358b96bcbc28af2e1a4a800d967b76db9a3b7 # v0.33.0
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
     permissions:
       actions: read
       id-token: write
       pull-requests: read
-    with:
-      benchmark: ${{ matrix.scenario }}
-      artifact_name: hotpath-report
-      report_file: ${{ matrix.scenario }}.json
+    concurrency:
+      group: hotpath-relay-${{ matrix.scenario }}-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: true
+    steps:
+      - uses: hotpath-rs/hotpath-relay@d40b0e465fa852b0c1f4e33989140d11d7b2742c # v1.0.0
+        with:
+          benchmark: ${{ matrix.scenario }}
+          artifact_name: hotpath-report
+          report_file: ${{ matrix.scenario }}.json

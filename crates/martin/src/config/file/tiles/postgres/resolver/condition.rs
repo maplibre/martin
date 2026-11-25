@@ -2,7 +2,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
-use martin_tilegen::plan::{CompareOp, Condition, GeometryType, Literal, Pattern, Term, ValueKind};
+use martin_tilegen::plan::{CompareOp, Condition, GeometryType, Literal, Pattern, Polarity, Term, ValueKind};
 use postgres_protocol::escape::{escape_identifier, escape_literal};
 
 use super::query_tables::{PropertyColumn, linear_geometry, property_column};
@@ -119,6 +119,11 @@ impl Display for Sql<'_, Condition> {
                     geometry = linear_geometry(info)
                 )
             }
+            // A table has no relation sets, so its rows are members of none.
+            Condition::Member { polarity, .. } => f.write_str(match polarity {
+                Polarity::AsWritten => "FALSE",
+                Polarity::Negated => "TRUE",
+            }),
         }
     }
 }
@@ -180,7 +185,8 @@ fn join(f: &mut Formatter<'_>, info: &TableInfo, parts: &[Condition], separator:
             | Condition::IsNull { .. }
             | Condition::In { .. }
             | Condition::Like { .. }
-            | Condition::Geometry(_) => Sql(info, part).fmt(f)?,
+            | Condition::Geometry(_)
+            | Condition::Member { .. } => Sql(info, part).fmt(f)?,
         }
     }
     Ok(())

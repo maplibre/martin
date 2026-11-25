@@ -4,27 +4,37 @@ use cel::common::ast::{CallExpr, Expr, IdedExpr, LiteralValue, operators};
 
 use super::env::SHARED;
 use super::{CompiledExpr, FEATURE};
-use crate::plan::{ColumnDef, CompareOp, Condition, Literal, Pattern, Polarity, Term, TranslateError, ValueKind};
+use crate::plan::{
+    ColumnDef, CompareOp, Condition, Literal, Pattern, PlannedRelationSet, Polarity, RELATIONS, Term, TranslateError,
+    ValueKind,
+};
 
 impl CompiledExpr {
-    /// The rows this filter keeps, reading only `columns`.
-    pub(crate) fn condition(&self, columns: &[ColumnDef]) -> Result<Condition, TranslateError> {
-        Translator { columns }.condition(&self.expr, Polarity::AsWritten)
+    /// The rows this filter keeps, reading only `columns` and the members of `relation_sets`.
+    pub(crate) fn condition(
+        &self,
+        columns: &[ColumnDef],
+        relation_sets: &[PlannedRelationSet],
+    ) -> Result<Condition, TranslateError> {
+        Translator { columns, relation_sets }.condition(&self.expr, Polarity::AsWritten)
     }
 }
 
-/// A part of an expression as a condition of `polarity`, reading only `columns`.
+/// A part of an expression as a condition of `polarity`, reading only `columns` and the members of `relation_sets`.
 pub(crate) fn condition_of(
     expr: &IdedExpr,
     columns: &[ColumnDef],
+    relation_sets: &[PlannedRelationSet],
     polarity: Polarity,
 ) -> Result<Condition, TranslateError> {
-    Translator { columns }.condition(expr, polarity)
+    Translator { columns, relation_sets }.condition(expr, polarity)
 }
 
 /// Translates expressions over a table's columns, pushing negations down to the comparisons.
 struct Translator<'a> {
     columns: &'a [ColumnDef],
+    /// The table's relation sets, which `relations` reads when there are some.
+    relation_sets: &'a [PlannedRelationSet],
 }
 
 /// One side of a comparison.
@@ -108,6 +118,12 @@ impl Translator<'_> {
                     self.condition(otherwise, polarity)?,
                 ]),
             ])),
+            (name, None, [left, right])
+                if let Some(op) = CompareOp::cel(name)
+                    && let Some(member) = self.member(left, op, right, polarity) =>
+            {
+                member
+            }
             (name, None, [left, right]) if let Some(op) = CompareOp::cel(name) => {
                 let (left, right) = (self.operand(left)?, self.operand(right)?);
                 match polarity.op(op) {
@@ -191,8 +207,64 @@ impl Translator<'_> {
         Ok(Condition::or(std::iter::once(present).chain(null_part)))
     }
 
+    /// `size(relations.<set>) op count` of `polarity` as a [`Condition::Member`], if `left op right` compares the
+    /// number of relations of a set with an integer; an error unless the comparison only tells whether there are some.
+    fn member(
+        &self,
+        left: &IdedExpr,
+        op: CompareOp,
+        right: &IdedExpr,
+        polarity: Polarity,
+    ) -> Option<Result<Condition, TranslateError>> {
+        let (set, op, count) = match (self.set_size(left), self.set_size(right)) {
+            (Some(set), None) => (set, op, right),
+            (None, Some(set)) => (set, op.mirror(), left),
+            (Some(_), Some(_)) => return Some(Err(TranslateError::Relations)),
+            (None, None) => return None,
+        };
+        let Expr::Literal(LiteralValue::Int(count)) = &count.expr else {
+            return Some(Err(TranslateError::Relations));
+        };
+        let polarity = match (polarity.op(op), *count.inner()) {
+            (CompareOp::Gt | CompareOp::Ne, 0) | (CompareOp::Ge, 1) => Polarity::AsWritten,
+            (CompareOp::Eq | CompareOp::Le, 0) | (CompareOp::Lt, 1) => Polarity::Negated,
+            _ => return Some(Err(TranslateError::Relations)),
+        };
+        Some(Ok(Condition::Member {
+            set: set.to_owned(),
+            polarity,
+        }))
+    }
+
+    /// The set whose number of relations `expr` is, when it is `size(relations.<set>)` or `relations.<set>.size()`.
+    fn set_size<'e>(&self, expr: &'e IdedExpr) -> Option<&'e str> {
+        let Expr::Call(call) = &expr.expr else {
+            return None;
+        };
+        let ((Some(list), []) | (None, [list])) = (call.target.as_deref(), call.args.as_slice()) else {
+            return None;
+        };
+        (call.func_name == "size").then(|| self.relation_set(list))?
+    }
+
+    /// The set `expr` reads, when it is `relations.<set>` of a table with relation sets.
+    fn relation_set<'e>(&self, expr: &'e IdedExpr) -> Option<&'e str> {
+        let Expr::Select(select) = &expr.expr else {
+            return None;
+        };
+        let reads_sets = !select.test
+            && !self.relation_sets.is_empty()
+            && matches!(&select.operand.expr, Expr::Ident(name) if name == RELATIONS);
+        reads_sets.then_some(select.field.as_str())
+    }
+
     /// `expr` as one side of a comparison.
     fn operand(&self, expr: &IdedExpr) -> Result<Operand, TranslateError> {
+        if !self.relation_sets.is_empty()
+            && qualified_name(expr).is_some_and(|name| name.split('.').next() == Some(RELATIONS))
+        {
+            return Err(TranslateError::Relations);
+        }
         match &expr.expr {
             Expr::Ident(name) if name != FEATURE => self.column(name),
             Expr::Select(_) => {
@@ -270,7 +342,7 @@ impl Translator<'_> {
             .iter()
             .find_map(|column| match column {
                 ColumnDef::Value(column, kind) if column == name => Some(*kind),
-                ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) => None,
+                ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) | ColumnDef::Relations(_) => None,
             })
             .ok_or_else(|| TranslateError::NotAColumn(name.to_owned()))
     }

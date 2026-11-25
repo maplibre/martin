@@ -1,6 +1,9 @@
 //! An OpenStreetMap PBF file as a [`FeatureSource`]: tagged nodes as points, tagged ways as lines, closed ways also
 //! as polygons, and `multipolygon` and `boundary` relations as polygons.
 //!
+//! The relations of the table's relation sets are found before any node or way is read. Each node and way gets the
+//! relations of the sets that it is a member of, and one that has no tags is read when it is a member of one.
+//!
 //! A closed way is read as Planetiler reads it: as a polygon and as its [`Geometry::Outline`], both with the way's
 //! feature id, unless `area=yes` makes it only a polygon or `area=no` only a line. Its tags do not decide it.
 //!
@@ -9,6 +12,7 @@
 //! skipped by osmflow before they are decoded, and each object is checked before its way nodes are looked up.
 
 mod condition;
+mod members;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -24,6 +28,7 @@ use tilejson::Bounds;
 use tracing::{debug, info};
 
 use crate::osm::condition::{Row, matches, may_be_in_block, may_have_type};
+use crate::osm::members::{FoundRelations, MemberKind, Members, SetFilters};
 use crate::plan::{ColumnDef, Condition, GeometryType, Plan, RowFilter, ValueKind};
 use crate::props::{KeyId, KeyInterner, Prop, SourceStr};
 use crate::source::{
@@ -33,19 +38,32 @@ use crate::{MAX_ZOOM, TileGenError, TileGenResult};
 
 /// The column holding what an object is: `node`, `way` or `relation`.
 pub const OSM_TYPE: &str = "osm_type";
+/// The column holding an object's OSM id, an integer.
+pub const OSM_ID: &str = "osm_id";
 
 /// Features per batch sent to the render workers.
 const BATCH_FEATURES: usize = 4096;
 /// Bytes of a batch's shared string buffer, allocated at once.
 const ARENA_BYTES: usize = 64 << 10;
 
-/// The columns of an OSM table reading `tags`: [`OSM_TYPE`], then each tag as a string column.
+/// The columns of an OSM table reading `tags`: [`OSM_TYPE`], [`OSM_ID`], then each tag as a string column.
 #[must_use]
 pub fn columns(tags: &[String]) -> Vec<ColumnDef> {
-    std::iter::once(OSM_TYPE)
-        .chain(tags.iter().map(String::as_str))
-        .map(|name| ColumnDef::Value(name.to_owned(), Some(ValueKind::String)))
-        .collect()
+    [
+        ColumnDef::Value(OSM_TYPE.to_owned(), Some(ValueKind::String)),
+        ColumnDef::Value(OSM_ID.to_owned(), Some(ValueKind::Int)),
+    ]
+    .into_iter()
+    .chain(
+        tags.iter()
+            .map(|tag| ColumnDef::Value(tag.clone(), Some(ValueKind::String))),
+    )
+    .collect()
+}
+
+/// Whether `column` is a tag, not [`OSM_TYPE`] or [`OSM_ID`].
+fn is_tag(column: &str) -> bool {
+    column != OSM_TYPE && column != OSM_ID
 }
 
 /// Where the node locations that ways are built from are kept while the file is read.
@@ -136,7 +154,7 @@ pub enum Objects {
     /// Those some layer may take, as bulk mode reads them.
     #[default]
     Taken,
-    /// Every tagged object, also those no layer takes.
+    /// Every object that is tagged or a member of a relation set, also those no layer takes.
     Every,
     /// Only the object with this feature id, whether a layer takes it or not.
     One(u64),
@@ -246,7 +264,7 @@ struct Scan {
     condition: Option<Condition>,
     /// The only object read, if one.
     only: Option<(Kind, i64)>,
-    /// The scanned columns: [`OSM_TYPE`] or a tag key, by position.
+    /// The scanned columns: [`OSM_TYPE`], [`OSM_ID`] or a tag key, by position.
     columns: Vec<String>,
     /// Only objects touching this box, if set.
     bounds: Option<Rect>,
@@ -258,6 +276,8 @@ struct Scan {
     relations: Vec<Relation>,
     /// The node ids of the relations' member ways, by way id.
     member_ways: HashMap<i64, Vec<i64>>,
+    /// The relations of the table's relation sets, and their member nodes and ways.
+    members: Members,
 }
 
 /// The node locations of a file whose ways are read.
@@ -350,7 +370,7 @@ impl Scan {
             select = select.without_ways();
         }
         let base = PbfReader::open(&table.path).map_err(read_error)?;
-        let tags: Vec<String> = columns.iter().filter(|c| *c != OSM_TYPE).cloned().collect();
+        let tags: Vec<String> = columns.iter().filter(|c| is_tag(c)).cloned().collect();
         let block_test = |types: &[GeometryType]| {
             let (condition, tags, types) = (condition.clone(), tags.clone(), types.to_vec());
             move |strings: &osmflow::BlockStrings<'_>| {
@@ -363,18 +383,21 @@ impl Scan {
             .clone()
             .nodes_where(block_test(&[GeometryType::Point]))
             .ways_where(block_test(&[GeometryType::Line, GeometryType::Polygon]));
-        let (relations, member_ways) = if areas {
-            let test = block_test(&[GeometryType::Polygon]);
-            let relations = base
-                .clone()
-                .relations_where(move |s| (s.has("multipolygon") || s.has("boundary")) && test(s));
-            let only = only.map(|(_, id)| id);
-            let relations = read_relations(&relations, condition.as_ref(), only, &columns).map_err(read_error)?;
-            let ways = member_ways(&base, &relations).map_err(read_error)?;
-            (relations, ways)
-        } else {
-            (Vec::new(), HashMap::new())
+        let sets = SetFilters::new(plan.relation_sets(index));
+        let pass = RelationPass {
+            areas,
+            condition: condition.as_ref(),
+            only: only.map(|(_, id)| id),
+            columns: &columns,
+            sets: &sets,
         };
+        let RelationsRead {
+            relations,
+            member_ways,
+            members,
+        } = pass
+            .run(&base, block_test(&[GeometryType::Polygon]))
+            .map_err(read_error)?;
         let store = match &table.node_store {
             _ if !ways && relations.is_empty() => None,
             NodeStore::Shared(nodes) => Some(nodes.get(&base, &table.path)?),
@@ -386,6 +409,8 @@ impl Scan {
             osm.nodes = points,
             osm.ways = ways,
             osm.relations = relations.len(),
+            osm.set_relations = members.relations(),
+            osm.memberships = members.memberships(),
             osm.pushdown = condition.is_some(),
             "Reading OSM file"
         );
@@ -401,17 +426,20 @@ impl Scan {
             outlines,
             relations,
             member_ways,
+            members,
         })
     }
 
-    /// Whether the closed way whose scanned columns `tag` gives by position is read as an outline too.
-    fn takes_outline<'t>(&self, tag: &dyn Fn(usize) -> Option<&'t str>) -> bool {
+    /// Whether the closed way with OSM id `id` whose scanned columns `tag` gives by position is read as an outline too.
+    fn takes_outline<'t>(&self, id: i64, tag: &dyn Fn(usize) -> Option<&'t str>) -> bool {
         self.outlines.as_ref().is_none_or(|condition| {
             let row = ObjectRow {
                 columns: &self.columns,
                 kind: Kind::Way,
+                id,
                 tag,
                 geometry: GeometryType::Line,
+                member: &self.member_of(Kind::Way, id),
             };
             matches(condition, &row)
         })
@@ -422,18 +450,30 @@ impl Scan {
         self.only.is_none_or(|only| only == (kind, id))
     }
 
-    /// Whether `condition` takes the object of type `kind` whose scanned columns `tag` gives by position, with
-    /// a geometry of type `geometry`; every object if the scan has no condition.
-    fn takes<'t>(&self, kind: Kind, geometry: GeometryType, tag: &dyn Fn(usize) -> Option<&'t str>) -> bool {
+    /// Whether `condition` takes the object of type `kind` with OSM id `id` whose scanned columns `tag` gives by
+    /// position, with a geometry of type `geometry`; every object if the scan has no condition.
+    fn takes<'t>(&self, kind: Kind, id: i64, geometry: GeometryType, tag: &dyn Fn(usize) -> Option<&'t str>) -> bool {
         self.condition.as_ref().is_none_or(|condition| {
             let row = ObjectRow {
                 columns: &self.columns,
                 kind,
+                id,
                 tag,
                 geometry,
+                member: &self.member_of(kind, id),
             };
             matches(condition, &row)
         })
+    }
+
+    /// Whether the object of type `kind` with OSM id `id` is a member of a relation of the set it is given the name
+    /// of.
+    fn member_of(&self, kind: Kind, id: i64) -> impl Fn(&str) -> bool + '_ {
+        move |set| match kind {
+            Kind::Node => self.members.is_member(MemberKind::Node, id, set),
+            Kind::Way => self.members.is_member(MemberKind::Way, id, set),
+            Kind::Relation => false,
+        }
     }
 }
 
@@ -470,21 +510,86 @@ fn layer_types(table: &crate::plan::TableDef) -> Vec<GeometryType> {
     types
 }
 
-/// The `multipolygon` and `boundary` relations of `file` that `condition` may take as polygons, by id; only relation
-/// `only` if set.
-fn read_relations(
-    file: &PbfReader,
-    condition: Option<&Condition>,
+/// What the pass over the relations found.
+#[derive(Default)]
+struct RelationsRead {
+    /// The `multipolygon` and `boundary` relations some layer may take, by id.
+    relations: Vec<Relation>,
+    /// The node ids of their member ways, by way id.
+    member_ways: HashMap<i64, Vec<i64>>,
+    /// The relations of the table's relation sets, and their member nodes and ways.
+    members: Members,
+}
+
+/// The pass over the relations of a file before its nodes and ways are read.
+struct RelationPass<'a> {
+    /// Whether some layer may take relations as polygons.
+    areas: bool,
+    /// The rows some layer takes, if they can be told apart.
+    condition: Option<&'a Condition>,
+    /// The only relation read as a polygon, if one.
     only: Option<i64>,
-    columns: &[String],
-) -> Result<Vec<Relation>, PbfError> {
-    let found = Mutex::new(Vec::new());
-    let select = Select::all().without_nodes().without_ways().without_metadata();
-    file.par_unordered(select, |block| {
-        let keys = column_keys(&block, columns);
+    /// The scanned columns: [`OSM_TYPE`], [`OSM_ID`] or a tag key, by position.
+    columns: &'a [String],
+    /// The table's relation sets.
+    sets: &'a SetFilters<'a>,
+}
+
+impl RelationPass<'_> {
+    /// Reads the relations of `base` unless no layer takes them and the table has no relation sets: those
+    /// [`read`](Self::read) finds, and the node ids of the polygons' member ways. `area_blocks` tells the blocks that
+    /// may hold a polygon some layer takes.
+    fn run(
+        &self,
+        base: &PbfReader,
+        area_blocks: impl Fn(&osmflow::BlockStrings<'_>) -> bool + Send + Sync + 'static,
+    ) -> Result<RelationsRead, PbfError> {
+        if !self.areas && self.sets.is_empty() {
+            return Ok(RelationsRead::default());
+        }
+        let areas = self.areas;
+        let set_blocks = self.sets.block_conditions();
+        let file = base.clone().relations_where(move |s| {
+            (areas && (s.has("multipolygon") || s.has("boundary")) && area_blocks(s))
+                || set_blocks.as_ref().is_none_or(|conditions| {
+                    conditions
+                        .iter()
+                        .any(|condition| may_be_in_block(condition, &[], &|_| true, s))
+                })
+        });
+        let (relations, members) = self.read(&file)?;
+        Ok(RelationsRead {
+            member_ways: member_ways(base, &relations)?,
+            relations,
+            members,
+        })
+    }
+
+    /// The `multipolygon` and `boundary` relations of `file` that the condition may take as polygons, by id, and the
+    /// relations of the sets with their members.
+    fn read(&self, file: &PbfReader) -> Result<(Vec<Relation>, Members), PbfError> {
+        let found = Mutex::new((Vec::new(), FoundRelations::default()));
+        let select = Select::all().without_nodes().without_ways().without_metadata();
+        file.par_unordered(select, |block| {
+            let kept = if self.areas { self.areas_of(&block) } else { Vec::new() };
+            let mut in_sets = FoundRelations::default();
+            self.sets.read_block(&block, &mut in_sets);
+            let mut found = found.lock().unwrap_or_else(PoisonError::into_inner);
+            found.0.extend(kept);
+            found.1.extend(in_sets);
+            Ok(())
+        })?;
+        let (mut relations, in_sets) = found.into_inner().unwrap_or_else(PoisonError::into_inner);
+        relations.sort_unstable_by_key(|relation| relation.id);
+        Ok((relations, Members::new(in_sets, self.sets.names())))
+    }
+
+    /// The `multipolygon` and `boundary` relations of `block` that the condition may take as polygons.
+    fn areas_of(&self, block: &Block) -> Vec<Relation> {
+        let keys = column_keys(block, self.columns);
         let mut kept = Vec::new();
         for relation in block.relations() {
-            if only.is_some_and(|id| id != relation.id()) {
+            if self.only.is_some_and(|id| id != relation.id()) {
                 continue;
             }
             let area = relation
@@ -494,12 +599,14 @@ fn read_relations(
                 continue;
             }
             let tag = |pos: usize| relation.tag(keys[pos]?).filter(|v| !v.is_empty());
-            if let Some(condition) = condition {
+            if let Some(condition) = self.condition {
                 let row = ObjectRow {
-                    columns,
+                    columns: self.columns,
                     kind: Kind::Relation,
+                    id: relation.id(),
                     tag: &tag,
                     geometry: GeometryType::Polygon,
+                    member: &|_| false,
                 };
                 if !matches(condition, &row) {
                     continue;
@@ -507,7 +614,7 @@ fn read_relations(
             }
             kept.push(Relation {
                 id: relation.id(),
-                values: (0..columns.len()).map(|pos| tag(pos).map(str::to_owned)).collect(),
+                values: (0..self.columns.len()).map(|pos| tag(pos).map(str::to_owned)).collect(),
                 ways: relation
                     .members()
                     .filter(|member| member.kind == MemberType::Way)
@@ -515,12 +622,8 @@ fn read_relations(
                     .collect(),
             });
         }
-        found.lock().unwrap_or_else(PoisonError::into_inner).extend(kept);
-        Ok(())
-    })?;
-    let mut relations = found.into_inner().unwrap_or_else(PoisonError::into_inner);
-    relations.sort_unstable_by_key(|relation| relation.id);
-    Ok(relations)
+        kept
+    }
 }
 
 /// The node ids of every way of `file` that is a member of one of `relations`, by way id.
@@ -770,22 +873,25 @@ impl Batches<'_> {
         SourceStr::try_from(bytes).expect("copied from a str")
     }
 
-    /// The scanned columns of an object as properties.
+    /// The scanned columns of the object of type `kind` with OSM id `id` as properties.
     fn props<'t>(
         &mut self,
         kind: Kind,
+        id: i64,
         columns: &[String],
         value: impl Fn(usize) -> Option<&'t str>,
     ) -> Vec<(KeyId, Prop<SourceStr>)> {
         let mut props = Vec::with_capacity(columns.len());
         for (pos, column) in (0u32..).zip(columns) {
-            let text = if column == OSM_TYPE {
-                Some(SourceStr::from_static(kind.name()))
+            let prop = if column == OSM_TYPE {
+                Some(Prop::Str(SourceStr::from_static(kind.name())))
+            } else if column == OSM_ID {
+                Some(Prop::I64(id))
             } else {
-                value(pos as usize).map(|text| self.str(text))
+                value(pos as usize).map(|text| Prop::Str(self.str(text)))
             };
-            if let Some(text) = text {
-                props.push((KeyId::new(pos), Prop::Str(text)));
+            if let Some(prop) = prop {
+                props.push((KeyId::new(pos), prop));
             }
         }
         props
@@ -840,9 +946,13 @@ impl Kind {
 struct ObjectRow<'s, 't> {
     columns: &'s [String],
     kind: Kind,
+    /// The object's OSM id.
+    id: i64,
     /// The value of each scanned column, by position.
     tag: &'s dyn Fn(usize) -> Option<&'t str>,
     geometry: GeometryType,
+    /// Whether the object is a member of a relation of the set it is given the name of.
+    member: &'s dyn Fn(&str) -> bool,
 }
 
 impl Row for ObjectRow<'_, '_> {
@@ -854,19 +964,30 @@ impl Row for ObjectRow<'_, '_> {
         (self.tag)(pos)
     }
 
+    fn id(&self) -> i64 {
+        self.id
+    }
+
     fn geometry(&self) -> GeometryType {
         self.geometry
     }
+
+    fn member(&self, set: &str) -> bool {
+        (self.member)(set)
+    }
 }
 
-/// Reads the block's tagged nodes that the scan's condition takes, as points.
+/// Reads the block's nodes that are tagged or members of a relation set, and that the scan's condition takes, as
+/// points.
 fn read_nodes(scan: &Scan, block: &Block, keys: &[Option<TagKey<'_>>], out: &mut Batches<'_>) -> SourceResult<()> {
     for node in block.nodes() {
-        if node.tags().len() == 0 || !scan.wants(Kind::Node, node.id()) {
+        if !scan.wants(Kind::Node, node.id())
+            || (node.tags().len() == 0 && !scan.members.has(MemberKind::Node, node.id()))
+        {
             continue;
         }
         let tag = |pos: usize| node.tag(keys[pos]?).filter(|v| !v.is_empty());
-        if !scan.takes(Kind::Node, GeometryType::Point, &tag) {
+        if !scan.takes(Kind::Node, node.id(), GeometryType::Point, &tag) {
             continue;
         }
         let coord = Coord {
@@ -876,18 +997,20 @@ fn read_nodes(scan: &Scan, block: &Block, keys: &[Option<TagKey<'_>>], out: &mut
         if scan.bounds.is_some_and(|b| !b.intersects(&coord)) {
             continue;
         }
-        let props = out.props(Kind::Node, &scan.columns, tag);
+        let props = out.props(Kind::Node, node.id(), &scan.columns, tag);
+        let relations = scan.members.of(MemberKind::Node, node.id(), &mut |text| out.str(text));
         out.push(SourceFeature {
             id: Kind::Node.feature_id(node.id()),
             geometry: Geometry::Point(coord),
             props,
+            relations,
         })?;
     }
     Ok(())
 }
 
-/// Reads the block's ways, each closed one as Planetiler does: a polygon unless `area=no`, and its outline unless
-/// `area=yes`; returns how many were skipped for nodes missing from the file.
+/// Reads the block's ways that are tagged or members of a relation set, each closed one as Planetiler does: a polygon
+/// unless `area=no`, and its outline unless `area=yes`; returns how many were skipped for nodes missing from the file.
 fn read_ways(
     scan: &Scan,
     block: &Block,
@@ -898,7 +1021,7 @@ fn read_ways(
     let mut missing = 0;
     let area_key = block.tag_key("area");
     for way in block.ways() {
-        if way.tags().len() == 0 || !scan.wants(Kind::Way, way.id()) {
+        if !scan.wants(Kind::Way, way.id()) || (way.tags().len() == 0 && !scan.members.has(MemberKind::Way, way.id())) {
             continue;
         }
         let mut refs = way.refs();
@@ -910,12 +1033,12 @@ fn read_ways(
         let can_be_line = (!closed || area != Some("yes")) && count >= 2;
         let can_be_polygon = closed && area != Some("no") && count >= 4;
         let tag = |pos: usize| way.tag(keys[pos]?).filter(|v| !v.is_empty());
-        let polygon = can_be_polygon && scan.takes(Kind::Way, GeometryType::Polygon, &tag);
+        let polygon = can_be_polygon && scan.takes(Kind::Way, way.id(), GeometryType::Polygon, &tag);
         let line = can_be_line
             && if can_be_polygon {
-                scan.takes_outline(&tag)
+                scan.takes_outline(way.id(), &tag)
             } else {
-                scan.takes(Kind::Way, GeometryType::Line, &tag)
+                scan.takes(Kind::Way, way.id(), GeometryType::Line, &tag)
             };
         if !polygon && !line {
             continue;
@@ -934,7 +1057,8 @@ fn read_ways(
             continue;
         }
         let id = Kind::Way.feature_id(way.id());
-        let props = out.props(Kind::Way, &scan.columns, tag);
+        let props = out.props(Kind::Way, way.id(), &scan.columns, tag);
+        let relations = scan.members.of(MemberKind::Way, way.id(), &mut |text| out.str(text));
         match (polygon && ring.is_closed(), line) {
             (true, true) => {
                 let area = Geometry::Polygon(Polygon::new(ring.clone(), Vec::new()));
@@ -942,17 +1066,20 @@ fn read_ways(
                     id,
                     geometry: area,
                     props: props.clone(),
+                    relations: relations.clone(),
                 })?;
                 out.push(SourceFeature {
                     id,
                     geometry: Geometry::Outline(ring),
                     props,
+                    relations,
                 })?;
             }
             (true, false) => out.push(SourceFeature {
                 id,
                 geometry: Geometry::Polygon(Polygon::new(ring, Vec::new())),
                 props,
+                relations,
             })?,
             (false, true) => out.push(SourceFeature {
                 id,
@@ -962,6 +1089,7 @@ fn read_ways(
                     Geometry::Line(ring)
                 },
                 props,
+                relations,
             })?,
             (false, false) => {}
         }
@@ -1003,11 +1131,14 @@ fn read_relations_of(
         } else {
             Geometry::Polygons(polygons)
         };
-        let props = out.props(Kind::Relation, &scan.columns, |pos| relation.values[pos].as_deref());
+        let props = out.props(Kind::Relation, relation.id, &scan.columns, |pos| {
+            relation.values[pos].as_deref()
+        });
         out.push(SourceFeature {
             id: Kind::Relation.feature_id(relation.id),
             geometry,
             props,
+            relations: Vec::new(),
         })?;
     }
     if incomplete > 0 {

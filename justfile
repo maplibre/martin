@@ -464,7 +464,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args=quote(DATABASE_URL):
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.7 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.8 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -633,7 +633,7 @@ prepare-sqlite: fetch install-sqlx
                -e 's/CREATE (TABLE|VIEW) /CREATE \1 IF NOT EXISTS /' \
             "crates/mbtiles/sql/$f.sql" | sqlite3 -bail "$db"
     done
-    cd mbtiles
+    cd crates/mbtiles
     mkdir -p .sqlx
     cargo sqlx prepare --database-url "sqlite://$db" -- --lib --tests --benches --features transcode
     find .sqlx -name '*.json' -type f -exec sh -c \
@@ -727,9 +727,9 @@ sync-cog-py-stubs:
 
 # Build the cog-tiles Python bindings and run their tests
 test-cog-py:
-    cd cog-tiles-py && uv sync --group dev --no-install-project
-    cd cog-tiles-py && uv run --no-sync maturin develop
-    cd cog-tiles-py && uv run --no-sync pytest
+    cd crates/cog-tiles-py && uv sync --group dev --no-install-project
+    cd crates/cog-tiles-py && uv run --no-sync maturin develop
+    cd crates/cog-tiles-py && uv run --no-sync pytest
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch (cargo-install 'cargo-nextest')
@@ -773,6 +773,10 @@ test-packages-ci: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --package martin-tilegen
     cargo nextest run --package martin --features unstable-mlt-v2
     {{just}} test-e2e
+
+# Run the OpenMapTiles examples test, which debug builds skip as too slow
+test-omt: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run --release --package martin --test osm_openmaptiles_test
 
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch (cargo-install 'cargo-nextest')
@@ -1034,10 +1038,10 @@ fetch:
 docker-is-ready:
     docker compose run -T --rm db-is-ready
 
-# Start a specific test database, e.g. db or db-legacy
+# Start a specific test database, e.g. db or db-legacy; CI builds only missing images, as its runners start with no build cache
 [private]
 docker-up name:
-    docker compose up -d --build {{name}}
+    docker compose up -d {{ if ci_mode == '1' { '' } else { '--build' } }} {{name}}
 
 # Install SQLX cli if not already installed.
 [private]

@@ -767,6 +767,7 @@ impl FeatureReader for ShapefileReader<'_> {
                 id: i64::try_from(number).ok(),
                 geometry,
                 props,
+                relations: Vec::new(),
             });
             if batch.len() >= BATCH_FEATURES {
                 let features = std::mem::replace(&mut batch, Vec::with_capacity(BATCH_FEATURES));
