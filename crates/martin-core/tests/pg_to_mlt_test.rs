@@ -301,7 +301,7 @@ mod documents {
                     "o",
                     NestedKind::map([
                         ("deeper", NestedKind::map([("flag", NestedKind::Leaf(PropKind::Bool))])),
-                        ("k", NestedKind::Leaf(PropKind::I64)),
+                        ("k", NestedKind::Leaf(PropKind::U32)),
                     ])
                 ),
                 ("s", NestedKind::Leaf(PropKind::Str)),
@@ -321,7 +321,7 @@ mod documents {
                             "deeper",
                             NestedValue::map([("flag", leaf(PropValue::Bool(Some(true))))])
                         ),
-                        ("k", leaf(PropValue::I64(Some(1)))),
+                        ("k", leaf(PropValue::U32(Some(1)))),
                     ])
                 ),
                 ("s", leaf(str("x"))),

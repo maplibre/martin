@@ -529,8 +529,8 @@ mod mlt_v2 {
         assert_eq!(bulk_layers[0].nested_names(), ["doc"]);
         insta::assert_snapshot!(mlt_dump(&bulk_layers), @r#"
         layer array_props extent 4096
-          id=Some(1) geom=POINT(2048 2048) props=[label=Str(Some("one")), tags=Str(Some("{1,2,3}"))] nested=[doc=Map(Some({"deep": Map(Some({"k": Leaf(I64(Some(1)))})), "kind": Leaf(Str(Some("a"))), "list": List(Some([Leaf(I64(Some(1))), Leaf(I64(Some(2)))])), "rank": Leaf(I64(Some(1))), "score": Leaf(F64(Some(1.5)))}))]
-          id=Some(2) geom=POINT(2059 2037) props=[label=Str(Some("two")), tags=Str(None)] nested=[doc=Map(Some({"label": Leaf(Str(Some("from the document"))), "rank": Leaf(I64(Some(-2))), "score": Leaf(F64(Some(3.0)))}))]
+          id=Some(1) geom=POINT(2048 2048) props=[label=Str(Some("one")), tags=Str(Some("{1,2,3}"))] nested=[doc=Map(Some({"deep": Map(Some({"k": Leaf(U32(Some(1)))})), "kind": Leaf(Str(Some("a"))), "list": List(Some([Leaf(U32(Some(1))), Leaf(U32(Some(2)))])), "rank": Leaf(I32(Some(1))), "score": Leaf(F64(Some(1.5)))}))]
+          id=Some(2) geom=POINT(2059 2037) props=[label=Str(Some("two")), tags=Str(None)] nested=[doc=Map(Some({"label": Leaf(Str(Some("from the document"))), "rank": Leaf(I32(Some(-2))), "score": Leaf(F64(Some(3.0)))}))]
         "#);
         assert_eq!(mlt_dump(&bulk_layers), mlt_dump(&tile_mode_layers));
     }

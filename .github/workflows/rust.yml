@@ -42,6 +42,10 @@ defaults:
 permissions:
   contents: read
 
+env:
+  # Nightly binaries accept `--format mlt2`.
+  NIGHTLY_E2E_FEATURES: ${{ github.event_name == 'schedule' && 'test-mlt-v2' || '' }}
+
 jobs:
   unit-test-rust:
     name: Unit test the server (${{ matrix.os }})
@@ -607,7 +611,7 @@ jobs:
           TAG=${{ github.repository }}:linux${{ matrix.suffix }}
           export MARTIN_BIN=".github/files/docker-bin.sh linux/arm64 $TAG /usr/local/bin/martin"
           export MBTILES_BIN=".github/files/docker-bin.sh linux/arm64 $TAG /usr/local/bin/mbtiles"
-          cargo nextest run --package martin-e2e-tests --features test-pg
+          cargo nextest run --package martin-e2e-tests --features "test-pg,$NIGHTLY_E2E_FEATURES"
         env:
           TMPDIR: /tmp
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -619,7 +623,7 @@ jobs:
           TAG=${{ github.repository }}:linux${{ matrix.suffix }}
           export MARTIN_BIN=".github/files/docker-bin.sh linux/amd64 $TAG /usr/local/bin/martin"
           export MBTILES_BIN=".github/files/docker-bin.sh linux/amd64 $TAG /usr/local/bin/mbtiles"
-          cargo nextest run --package martin-e2e-tests --features test-pg
+          cargo nextest run --package martin-e2e-tests --features "test-pg,$NIGHTLY_E2E_FEATURES"
         env:
           TMPDIR: /tmp
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -817,7 +821,7 @@ jobs:
       # differently than the one behind the snapshots, so the database tests that run here
       # are the ones asserting on what martin logs and publishes.
       - name: End-to-end tests
-        run: &windows-e2e |
+        run: |
           cargo nextest run --package martin-e2e-tests
           cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
         env:
@@ -830,7 +834,9 @@ jobs:
           path: target_releases/
       - name: End-to-end tests against the release build
         if: inputs.run-release-builds
-        run: *windows-e2e
+        run: |
+          cargo nextest run --package martin-e2e-tests --features "$NIGHTLY_E2E_FEATURES"
+          cargo nextest run --package martin-e2e-tests --features test-pg --test config_file
         env:
           DATABASE_URL: ${{ steps.pg.outputs.connection-uri }}
           MARTIN_BIN: target_releases/martin.exe
@@ -975,7 +981,7 @@ jobs:
         run: |
           export MARTIN_BIN=target_releases/martin
           export MBTILES_BIN=target_releases/mbtiles
-          cargo nextest run --package martin-e2e-tests --features test-pg
+          cargo nextest run --package martin-e2e-tests --features "test-pg,$NIGHTLY_E2E_FEATURES"
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           # AWS variables for S3 access
@@ -1006,7 +1012,7 @@ jobs:
         run: |
           export MARTIN_BIN=/usr/bin/martin
           export MBTILES_BIN=target_releases/mbtiles
-          cargo nextest run --package martin-e2e-tests --features test-pg
+          cargo nextest run --package martin-e2e-tests --features "test-pg,$NIGHTLY_E2E_FEATURES"
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           # AWS variables for S3 access
