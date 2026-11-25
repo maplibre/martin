@@ -11,13 +11,17 @@ basemap
 bindiff
 binstall
 bpchar
+brunnel
 bsdiff
 bsdiffraw
 bsdiffrawgz
+zstdpatchgz
+zstdpatchraw
 bytea
 cacreateserial
 callgrind
 casei
+centerlines
 circularstring
 clippy
 colour
@@ -73,6 +77,7 @@ indicatif
 inspectable
 isnull
 isolines
+landcover
 legacycpu
 jpegxl
 justfiles

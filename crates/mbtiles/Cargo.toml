@@ -86,6 +86,7 @@ tracing-indicatif.workspace = true
 tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "fmt", "std", "ansi"], optional = true }
 walkdir.workspace = true
 xxhash-rust.workspace = true
+zstd.workspace = true
 
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself

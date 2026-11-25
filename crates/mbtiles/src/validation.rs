@@ -12,6 +12,7 @@ use tracing::{debug, info, warn};
 use crate::MbtError::{
     AggHashMismatch, AggHashValueNotFound, FailedIntegrityCheck, IncorrectTileHash, InvalidTileIndex,
 };
+use crate::agg_hash::hash_tiles_table;
 use crate::bindiff::get_patch_type;
 use crate::errors::{MbtError, MbtResult, MbtWarning};
 use crate::mbtiles::PatchFileInfo;
@@ -1077,30 +1078,7 @@ where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!(%algorithm, "Calculating agg_tiles_hash");
-    let concat = algorithm.sql_concat_hash();
-    let empty = algorithm.sql_hash("''");
-    // The concat aggregate returns NULL if there are no rows in the tiles table.
-    // For our use case, we will treat it as an empty string, and hash that.
-    // `tile_data` values must be stored as a blob per MBTiles spec, and the hash
-    // functions fail if the value is not text/blob/null.
-    //
-    // ORDER BY controls the output ordering, which is important for the hash value,
-    // and must be a parameter of the aggregate function itself (SQLite 3.44.0+).
-    // See https://sqlite.org/forum/forumpost/228bb96e12a746ce
-    let sql = format!(
-        "
-SELECT coalesce(
-           {concat}(
-               cast(zoom_level AS text),
-               cast(tile_column AS text),
-               cast(tile_row AS text),
-               tile_data
-               ORDER BY zoom_level, tile_column, tile_row),
-           {empty})
-FROM tiles;
-"
-    );
-    Ok(query(AssertSqlSafe(sql)).fetch_one(conn).await?.get::<String, _>(0))
+    hash_tiles_table(conn, algorithm).await
 }
 
 #[cfg(test)]

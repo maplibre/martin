@@ -1,11 +1,13 @@
 use std::hash::Hasher as _;
 use std::io::Write as _;
 
+use futures::TryStreamExt as _;
 use martin_tile_utils::TileCoord;
+use sqlx::{Row as _, SqliteExecutor, query};
 use xxhash_rust::xxh3::Xxh3;
 use xxhash_rust::xxh64::Xxh64;
 
-use crate::{HashAlgorithm, invert_y_value};
+use crate::{HashAlgorithm, MbtResult, invert_y_value};
 
 /// The decimal digits of a `u8` and two `u32`s.
 const MAX_DIGITS: usize = 3 + 10 + 10;
@@ -35,15 +37,9 @@ impl AggTilesHasher {
     /// A hasher for a file whose tile hashes use `algorithm`.
     #[must_use]
     pub fn new(algorithm: HashAlgorithm) -> Self {
-        let state = match algorithm {
-            HashAlgorithm::Md5 => State::Md5(md5::Context::new()),
-            HashAlgorithm::Fnv1a | HashAlgorithm::Fnv1aDecimal => State::Fnv(fnv::FnvHasher::default()),
-            HashAlgorithm::Xxh64 => State::Xxh64(Xxh64::new(0)),
-            HashAlgorithm::Xxh3 => State::Xxh3(Box::default()),
-        };
         Self {
             algorithm,
-            state: Some(state),
+            state: Some(State::new(algorithm)),
             last: None,
         }
     }
@@ -91,6 +87,16 @@ impl AggTilesHasher {
 }
 
 impl State {
+    /// An empty digest for `algorithm`.
+    fn new(algorithm: HashAlgorithm) -> Self {
+        match algorithm {
+            HashAlgorithm::Md5 => Self::Md5(md5::Context::new()),
+            HashAlgorithm::Fnv1a | HashAlgorithm::Fnv1aDecimal => Self::Fnv(fnv::FnvHasher::default()),
+            HashAlgorithm::Xxh64 => Self::Xxh64(Xxh64::new(0)),
+            HashAlgorithm::Xxh3 => Self::Xxh3(Box::default()),
+        }
+    }
+
     /// Feeds `bytes` to the digest.
     fn update(&mut self, bytes: &[u8]) {
         match self {
@@ -112,9 +118,37 @@ impl State {
     }
 }
 
+/// Computes `agg_tiles_hash` by reading the `tiles` table in key order.
+pub(crate) async fn hash_tiles_table<T>(conn: &mut T, algorithm: HashAlgorithm) -> MbtResult<String>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let mut rows = query(
+        "SELECT cast(zoom_level AS text), cast(tile_column AS text), cast(tile_row AS text), tile_data
+         FROM tiles
+         ORDER BY zoom_level, tile_column, tile_row",
+    )
+    .fetch(conn);
+    let mut state = State::new(algorithm);
+    let mut empty = true;
+    while let Some(row) = rows.try_next().await? {
+        for idx in 0..3 {
+            if let Some(value) = row.try_get::<Option<&str>, _>(idx)? {
+                state.update(value.as_bytes());
+            }
+        }
+        if let Some(data) = row.try_get::<Option<&[u8]>, _>(3)? {
+            state.update(data);
+        }
+        empty = false;
+    }
+    Ok(if empty { algorithm.hash(b"") } else { state.finish() })
+}
+
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    use sqlx::AssertSqlSafe;
 
     use super::*;
     use crate::{
@@ -168,6 +202,7 @@ mod tests {
     #[rstest]
     #[case::md5(HashAlgorithm::Md5)]
     #[case::fnv1a(HashAlgorithm::Fnv1a)]
+    #[case::fnv1a_decimal(HashAlgorithm::Fnv1aDecimal)]
     #[case::xxh64(HashAlgorithm::Xxh64)]
     #[case::xxh3(HashAlgorithm::Xxh3)]
     #[actix_rt::test]
@@ -179,6 +214,114 @@ mod tests {
             AggTilesHasher::new(algorithm).finish(),
             Some(calc_agg_tiles_hash(&mut conn, algorithm).await.unwrap())
         );
+    }
+
+    #[rstest]
+    #[case::md5(HashAlgorithm::Md5, "md5_concat_hex", "md5_hex")]
+    #[case::fnv1a(HashAlgorithm::Fnv1a, "fnv1a_concat_hex", "fnv1a_hex")]
+    #[case::xxh64(HashAlgorithm::Xxh64, "xxh64_concat_hex", "xxh64_hex")]
+    #[case::xxh3(HashAlgorithm::Xxh3, "xxh3_64_concat_hex", "xxh3_64_hex")]
+    #[actix_rt::test]
+    async fn an_empty_tiles_table_hashes_like_the_sql_aggregate(
+        #[case] algorithm: HashAlgorithm,
+        #[case] concat_fn: &str,
+        #[case] hash_fn: &str,
+    ) {
+        let (_, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);",
+        )
+        .await;
+        let sql = format!(
+            "SELECT coalesce(
+                        {concat_fn}(
+                            cast(zoom_level AS text),
+                            cast(tile_column AS text),
+                            cast(tile_row AS text),
+                            tile_data
+                            ORDER BY zoom_level, tile_column, tile_row),
+                        {hash_fn}(''))
+             FROM tiles"
+        );
+        let expected: String = query(AssertSqlSafe(sql)).fetch_one(&mut conn).await.unwrap().get(0);
+
+        assert_eq!(calc_agg_tiles_hash(&mut conn, algorithm).await.unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::md5(HashAlgorithm::Md5, "md5_concat_hex", "md5_hex")]
+    #[case::fnv1a(HashAlgorithm::Fnv1a, "fnv1a_concat_hex", "fnv1a_hex")]
+    #[case::fnv1a_decimal(HashAlgorithm::Fnv1aDecimal, "fnv1a_concat_hex", "fnv1a_decimal")]
+    #[case::xxh64(HashAlgorithm::Xxh64, "xxh64_concat_hex", "xxh64_hex")]
+    #[case::xxh3(HashAlgorithm::Xxh3, "xxh3_64_concat_hex", "xxh3_64_hex")]
+    #[actix_rt::test]
+    async fn null_tile_data_hashes_like_the_sql_aggregate(
+        #[case] algorithm: HashAlgorithm,
+        #[case] concat_fn: &str,
+        #[case] hash_fn: &str,
+    ) {
+        let (_, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
+             INSERT INTO tiles VALUES
+                 (0, 0, 0, cast('root' AS blob)),
+                 (1, 0, 0, NULL),
+                 (1, 1, 0, cast('leaf' AS blob)),
+                 (1, 1, 1, NULL);",
+        )
+        .await;
+        let sql = format!(
+            "SELECT coalesce(
+                        {concat_fn}(
+                            cast(zoom_level AS text),
+                            cast(tile_column AS text),
+                            cast(tile_row AS text),
+                            tile_data
+                            ORDER BY zoom_level, tile_column, tile_row),
+                        {hash_fn}(''))
+             FROM tiles"
+        );
+        let expected: String = query(AssertSqlSafe(sql)).fetch_one(&mut conn).await.unwrap().get(0);
+
+        assert_eq!(calc_agg_tiles_hash(&mut conn, algorithm).await.unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::md5(HashAlgorithm::Md5, "md5_concat_hex", "md5_hex")]
+    #[case::fnv1a(HashAlgorithm::Fnv1a, "fnv1a_concat_hex", "fnv1a_hex")]
+    #[case::fnv1a_decimal(HashAlgorithm::Fnv1aDecimal, "fnv1a_concat_hex", "fnv1a_decimal")]
+    #[case::xxh64(HashAlgorithm::Xxh64, "xxh64_concat_hex", "xxh64_hex")]
+    #[case::xxh3(HashAlgorithm::Xxh3, "xxh3_64_concat_hex", "xxh3_64_hex")]
+    #[actix_rt::test]
+    async fn rows_inserted_out_of_key_order_hash_like_the_sql_aggregate(
+        #[case] algorithm: HashAlgorithm,
+        #[case] concat_fn: &str,
+        #[case] hash_fn: &str,
+    ) {
+        let (_, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
+             INSERT INTO tiles VALUES
+                 (12, 1000, 4095, cast('deep' AS blob)),
+                 (4, 10, 3, cast('ten' AS blob)),
+                 (1, 1, 1, cast('leaf' AS blob)),
+                 (4, 9, 3, cast('nine' AS blob)),
+                 (0, 0, 0, cast('root' AS blob)),
+                 (1, 0, 1, cast('fill' AS blob)),
+                 (1, 0, 0, cast('fill' AS blob));",
+        )
+        .await;
+        let sql = format!(
+            "SELECT coalesce(
+                        {concat_fn}(
+                            cast(zoom_level AS text),
+                            cast(tile_column AS text),
+                            cast(tile_row AS text),
+                            tile_data
+                            ORDER BY zoom_level, tile_column, tile_row),
+                        {hash_fn}(''))
+             FROM tiles"
+        );
+        let expected: String = query(AssertSqlSafe(sql)).fetch_one(&mut conn).await.unwrap().get(0);
+
+        assert_eq!(calc_agg_tiles_hash(&mut conn, algorithm).await.unwrap(), expected);
     }
 
     #[test]

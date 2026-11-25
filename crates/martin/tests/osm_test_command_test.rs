@@ -292,6 +292,100 @@ async fn osm_cases_of_a_generated_spec_with_closed_ways_pass() {
     ");
 }
 
+#[tokio::test]
+async fn osm_id_is_the_plain_osm_id_of_a_node_a_way_and_a_relation_and_where_selects_by_it() {
+    let backend = load(indoc! {"
+        osm:
+          sources:
+            monaco:
+              path: ${MONACO}
+              layers:
+                cafe:
+                  geometry: point
+                  where: osm_id == 917978763
+                  attributes: [osm_id]
+                street:
+                  geometry: line
+                  where: osm_id == 4224972
+                  attributes: [osm_id]
+                villa:
+                  geometry: polygon
+                  where: osm_id == 1369195
+                  attributes: [osm_id]
+    "});
+    let mut review = review(&backend, 14, None, 0, &Reporter::new()).await.unwrap();
+    review.accept_all();
+    let mut spec = review.spec();
+    for case in &mut spec.cases {
+        case.input.remove("geometry");
+    }
+    insta::assert_snapshot!(yaml(&spec), @r#"
+    max_zoom: 14
+    cases:
+    - source: monaco
+      paths:
+      - "cafe: kept by `where`"
+      input:
+        id: 9179787631
+        osm_id: 917978763
+      output:
+      - layer: cafe
+        id: 9179787631
+        geometry: point
+        zooms: 0-14
+        attributes:
+          osm_id: 917978763
+    - source: monaco
+      paths:
+      - "cafe: dropped, `where` is false"
+      input:
+        id: 219118861
+        osm_id: 21911886
+      output: []
+    - source: monaco
+      paths:
+      - "street: kept by `where`"
+      input:
+        id: 42249722
+        osm_id: 4224972
+      output:
+      - layer: street
+        id: 42249722
+        geometry: line
+        zooms: 13-14
+        attributes:
+          osm_id: 4224972
+    - source: monaco
+      paths:
+      - "street: dropped, `where` is false"
+      input:
+        id: 40976562
+        osm_id: 4097656
+      output: []
+    - source: monaco
+      paths:
+      - "villa: kept by `where`"
+      input:
+        id: 13691953
+        osm_id: 1369195
+      output:
+      - layer: villa
+        id: 13691953
+        geometry: polygon
+        zooms: 12-14
+        attributes:
+          osm_id: 1369195
+    - source: monaco
+      paths:
+      - "villa: dropped, `where` is false"
+      - "street: dropped, `where` is false"
+      input:
+        id: 42249782
+        osm_id: 4224978
+      output: []
+    "#);
+}
+
 #[test]
 fn osm_source_reading_the_tag_id_is_refused() {
     let monaco = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/osm/monaco.osm.pbf");

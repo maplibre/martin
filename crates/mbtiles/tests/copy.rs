@@ -13,7 +13,7 @@ use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
 use mbtiles::MbtTypeCli::{Cache, Flat, FlatWithHash, Normalized};
-use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
+use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw, ZstdGz, ZstdRaw};
 use mbtiles::{
     CacheEntryMeta, CopyDuplicateMode, CopyType, HashAlgorithm, MbtError, MbtResult, MbtTypeCli, Mbtiles,
     MbtilesCopier, PatchTypeCli, UnixSeconds, UpdateZoomType, apply_patch, init_mbtiles_schema, invert_y_value,
@@ -23,6 +23,7 @@ use rstest::{fixture, rstest};
 use serde::Serialize;
 use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, query, query_as};
 use tokio::runtime::Handle;
+use xxhash_rust::xxh3::xxh3_64;
 
 const GZIP_TILES: &str = "UPDATE tiles SET tile_data = gzip(tile_data);";
 
@@ -314,7 +315,12 @@ fn databases() -> Databases {
 
                 // ----------------- bin-diff (v1 -> v2) -----------------
                 if mbt_typ == Flat || mbt_typ == FlatWithHash {
-                    for (a, b, patch_type, pt) in [("v1", "v2", BinDiffRaw, "bdr"), ("v1z", "v2z", BinDiffGz, "bdz")] {
+                    for (a, b, patch_type, pt) in [
+                        ("v1", "v2", BinDiffRaw, "bdr"),
+                        ("v1z", "v2z", BinDiffGz, "bdz"),
+                        ("v1", "v2", ZstdRaw, "zsr"),
+                        ("v1z", "v2z", ZstdGz, "zsz"),
+                    ] {
                         let (bd_mbt, mut bd_cn) = open!(databases, "{typ}__{pt}");
                         copy! {
                             result.path(a, mbt_typ),
@@ -332,6 +338,12 @@ fn databases() -> Databases {
                                 allow_duplicates!(assert_snapshot!(hash, @"9AFEC3326B465CB939664C47A572D4C6"));
                             }
                             BinDiffRaw => {
+                                allow_duplicates!(assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"));
+                            }
+                            ZstdGz => {
+                                allow_duplicates!(assert_snapshot!(hash, @"9AFEC3326B465CB939664C47A572D4C6"));
+                            }
+                            ZstdRaw => {
                                 allow_duplicates!(assert_snapshot!(hash, @"585A88FEEC740448FF1EB4F96088FFE3"));
                             }
                         }
@@ -811,6 +823,8 @@ async fn diff_and_patch(
 type BsDiffTileset = (&'static str, &'static str, &'static str, PatchTypeCli);
 const BIN_DIFF_RAW: BsDiffTileset = ("v1", "v2", "bdr", BinDiffRaw);
 const BIN_DIFF_GZ: BsDiffTileset = ("v1z", "v2z", "bdz", BinDiffGz);
+const ZSTD_RAW: BsDiffTileset = ("v1", "v2", "zsr", ZstdRaw);
+const ZSTD_GZ: BsDiffTileset = ("v1z", "v2z", "zsz", ZstdGz);
 
 #[rstest]
 #[trace]
@@ -821,7 +835,7 @@ async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dif_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
-    #[values(BIN_DIFF_RAW, BIN_DIFF_GZ)] tilesets: BsDiffTileset,
+    #[values(BIN_DIFF_RAW, BIN_DIFF_GZ, ZSTD_RAW, ZSTD_GZ)] tilesets: BsDiffTileset,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db, patch_type) = tilesets;
@@ -867,6 +881,99 @@ async fn diff_and_patch_bsdiff(
         "After applying binary diff patch, content should match {b_db}",
     );
 
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
+async fn zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile() {
+    let old_tile: Vec<u8> = (0..8_192_u64)
+        .flat_map(|i| xxh3_64(&i.to_le_bytes()).to_le_bytes())
+        .collect();
+    let mut new_tile = old_tile.clone();
+    new_tile[30_000..30_016].copy_from_slice(b"edited-in-the-v2");
+    new_tile.extend_from_slice(b"appended-in-the-v2");
+
+    let (v1_mbt, mut v1_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "v1");
+    init_mbtiles_schema(&mut v1_cn, mbtiles::MbtType::Flat, false)
+        .await
+        .unwrap();
+    query("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, ?)")
+        .bind(old_tile.as_slice())
+        .execute(&mut v1_cn)
+        .await
+        .unwrap();
+    let (v2_mbt, mut v2_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "v2");
+    init_mbtiles_schema(&mut v2_cn, mbtiles::MbtType::Flat, false)
+        .await
+        .unwrap();
+    query("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, ?)")
+        .bind(new_tile.as_slice())
+        .execute(&mut v2_cn)
+        .await
+        .unwrap();
+    let (dif_mbt, mut dif_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "dif");
+    copy! {
+        path(&v1_mbt),
+        path(&dif_mbt),
+        diff_with_file => Some((path(&v2_mbt), ZstdRaw.into())),
+    };
+
+    let patch: Vec<u8> = query("SELECT patch_data FROM zstdpatchraw")
+        .fetch_one(&mut dif_cn)
+        .await
+        .unwrap()
+        .get(0);
+    assert!(patch.len() < new_tile.len() / 100, "patch is {} bytes", patch.len());
+    zstd::bulk::decompress(&patch, new_tile.len()).unwrap_err();
+
+    let (patched_mbt, mut patched_cn) = open!(zstd_raw_patch_of_a_mostly_unchanged_tile_needs_the_old_tile, "patched");
+    copy! {
+        path(&v1_mbt),
+        path(&patched_mbt),
+        apply_patch => Some(path(&dif_mbt)),
+    };
+    let patched_tile: Vec<u8> = query("SELECT tile_data FROM tiles WHERE zoom_level = 1")
+        .fetch_one(&mut patched_cn)
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(patched_tile, new_tile);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
+async fn zstd_patch_declaring_a_huge_tile_fails_to_apply() -> MbtResult<()> {
+    let (v1_mbt, mut v1_cn) = open!(zstd_patch_declaring_a_huge_tile_fails_to_apply, "v1");
+    init_mbtiles_schema(&mut v1_cn, mbtiles::MbtType::Flat, false).await?;
+    v1_cn
+        .execute("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, x'01')")
+        .await?;
+    let (v2_mbt, mut v2_cn) = open!(zstd_patch_declaring_a_huge_tile_fails_to_apply, "v2");
+    init_mbtiles_schema(&mut v2_cn, mbtiles::MbtType::Flat, false).await?;
+    v2_cn
+        .execute("INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (1, 0, 0, x'02')")
+        .await?;
+    let (dif_mbt, mut dif_cn) = open!(zstd_patch_declaring_a_huge_tile_fails_to_apply, "dif");
+    copy! {
+        path(&v1_mbt),
+        path(&dif_mbt),
+        diff_with_file => Some((path(&v2_mbt), ZstdRaw.into())),
+    };
+    dif_cn
+        .execute("UPDATE zstdpatchraw SET patch_data = X'28B52FFDE00000000000010000'")
+        .await?;
+
+    let err = MbtilesCopier {
+        src_file: path(&v1_mbt),
+        dst_file: PathBuf::from("file:zstd_patch_declaring_a_huge_tile_fails_to_apply_dst?mode=memory&cache=shared"),
+        apply_patch: Some(path(&dif_mbt)),
+        ..Default::default()
+    }
+    .run()
+    .await
+    .unwrap_err();
+    assert_matches!(err, MbtError::BindiffError);
     Ok(())
 }
 

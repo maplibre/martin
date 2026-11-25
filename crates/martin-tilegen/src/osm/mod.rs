@@ -38,19 +38,32 @@ use crate::{MAX_ZOOM, TileGenError, TileGenResult};
 
 /// The column holding what an object is: `node`, `way` or `relation`.
 pub const OSM_TYPE: &str = "osm_type";
+/// The column holding an object's OSM id, an integer.
+pub const OSM_ID: &str = "osm_id";
 
 /// Features per batch sent to the render workers.
 const BATCH_FEATURES: usize = 4096;
 /// Bytes of a batch's shared string buffer, allocated at once.
 const ARENA_BYTES: usize = 64 << 10;
 
-/// The columns of an OSM table reading `tags`: [`OSM_TYPE`], then each tag as a string column.
+/// The columns of an OSM table reading `tags`: [`OSM_TYPE`], [`OSM_ID`], then each tag as a string column.
 #[must_use]
 pub fn columns(tags: &[String]) -> Vec<ColumnDef> {
-    std::iter::once(OSM_TYPE)
-        .chain(tags.iter().map(String::as_str))
-        .map(|name| ColumnDef::Value(name.to_owned(), Some(ValueKind::String)))
-        .collect()
+    [
+        ColumnDef::Value(OSM_TYPE.to_owned(), Some(ValueKind::String)),
+        ColumnDef::Value(OSM_ID.to_owned(), Some(ValueKind::Int)),
+    ]
+    .into_iter()
+    .chain(
+        tags.iter()
+            .map(|tag| ColumnDef::Value(tag.clone(), Some(ValueKind::String))),
+    )
+    .collect()
+}
+
+/// Whether `column` is a tag, not [`OSM_TYPE`] or [`OSM_ID`].
+fn is_tag(column: &str) -> bool {
+    column != OSM_TYPE && column != OSM_ID
 }
 
 /// Where the node locations that ways are built from are kept while the file is read.
@@ -251,7 +264,7 @@ struct Scan {
     condition: Option<Condition>,
     /// The only object read, if one.
     only: Option<(Kind, i64)>,
-    /// The scanned columns: [`OSM_TYPE`] or a tag key, by position.
+    /// The scanned columns: [`OSM_TYPE`], [`OSM_ID`] or a tag key, by position.
     columns: Vec<String>,
     /// Only objects touching this box, if set.
     bounds: Option<Rect>,
@@ -357,7 +370,7 @@ impl Scan {
             select = select.without_ways();
         }
         let base = PbfReader::open(&table.path).map_err(read_error)?;
-        let tags: Vec<String> = columns.iter().filter(|c| *c != OSM_TYPE).cloned().collect();
+        let tags: Vec<String> = columns.iter().filter(|c| is_tag(c)).cloned().collect();
         let block_test = |types: &[GeometryType]| {
             let (condition, tags, types) = (condition.clone(), tags.clone(), types.to_vec());
             move |strings: &osmflow::BlockStrings<'_>| {
@@ -423,6 +436,7 @@ impl Scan {
             let row = ObjectRow {
                 columns: &self.columns,
                 kind: Kind::Way,
+                id,
                 tag,
                 geometry: GeometryType::Line,
                 member: &self.member_of(Kind::Way, id),
@@ -443,6 +457,7 @@ impl Scan {
             let row = ObjectRow {
                 columns: &self.columns,
                 kind,
+                id,
                 tag,
                 geometry,
                 member: &self.member_of(kind, id),
@@ -514,7 +529,7 @@ struct RelationPass<'a> {
     condition: Option<&'a Condition>,
     /// The only relation read as a polygon, if one.
     only: Option<i64>,
-    /// The scanned columns: [`OSM_TYPE`] or a tag key, by position.
+    /// The scanned columns: [`OSM_TYPE`], [`OSM_ID`] or a tag key, by position.
     columns: &'a [String],
     /// The table's relation sets.
     sets: &'a SetFilters<'a>,
@@ -588,6 +603,7 @@ impl RelationPass<'_> {
                 let row = ObjectRow {
                     columns: self.columns,
                     kind: Kind::Relation,
+                    id: relation.id(),
                     tag: &tag,
                     geometry: GeometryType::Polygon,
                     member: &|_| false,
@@ -857,22 +873,25 @@ impl Batches<'_> {
         SourceStr::try_from(bytes).expect("copied from a str")
     }
 
-    /// The scanned columns of an object as properties.
+    /// The scanned columns of the object of type `kind` with OSM id `id` as properties.
     fn props<'t>(
         &mut self,
         kind: Kind,
+        id: i64,
         columns: &[String],
         value: impl Fn(usize) -> Option<&'t str>,
     ) -> Vec<(KeyId, Prop<SourceStr>)> {
         let mut props = Vec::with_capacity(columns.len());
         for (pos, column) in (0u32..).zip(columns) {
-            let text = if column == OSM_TYPE {
-                Some(SourceStr::from_static(kind.name()))
+            let prop = if column == OSM_TYPE {
+                Some(Prop::Str(SourceStr::from_static(kind.name())))
+            } else if column == OSM_ID {
+                Some(Prop::I64(id))
             } else {
-                value(pos as usize).map(|text| self.str(text))
+                value(pos as usize).map(|text| Prop::Str(self.str(text)))
             };
-            if let Some(text) = text {
-                props.push((KeyId::new(pos), Prop::Str(text)));
+            if let Some(prop) = prop {
+                props.push((KeyId::new(pos), prop));
             }
         }
         props
@@ -927,6 +946,8 @@ impl Kind {
 struct ObjectRow<'s, 't> {
     columns: &'s [String],
     kind: Kind,
+    /// The object's OSM id.
+    id: i64,
     /// The value of each scanned column, by position.
     tag: &'s dyn Fn(usize) -> Option<&'t str>,
     geometry: GeometryType,
@@ -941,6 +962,10 @@ impl Row for ObjectRow<'_, '_> {
         }
         let pos = self.columns.iter().position(|c| c == name)?;
         (self.tag)(pos)
+    }
+
+    fn id(&self) -> i64 {
+        self.id
     }
 
     fn geometry(&self) -> GeometryType {
@@ -972,7 +997,7 @@ fn read_nodes(scan: &Scan, block: &Block, keys: &[Option<TagKey<'_>>], out: &mut
         if scan.bounds.is_some_and(|b| !b.intersects(&coord)) {
             continue;
         }
-        let props = out.props(Kind::Node, &scan.columns, tag);
+        let props = out.props(Kind::Node, node.id(), &scan.columns, tag);
         let relations = scan.members.of(MemberKind::Node, node.id(), &mut |text| out.str(text));
         out.push(SourceFeature {
             id: Kind::Node.feature_id(node.id()),
@@ -1032,7 +1057,7 @@ fn read_ways(
             continue;
         }
         let id = Kind::Way.feature_id(way.id());
-        let props = out.props(Kind::Way, &scan.columns, tag);
+        let props = out.props(Kind::Way, way.id(), &scan.columns, tag);
         let relations = scan.members.of(MemberKind::Way, way.id(), &mut |text| out.str(text));
         match (polygon && ring.is_closed(), line) {
             (true, true) => {
@@ -1106,7 +1131,9 @@ fn read_relations_of(
         } else {
             Geometry::Polygons(polygons)
         };
-        let props = out.props(Kind::Relation, &scan.columns, |pos| relation.values[pos].as_deref());
+        let props = out.props(Kind::Relation, relation.id, &scan.columns, |pos| {
+            relation.values[pos].as_deref()
+        });
         out.push(SourceFeature {
             id: Kind::Relation.feature_id(relation.id),
             geometry,

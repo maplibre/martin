@@ -11,7 +11,6 @@ use tracing::{debug, info, trace, warn};
 use crate::AggHashType::Verify;
 use crate::IntegrityCheckType::Quick;
 use crate::MbtType::{Cache, Flat, FlatWithHash, Normalized};
-use crate::bindiff::PatchType::BinDiffGz;
 use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType, get_bsdiff_tbl_name};
 use crate::errors::MbtResult;
 use crate::mbtiles::PatchFileInfo;
@@ -411,7 +410,7 @@ impl MbtileCopierInt {
         // TODO: perhaps disable all except --copy all when using with diffs, or else is not making much sense
         if self.options.copy.copy_tiles() && !self.options.skip_agg_tiles_hash {
             self.dst_mbt.update_agg_tiles_hash(&mut conn).await?;
-            if matches!(dif_info.patch_type, Some(BinDiffGz)) {
+            if dif_info.patch_type.is_some_and(PatchType::is_gz) {
                 info!(
                     "Skipping agg_tiles_hash_after_apply validation because re-gzip-ing could produce different tile data. Each bindiff-ed tile was still verified with a hash value"
                 );
@@ -435,7 +434,7 @@ impl MbtileCopierInt {
             }
         }
 
-        let hash_type = if matches!(dif_info.patch_type, Some(BinDiffGz)) || self.options.skip_agg_tiles_hash {
+        let hash_type = if dif_info.patch_type.is_some_and(PatchType::is_gz) || self.options.skip_agg_tiles_hash {
             AggHashType::Off
         } else {
             Verify
