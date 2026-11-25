@@ -121,6 +121,7 @@ nav = [
         {"Setting up a basemap and overlaying data" = "recipe-basemap-postgis.md"},
         {"Serving NAIP imagery from S3 with a tile index" = "recipe-cog-naip.md"},
         {"Building a basemap from OpenStreetMap" = "recipe-osm-basemap.md"},
+        {"Building OpenMapTiles from OpenStreetMap" = "recipe-osm-openmaptiles.md"},
         {"Using PostgreSQL with SSL Certificates" = "pg-ssl-certificates.md"}
     ]},
     {"Working with MBTiles archives" = [
@@ -488,6 +489,7 @@ Configuration = [
   { "recipe-basemap-postgis.md" = "Generating a basemap and overlaying points from PostGIS" },
   { "recipe-cog-naip.md" = "Serving NAIP aerial imagery from S3 with a tile index" },
   { "recipe-osm-basemap.md" = "Building a Shortbread basemap from an OpenStreetMap extract" },
+  { "recipe-osm-openmaptiles.md" = "Building an OpenMapTiles basemap from an OpenStreetMap extract" },
   { "pg-ssl-certificates.md" = "Connecting to PostgreSQL with SSL certificates" },
 ]
 Tools = [

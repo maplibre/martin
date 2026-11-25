@@ -139,6 +139,11 @@ fn osm_type_selects_nodes() {
 }
 
 #[test]
+fn osm_id_selects_one_way() {
+    assert_pushdown_exact("osm_id == 4224972", None);
+}
+
+#[test]
 fn relations_are_read_as_polygons_only() {
     assert_pushdown_exact("osm_type == 'relation' && landuse != null", Some(GeometryType::Polygon));
 }

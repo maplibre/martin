@@ -38,7 +38,8 @@ martin cp --mode bulk --config config.yaml --source berlin --output-file berlin.
 ```
 
 A run renders `osm` and [`shapefile`](sources-shapefile.md) sources together, or database sources, not both.
-[Building a basemap from OpenStreetMap](recipe-osm-basemap.md) has one possible basemap schema.
+[Building a basemap from OpenStreetMap](recipe-osm-basemap.md) has one possible basemap schema, and
+[Building OpenMapTiles from OpenStreetMap](recipe-osm-openmaptiles.md) another.
 
 ## Settings
 
@@ -82,7 +83,8 @@ A ring inside an odd number of others is a hole, whatever its role.
 A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.
 
 Each key in `tags` is a string property, `null` where the object does not have the tag or its value is empty.
-`osm_type` is always one.
+`osm_type` and `osm_id` are always properties.
+`osm_id` is the object's OSM id as an integer, not the feature id, which is `osm_id * 10 + 1`, `2` or `3`.
 An expression reading a key not in `tags` fails the run. A tag such as `name:en` is read with
 `feature['name:en']`.
 

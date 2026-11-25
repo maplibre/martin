@@ -732,7 +732,7 @@ fn empty_tag_value_reads_as_null() {
             })
             .unwrap();
     }
-    insta::assert_snapshot!(out, @r#"11 0=Str("node") 2=Str("cafe")"#);
+    insta::assert_snapshot!(out, @r#"11 0=Str("node") 1=I64(1) 3=Str("cafe")"#);
 }
 
 #[test]

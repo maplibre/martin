@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use martin_tilegen::TileGenError;
-use martin_tilegen::osm::{NodeStore, OSM_TYPE, Objects, OsmSource};
+use martin_tilegen::osm::{NodeStore, OSM_ID, OSM_TYPE, Objects, OsmSource};
 use martin_tilegen::plan::{ColumnFacts, Condition, Literal, Shape};
 use martin_tilegen::source::{FeatureSource as _, SourceError};
 
@@ -163,6 +163,11 @@ impl TestBackend for Osm {
                         .map(|kind| Literal::String(kind.to_owned()))
                         .collect(),
                 ),
+            });
+            table.learn(ColumnFacts {
+                column: OSM_ID.to_owned(),
+                not_null: true,
+                values: None,
             });
             out.push(table);
         }

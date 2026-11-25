@@ -1,0 +1,247 @@
+---
+source: martin/tests/osm_openmaptiles_test.rs
+expression: report
+---
+AerodromeLabelTest.testIntlWithIata:
+  aerodrome_label.name:es "es wd name", got none
+BoundaryTest.testNaturalEarthCountryBoundaries #2:
+  natural_earth ne_110m_admin_0_boundary_lines_land is not read
+BoundaryTest.testNaturalEarthCountryBoundaries #3:
+  natural_earth ne_110m_admin_0_boundary_lines_land is not read
+BoundaryTest.testNaturalEarthCountryBoundaries #4:
+  natural_earth ne_50m_admin_0_boundary_lines_land is not read
+BoundaryTest.testNaturalEarthCountryBoundaries #5:
+  natural_earth ne_10m_admin_0_boundary_lines_land is not read
+BoundaryTest.testNaturalEarthCountryBoundaries #6:
+  natural_earth ne_10m_admin_0_boundary_lines_land is not read
+BoundaryTest.testNaturalEarthCountryBoundaries #7:
+  natural_earth ne_10m_admin_0_boundary_lines_land is not read
+BoundaryTest.testNaturalEarthCountryKeSsBoundaryReversed:
+  natural_earth ne_10m_admin_0_boundary_lines_land is not read
+BoundaryTest.testNaturalEarthCountryNotKeSsBoundary:
+  natural_earth ne_10m_admin_0_boundary_lines_land is not read
+BoundaryTest.testNaturalEarthStateBoundaries #1:
+  natural_earth ne_10m_admin_1_states_provinces_lines is not read
+BoundaryTest.testNaturalEarthStateBoundaries #2:
+  natural_earth ne_10m_admin_1_states_provinces_lines is not read
+BoundaryTest.testNaturalEarthStateBoundaries #3:
+  natural_earth ne_10m_admin_1_states_provinces_lines is not read
+BoundaryTest.testNaturalEarthStateBoundaries #4:
+  natural_earth ne_10m_admin_1_states_provinces_lines is not read
+BoundaryTest.testOsmBoundaryLevelTwoAndAHalf:
+  boundary min_zoom 5, got 1
+BoundaryTest.testOsmAl2BoundaryDisputedMinZoom:
+  boundary min_zoom 5, got 0
+BoundaryTest.testCountryLeftRightName #1:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryLeftRightName #2:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryLeftRightName #3:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryLeftRightName #4:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryLeftRightName #5:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryLeftRightNameDisputed #1:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryLeftRightNameDisputed #2:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryLeftRightNameDisputed #3:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryLeftRightNameDisputed #4:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryLeftRightNameDisputed #5:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testCountryBoundaryNotClosed #1:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testNestedCountry #1:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testNestedCountry #2:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testDontLabelBadPolygon #1:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testIgnoreBadPolygonAndLabelGoodPart #1:
+  expected 0 features, got ["boundary line"]
+BoundaryTest.testIgnoreBadPolygonAndLabelGoodPart #2:
+  expected 0 features, got ["boundary line"]
+BuildingTest.testOutlineHides3d:
+  building.hide_3d true, got none
+LandcoverTest.testNaturalEarthGlaciers #1:
+  natural_earth ne_110m_glaciated_areas is not read
+LandcoverTest.testNaturalEarthGlaciers #2:
+  natural_earth ne_50m_glaciated_areas is not read
+LandcoverTest.testNaturalEarthGlaciers #3:
+  natural_earth ne_10m_glaciated_areas is not read
+LandcoverTest.testNaturalEarthAntarcticIceShelves #1:
+  natural_earth ne_50m_antarctic_ice_shelves_polys is not read
+LandcoverTest.testNaturalEarthAntarcticIceShelves #2:
+  natural_earth ne_10m_antarctic_ice_shelves_polys is not read
+LanduseTest.testNaturalEarthUrbanAreas #1:
+  natural_earth ne_50m_urban_areas is not read
+LanduseTest.testNaturalEarthUrbanAreas #2:
+  natural_earth ne_50m_urban_areas is not read
+MountainPeakTest.testHappyPath #2:
+  mountain_peak.name:es "es wd name", got none
+MountainPeakTest.testCustomaryFt #1:
+  mountain_peak.customary_ft 1, got none
+ParkTest.testSmallerPark #1:
+  park min_zoom 4, got 6
+PlaceTest.testCountry #1:
+  place min_zoom 5, got 0
+  place.rank 6, got 1
+PlaceTest.testState #1:
+  expected 0 features, got ["place point"]
+PlaceTest.testState #2:
+  expected 0 features, got ["place point"]
+PlaceTest.testState #3:
+  place.name:es "Massachusetts es", got none
+  place.rank 1, got 6
+PlaceTest.testProvince:
+  place.name:es "provincia de Lugo", got none
+  place.rank 3, got 6
+PlaceTest.testIndigenousLand #2:
+  place min_zoom 7, got 6
+  place.rank 2, got 1
+PlaceTest.testCountryCapital:
+  place min_zoom 2, got 3
+  place.rank 1, got 3
+PlaceTest.testStateCapital #1:
+  place.rank 3, got 4
+PlaceTest.testStateCapital #2:
+  place.rank none, got 4
+PlaceTest.testStateCapital #3:
+  place.rank 3, got 4
+PlaceTest.testStateCapital #4:
+  place.rank 3, got 4
+PlaceTest.testCountyCapital #1:
+  place min_zoom 6, got 5
+  place.rank 7, got 6
+PlaceTest.testCountyCapital #2:
+  place.rank none, got 6
+PlaceTest.testCountyCapital #3:
+  place.rank 7, got 6
+PlaceTest.testCountyCapital #4:
+  place.rank 7, got 6
+PlaceTest.testCityWithoutNaturalEarthMatch #1:
+  place.rank none, got 11
+PoiTest.testFenwayPark:
+  poi.rank none, got 1
+PoiTest.testFunicularHalt false:
+  poi.rank none, got 1
+PoiTest.testFunicularHalt true:
+  poi.rank none, got 1
+PoiTest.testSubway false:
+  poi.rank none, got 1
+PoiTest.testSubway true:
+  poi.rank none, got 1
+PoiTest.testPlaceOfWorshipFromReligionTag false:
+  poi.rank none, got 1
+PoiTest.testPlaceOfWorshipFromReligionTag true:
+  poi.rank none, got 1
+PoiTest.testPitchFromSportTag:
+  poi.rank none, got 1
+PoiTest.testInformation false:
+  poi.rank none, got 1
+PoiTest.testInformation true:
+  poi.rank none, got 1
+TransportationTest.testPrivatePath #3:
+  transportation.access none, got "no"
+TransportationTest.testInterstateMotorway #2:
+  transportation.brunnel "bridge", got none
+TransportationTest.testRouteWithoutNetworkType:
+  transportation_name.route_1_network "US:I", got "US:NJ:NJTP"
+  transportation_name.route_1_ref "95", got "NJTP"
+  transportation_name.route_2_network "US:NJ:NJTP", got "US:I"
+  transportation_name.route_2_ref "NJTP", got "95"
+TransportationTest.testRouteWithColour:
+  transportation_name.route_1_colour "#000000", got "#FFFFFF"
+  transportation_name.route_1_network "US:I", got "US:NJ:NJTP"
+  transportation_name.route_2_colour "#FFFFFF", got "#000000"
+  transportation_name.route_2_network "US:NJ:NJTP", got "US:I"
+TransportationTest.testSegmentWithManyRoutes:
+  transportation_name.route_7_network "US:I", got none
+  transportation_name.route_7_ref "7", got none
+  transportation_name.route_8_network "US:I", got none
+  transportation_name.route_8_ref "8", got none
+TransportationTest.testPolishHighwayIssue165:
+  transportation_name.route_1_ref "E 28", got "E 77"
+  transportation_name.route_2_ref "E 77", got "E 28"
+TransportationTest.testGreatBritainHighway #1:
+  transportation_name.network "gb-motorway", got "road"
+TransportationTest.testGreatBritainTrunk:
+  transportation min_zoom 5, got 6
+  transportation_name.network "gb-trunk", got "road"
+TransportationTest.testGreatBritainPrimary:
+  transportation_name.network "gb-primary", got "road"
+TransportationTest.testGreatBritainSecondary:
+  transportation_name.network "gb-primary", got "road"
+TransportationTest.testIrelandHighway #1:
+  transportation_name.network "ie-motorway", got "road"
+TransportationTest.testIrelandTrunk:
+  transportation min_zoom 4, got 6
+  transportation_name.network "ie-national", got "road"
+TransportationTest.testIrelandPrimary:
+  transportation_name.network "ie-national", got "road"
+TransportationTest.testIrelandSecondary:
+  transportation_name.network "ie-regional", got "road"
+TransportationTest.testFerry #1:
+  transportation min_zoom 4, got 6
+TransportationTest.testIssue86 #3:
+  expected 1 features, got ["transportation line", "transportation polygon"]
+TransportationTest.testShortTrunkGetsZ5 #1 "499", "trunk", "5", "5", "motorway":
+  transportation min_zoom 5, got 6
+  transportation.class "motorway", got "trunk"
+TransportationTest.testShortTrunkGetsZ5 #2 "499", "trunk", "5", "5", "motorway":
+  transportation min_zoom 5, got 6
+  transportation.class "motorway_construction", got "trunk_construction"
+TransportationTest.testShortTrunkGetsZ5 #1 "499", "trunk", "5", "6", "trunk":
+  transportation min_zoom 5, got 6
+TransportationTest.testShortTrunkGetsZ5 #2 "499", "trunk", "5", "6", "trunk":
+  transportation min_zoom 5, got 6
+WaterNameTest.testWaterNamePoint:
+  water_name min_zoom 3, got 8
+WaterNameTest.testWaterNameLakeline #1:
+  lake_centerlines  is not read
+WaterNameTest.testWaterNameLakeline #2:
+  water_name geometry line, got point
+  water_name min_zoom 3, got 11
+WaterNameTest.testWaterNameMultipleLakelines #1:
+  lake_centerlines  is not read
+WaterNameTest.testWaterNameMultipleLakelines #2:
+  lake_centerlines  is not read
+WaterNameTest.testWaterNameMultipleLakelines #3:
+  water_name min_zoom 3, got 11
+WaterNameTest.testWaterNameBaySmall #1:
+  lake_centerlines  is not read
+WaterNameTest.testWaterNameBaySmall #2:
+  expected 2 features, got ["water_name point"]
+WaterNameTest.testWaterNameBayBig #1:
+  lake_centerlines  is not read
+WaterNameTest.testWaterNameBayBig #2:
+  expected 2 features, got ["water_name point"]
+WaterNameTest.testMarinePoint #1:
+  natural_earth ne_10m_geography_marine_polys is not read
+WaterNameTest.testMarinePoint #2:
+  water_name min_zoom 1, got 9
+WaterTest.testWaterNaturalEarth #1:
+  natural_earth ne_110m_ocean is not read
+WaterTest.testWaterNaturalEarth #2:
+  natural_earth ne_10m_ocean is not read
+WaterTest.testWaterOsmWaterPolygon:
+  water min_zoom 6, got 0
+WaterTest.testWaterOsmId:
+  water min_zoom 6, got 2
+  water.id 123, got 319
+WaterTest.testWater #1:
+  water min_zoom 6, got 2
+WaterTest.testLakeZoomLevels:
+  water min_zoom 6, got 2
+WaterwayTest.testOsmWaterwayRelation false:
+  waterway.name:es "ES name", got none
+WaterwayTest.testOsmWaterwayRelation true:
+  waterway.name:es "ES name", got none
+WaterwayTest.testWaterwayNaturalEarth #1:
+  natural_earth ne_110m_rivers_lake_centerlines is not read
+WaterwayTest.testWaterwayNaturalEarth #2:
+  natural_earth ne_50m_rivers_lake_centerlines is not read
+231 of 341 examples match
