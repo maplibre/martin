@@ -21,6 +21,8 @@ full_features := stable_features + ',rendering'
 x86_cpu_flag := if env('LEGACY_CPU', '') != '' {''} else {'-C target-cpu=x86-64-v3'}
 # Benchmarks build for the host, so they must use the same CPU level as the release binaries to measure what users get
 bench_rustflags := if arch() == 'x86_64' {x86_cpu_flag} else {''}
+# Extra martin features for the release builds, e.g. EXTRA_FEATURES=unstable-mlt-v2 for the nightlies
+extra_features := if env('EXTRA_FEATURES', '') != '' {'--features ' + quote(env('EXTRA_FEATURES'))} else {''}
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
@@ -252,7 +254,7 @@ build-release target pgo='false': fetch ui::build
         rustup target add {{target}}
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols {{if target =~ '^x86_64' {x86_cpu_flag} else {''} }}'
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
+        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked {{extra_features}}
     fi
 
 # Install PGO tooling on native Ubuntu/Debian hosts. x86 BOLT matches Rust's LLVM.
@@ -291,16 +293,16 @@ pgo-build target: fetch ui::build prepare-mbtiles
         export RUSTFLAGS="$RUSTFLAGS -C target-cpu=x86-64-v3"
     fi
     cargo build --release --target "$target" --package mbtiles --locked
-    cargo pgo build -- --target "$target" --package martin --bin martin --locked
+    cargo pgo build -- --target "$target" --package martin --bin martin --locked {{extra_features}}
     {{just}} pgo-train "$binary"
     # BOLT rejects ARM Cortex-A53 linker veneers. Keep the ARM image on PGO.
     if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
-        cargo pgo bolt build --with-pgo -- --target "$target" --package martin --bin martin --locked
+        cargo pgo bolt build --with-pgo -- --target "$target" --package martin --bin martin --locked {{extra_features}}
         {{just}} pgo-train "$binary-bolt-instrumented"
-        cargo pgo bolt optimize --with-pgo -- --target "$target" --package martin --bin martin --locked
+        cargo pgo bolt optimize --with-pgo -- --target "$target" --package martin --bin martin --locked {{extra_features}}
         binary="$binary-bolt-optimized"
     else
-        cargo pgo optimize -- --target "$target" --package martin --bin martin --locked
+        cargo pgo optimize -- --target "$target" --package martin --bin martin --locked {{extra_features}}
     fi
     mkdir -p target_releases
     cp "$binary" target_releases/martin
@@ -334,14 +336,14 @@ build-release-full target: fetch ui::build
     rustup target add {{target}}
     export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols {{if target =~ '^x86_64' {x86_cpu_flag} else {''} }}'
     cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}}
+    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}} {{extra_features}}
 
 # Build debian package
 # Note: the rendering feature is not packaged yet, although its prebuilt MapLibre library only needs
 # glibc 2.35, which the ubuntu-22.04 build has.
 build-deb output: fetch ui::build (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    RUSTFLAGS='-C strip=symbols {{x86_cpu_flag}}' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
+    RUSTFLAGS='-C strip=symbols {{x86_cpu_flag}}' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}} {{extra_features}}
 
 # Cross-compile for a musl or FreeBSD target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -354,7 +356,7 @@ build-release-zig target: fetch ui::build
     rustup target add {{target}}
     export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols -A linker_messages {{if target =~ '^x86_64' {x86_cpu_flag} else {''} }}'
     cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}} {{extra_features}}
 
 
 # Move build artifacts to target_releases directory
