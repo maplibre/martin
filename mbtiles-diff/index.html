@@ -1966,9 +1966,8 @@ which can significantly reduce the size of difference files.</p>
 <p>The flag combines two choices:</p>
 <ul>
 <li><strong>Input type</strong> - whether the tiles are raw or gzip-compressed</li>
-<li><strong>Output type</strong> - whether to store whole tiles (<code>whole</code>) or binary diffs (<code>bin-diff</code>)</li>
+<li><strong>Output type</strong> - whether to store whole tiles (<code>whole</code>) or a delta against the old tile (<code>bin-diff</code>, <code>zstd</code>)</li>
 </ul>
-<p>The key distinction is between <code>whole</code> and <code>bin-diff</code>:</p>
 <table>
 <thead>
 <tr>
@@ -1986,28 +1985,39 @@ which can significantly reduce the size of difference files.</p>
 <tr>
 <td><code>bin-diff-raw</code></td>
 <td>uncompressed</td>
-<td>Brotli-compressed binary diff</td>
+<td>Brotli-compressed bsdiff patch</td>
 </tr>
 <tr>
 <td><code>bin-diff-gz</code></td>
 <td>gzip</td>
-<td>Binary diff of decompressed data</td>
+<td>Brotli-compressed bsdiff patch of decompressed data</td>
+</tr>
+<tr>
+<td><code>zstd-raw</code></td>
+<td>uncompressed</td>
+<td>New tile compressed by zstd against the old tile</td>
+</tr>
+<tr>
+<td><code>zstd-gz</code></td>
+<td>gzip</td>
+<td>Same as <code>zstd-raw</code>, on decompressed data</td>
 </tr>
 </tbody>
 </table>
+<p><code>zstd-*</code> patches are about as small as <code>bin-diff-*</code> patches and take a few hundred times less CPU to create.</p>
 <h3 id="creating-a-diff">Creating a diff</h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mbtiles<span class="w"> </span>diff<span class="w"> </span>original.mbtiles<span class="w"> </span>updated.mbtiles<span class="w"> </span>diff.mbtiles<span class="w"> </span>--patch-type<span class="w"> </span>bin-diff-raw
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mbtiles<span class="w"> </span>diff<span class="w"> </span>original.mbtiles<span class="w"> </span>updated.mbtiles<span class="w"> </span>diff.mbtiles<span class="w"> </span>--patch-type<span class="w"> </span>zstd-raw
 </span></code></pre></div>
 <h3 id="applying-a-patch">Applying a patch</h3>
 <p>The <code>mbtiles</code> CLI automatically detects and applies binary patches
-if <code>bsdiffraw</code> or <code>bsdiffrawgz</code> tables are present:</p>
+if a <code>bsdiffraw</code>, <code>bsdiffrawgz</code>, <code>zstdpatchraw</code> or <code>zstdpatchgz</code> table is present:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>mbtiles<span class="w"> </span>copy<span class="w"> </span>diff.mbtiles<span class="w"> </span>original.mbtiles<span class="w"> </span>target.mbtiles<span class="w"> </span>--apply-patch
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code>bin-diff-gz</code> skips <code>agg_tiles_hash_after_apply</code> validation after
+<p><code>bin-diff-gz</code> and <code>zstd-gz</code> skip <code>agg_tiles_hash_after_apply</code> validation after
 patching, because re-compressing gzip tiles may produce different bytes.
-Use <code>bin-diff-raw</code> if you need aggregate hash validation.</p>
+Use <code>bin-diff-raw</code> or <code>zstd-raw</code> if you need aggregate hash validation.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
