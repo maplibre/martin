@@ -1,1 +1,1 @@
-../../../mbtiles/sql/init-normalized.sql
+../../../crates/mbtiles/sql/init-normalized.sql

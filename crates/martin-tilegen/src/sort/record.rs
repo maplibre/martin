@@ -1,0 +1,498 @@
+//! Temp format of one feature piece in one tile, in [wincode] with varint integers: a [`Header`],
+//! then the geometry of its kind. The header carries the properties as one length-prefixed blob, so
+//! the per-tile schema pass reads them without touching vertices.
+
+#![expect(clippy::mem_forget, reason = "the wincode SchemaRead derive forgets its drop guard")]
+
+use mlt_core::PropValueRef;
+use wincode::config::{Configuration, PREALLOCATION_SIZE_LIMIT_DISABLED};
+use wincode::len::BincodeLen;
+use wincode::{SchemaRead, SchemaWrite};
+
+use crate::props::KeyId;
+use crate::{TileGenError, TileGenResult};
+
+pub type Vertex = [i32; 2];
+
+pub(crate) type Config = Configuration<
+    true,
+    PREALLOCATION_SIZE_LIMIT_DISABLED,
+    BincodeLen,
+    wincode::int_encoding::LittleEndian,
+    wincode::int_encoding::VarInt,
+>;
+
+pub(crate) const CONFIG: Config = Configuration::default()
+    .with_varint_encoding()
+    .disable_preallocation_size_limit();
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, SchemaWrite, SchemaRead)]
+pub enum GeomKind {
+    Point,
+    /// Points that each count in a label grid square, under the feature's own limit.
+    GriddedPoint {
+        limit: u32,
+    },
+    Line,
+    Polygon,
+    /// The whole buffered tile is covered.
+    Fill,
+    /// Every tile from the record's own tile id up to `end` (exclusive) is covered.
+    FillRange {
+        end: u64,
+    },
+}
+
+impl GeomKind {
+    /// Pieces of one feature in one tile join into one multi-geometry only within a family.
+    pub(crate) fn family(self) -> u8 {
+        match self {
+            Self::Point | Self::GriddedPoint { .. } => 0,
+            Self::Line => 1,
+            Self::Polygon | Self::Fill | Self::FillRange { .. } => 2,
+        }
+    }
+}
+
+/// A piece of geometry to encode. Part lengths are vertex counts; rings are stored open.
+#[derive(Clone, Copy, Debug)]
+pub enum Geom<'a> {
+    Points(&'a [Vertex]),
+    /// Points with the label grid group of each, kept while fewer than `limit` points of their group are.
+    GriddedPoints {
+        groups: &'a [u64],
+        vertices: &'a [Vertex],
+        limit: u32,
+    },
+    Lines {
+        parts: &'a [u32],
+        vertices: &'a [Vertex],
+    },
+    /// `polygons` holds the ring count of each polygon (exterior first), `rings` the vertex count of each ring.
+    Polygons {
+        polygons: &'a [u32],
+        rings: &'a [u32],
+        vertices: &'a [Vertex],
+    },
+    #[cfg_attr(
+        not(any(test, feature = "internals")),
+        expect(
+            dead_code,
+            reason = "the renderer emits fill ranges; benches and tests build single fills"
+        )
+    )]
+    Fill,
+    FillRange {
+        end: u64,
+    },
+}
+
+#[derive(Clone, Copy, SchemaWrite, SchemaRead)]
+enum Prop<'a> {
+    Bool(bool),
+    I64(i64),
+    U64(u64),
+    F32(f32),
+    F64(f64),
+    Str(&'a str),
+    /// The JSON text of a `jsonb` document, last so the tags of the others do not move.
+    #[cfg(feature = "unstable-mlt-v2")]
+    Nested(&'a str),
+}
+
+#[derive(SchemaWrite, SchemaRead)]
+struct Header<'a> {
+    kind: GeomKind,
+    id: Option<u64>,
+    sort: Option<&'a [u8]>,
+    props: &'a [u8],
+}
+
+/// A feature's properties, encoded once and copied into every record of the feature.
+#[derive(Debug, Default)]
+pub struct EncodedProps {
+    bytes: Vec<u8>,
+}
+
+impl EncodedProps {
+    pub fn clear(&mut self) {
+        self.bytes.clear();
+    }
+
+    pub(crate) fn copy_from(&mut self, other: &Self) {
+        self.bytes.clear();
+        self.bytes.extend_from_slice(&other.bytes);
+    }
+
+    pub fn push(&mut self, key: KeyId, value: PropValueRef<'_>) {
+        let value = match value {
+            PropValueRef::Bool(v) => Prop::Bool(v),
+            PropValueRef::I8(v) => Prop::I64(v.into()),
+            PropValueRef::U8(v) => Prop::I64(v.into()),
+            PropValueRef::I32(v) => Prop::I64(v.into()),
+            PropValueRef::U32(v) => Prop::I64(v.into()),
+            PropValueRef::I64(v) => Prop::I64(v),
+            PropValueRef::U64(v) => Prop::U64(v),
+            PropValueRef::F32(v) => Prop::F32(v),
+            PropValueRef::F64(v) => Prop::F64(v),
+            PropValueRef::Str(v) => Prop::Str(v),
+        };
+        put(&mut self.bytes, &(key.get(), value));
+    }
+
+    /// Stores `json`, the text of a `jsonb` document, apart from text values.
+    #[cfg(feature = "unstable-mlt-v2")]
+    pub fn push_nested(&mut self, key: KeyId, json: &str) {
+        put(&mut self.bytes, &(key.get(), Prop::Nested(json)));
+    }
+
+    /// Stores `value`, a `jsonb` document apart from text.
+    pub fn push_prop<S: AsRef<str>>(&mut self, key: KeyId, value: &crate::props::Prop<S>) {
+        #[cfg(feature = "unstable-mlt-v2")]
+        if let crate::props::Prop::Nested(json) = value {
+            self.push_nested(key, json.as_ref());
+            return;
+        }
+        self.push(key, value.as_ref());
+    }
+
+    pub(crate) fn decode(&self) -> Props<'_> {
+        Props { bytes: &self.bytes }
+    }
+}
+
+/// `sort` is the feature's `sort_by` key, which orders the features of its layer in each tile.
+pub fn encode(out: &mut Vec<u8>, id: Option<u64>, sort: Option<&[u8]>, props: &EncodedProps, geom: Geom<'_>) {
+    let kind = match geom {
+        Geom::Points(_) => GeomKind::Point,
+        Geom::GriddedPoints { limit, .. } => GeomKind::GriddedPoint { limit },
+        Geom::Lines { .. } => GeomKind::Line,
+        Geom::Polygons { .. } => GeomKind::Polygon,
+        Geom::Fill => GeomKind::Fill,
+        Geom::FillRange { end } => GeomKind::FillRange { end },
+    };
+    let props = &props.bytes;
+    put(out, &Header { kind, id, sort, props });
+    match geom {
+        Geom::Points(vertices) => put(out, vertices),
+        Geom::GriddedPoints { groups, vertices, .. } => put(out, &(groups, vertices)),
+        Geom::Lines { parts, vertices } => put(out, &(parts, vertices)),
+        Geom::Polygons {
+            polygons,
+            rings,
+            vertices,
+        } => put(out, &(polygons, rings, vertices)),
+        Geom::Fill | Geom::FillRange { .. } => {}
+    }
+}
+
+/// A record whose header is decoded; properties and geometry are decoded on demand.
+pub struct Record<'a> {
+    pub kind: GeomKind,
+    pub id: Option<u64>,
+    /// The feature's `sort_by` key, if its layer has one.
+    pub sort: Option<&'a [u8]>,
+    props: &'a [u8],
+    geom: &'a [u8],
+}
+
+impl<'a> Record<'a> {
+    pub fn decode(mut bytes: &'a [u8]) -> TileGenResult<Self> {
+        let Header { kind, id, sort, props } = take(&mut bytes)?;
+        Ok(Self {
+            kind,
+            id,
+            sort,
+            props,
+            geom: bytes,
+        })
+    }
+
+    /// The kind of an encoded record, without decoding the rest of it.
+    pub fn kind(mut bytes: &[u8]) -> TileGenResult<GeomKind> {
+        take(&mut bytes)
+    }
+
+    /// Whether an encoded record is a fill or fill range, without decoding the rest of it.
+    #[must_use]
+    pub fn is_fill(bytes: &[u8]) -> bool {
+        matches!(Self::kind(bytes), Ok(GeomKind::Fill | GeomKind::FillRange { .. }))
+    }
+
+    #[must_use]
+    pub fn props(&self) -> Props<'a> {
+        Props { bytes: self.props }
+    }
+
+    /// Appends the geometry, so the pieces of one feature can be collected into one multi-geometry.
+    pub fn append_geometry(&self, out: &mut GeomBuf) -> TileGenResult<()> {
+        let mut bytes = self.geom;
+        let vertices: Vec<Vertex> = match self.kind {
+            GeomKind::Point => take(&mut bytes)?,
+            GeomKind::GriddedPoint { .. } => {
+                let (groups, vertices): (Vec<u64>, _) = take(&mut bytes)?;
+                out.groups.extend(groups);
+                vertices
+            }
+            GeomKind::Line => {
+                let (parts, vertices): (Vec<u32>, _) = take(&mut bytes)?;
+                out.parts.extend(parts);
+                vertices
+            }
+            GeomKind::Polygon => {
+                let (polygons, rings, vertices): (Vec<u32>, Vec<u32>, _) = take(&mut bytes)?;
+                out.polygons.extend(polygons);
+                out.parts.extend(rings);
+                vertices
+            }
+            GeomKind::Fill | GeomKind::FillRange { .. } => Vec::new(),
+        };
+        out.vertices.extend(vertices);
+        if bytes.is_empty() {
+            Ok(())
+        } else {
+            Err(TileGenError::CorruptRecord)
+        }
+    }
+}
+
+/// Decoded geometry of one or more pieces of the same feature, shaped like [`Geom`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct GeomBuf {
+    /// The label grid group of each vertex, for gridded points only.
+    pub groups: Vec<u64>,
+    pub polygons: Vec<u32>,
+    pub parts: Vec<u32>,
+    pub vertices: Vec<Vertex>,
+}
+
+impl GeomBuf {
+    pub fn clear(&mut self) {
+        self.groups.clear();
+        self.polygons.clear();
+        self.parts.clear();
+        self.vertices.clear();
+    }
+}
+
+pub struct Props<'a> {
+    bytes: &'a [u8],
+}
+
+/// The value of a stored property; a nested document is its JSON text, as a plain reader sees it.
+fn scalar_ref(value: Prop<'_>) -> PropValueRef<'_> {
+    match value {
+        Prop::Bool(v) => PropValueRef::Bool(v),
+        Prop::I64(v) => PropValueRef::I64(v),
+        Prop::U64(v) => PropValueRef::U64(v),
+        Prop::F32(v) => PropValueRef::F32(v),
+        Prop::F64(v) => PropValueRef::F64(v),
+        Prop::Str(v) => PropValueRef::Str(v),
+        #[cfg(feature = "unstable-mlt-v2")]
+        Prop::Nested(v) => PropValueRef::Str(v),
+    }
+}
+
+impl<'a> Iterator for Props<'a> {
+    type Item = TileGenResult<(KeyId, PropValueRef<'a>)>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.bytes.is_empty() {
+            return None;
+        }
+        Some(take(&mut self.bytes).map(|(key, value): (u32, _)| (KeyId::new(key), scalar_ref(value))))
+    }
+}
+
+fn put<T: SchemaWrite<Config, Src = T> + ?Sized>(out: &mut Vec<u8>, value: &T) {
+    wincode::config::serialize_into(out, value, CONFIG).expect("writing to a Vec cannot fail");
+}
+
+fn take<'a, T: SchemaRead<'a, Config, Dst = T>>(bytes: &mut &'a [u8]) -> TileGenResult<T> {
+    T::get(bytes).map_err(|_corrupt| TileGenError::CorruptRecord)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PROPS: [(KeyId, PropValueRef<'static>); 6] = [
+        (KeyId::new(0), PropValueRef::Bool(true)),
+        (KeyId::new(3), PropValueRef::I64(-42)),
+        (KeyId::new(4), PropValueRef::U64(u64::MAX)),
+        (KeyId::new(1), PropValueRef::F32(1.5)),
+        (KeyId::new(2), PropValueRef::F64(-2.25)),
+        (KeyId::new(9), PropValueRef::Str("héllo")),
+    ];
+
+    fn props() -> EncodedProps {
+        let mut props = EncodedProps::default();
+        for (key, value) in PROPS {
+            props.push(key, value);
+        }
+        props
+    }
+
+    fn round_trip(geom: Geom<'_>, expected: &GeomBuf) {
+        let ids = [None, Some(0), Some(u64::MAX - 1)];
+        let sorts = [None, Some(&[][..]), Some(&[0, 0xFF, 7][..])];
+        for (id, sort) in ids.into_iter().flat_map(|id| sorts.map(|sort| (id, sort))) {
+            let mut bytes = Vec::new();
+            encode(&mut bytes, id, sort, &props(), geom);
+            let record = Record::decode(&bytes).unwrap();
+            assert_eq!(record.id, id);
+            assert_eq!(record.sort, sort);
+            assert_eq!(record.props().collect::<TileGenResult<Vec<_>>>().unwrap(), PROPS);
+            let mut buf = GeomBuf::default();
+            record.append_geometry(&mut buf).unwrap();
+            assert_eq!(&buf, expected);
+        }
+    }
+
+    #[test]
+    fn round_trips_every_kind() {
+        let vertices = [[0, 0], [4096, -64], [i32::MIN, i32::MAX], [5, 5]];
+        let buf = |polygons: &[u32], parts: &[u32]| GeomBuf {
+            groups: Vec::new(),
+            polygons: polygons.to_vec(),
+            parts: parts.to_vec(),
+            vertices: vertices.to_vec(),
+        };
+        round_trip(Geom::Points(&vertices), &buf(&[], &[]));
+        round_trip(
+            Geom::GriddedPoints {
+                groups: &[0, u64::MAX, 1 << 32, 7],
+                vertices: &vertices,
+                limit: 3,
+            },
+            &GeomBuf {
+                groups: vec![0, u64::MAX, 1 << 32, 7],
+                ..buf(&[], &[])
+            },
+        );
+        round_trip(
+            Geom::Lines {
+                parts: &[1, 3],
+                vertices: &vertices,
+            },
+            &buf(&[], &[1, 3]),
+        );
+        round_trip(
+            Geom::Polygons {
+                polygons: &[2],
+                rings: &[3, 1],
+                vertices: &vertices,
+            },
+            &buf(&[2], &[3, 1]),
+        );
+        round_trip(Geom::Fill, &GeomBuf::default());
+        let mut bytes = Vec::new();
+        encode(
+            &mut bytes,
+            None,
+            Some(&[3]),
+            &EncodedProps::default(),
+            Geom::FillRange { end: 1 << 40 },
+        );
+        let record = Record::decode(&bytes).unwrap();
+        assert_eq!(record.kind, GeomKind::FillRange { end: 1 << 40 });
+        assert_eq!(record.sort, Some(&[3][..]));
+        assert!(Record::is_fill(&bytes));
+    }
+
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[test]
+    fn nested_documents_round_trip_as_their_text_and_are_stored_apart_from_text() {
+        let documents = [
+            r#"{"tags":{"a":[1,2.5,null],"b":{}},"links":[],"name":"x"}"#,
+            "[]",
+            "{}",
+            "[[],[{}],[[null]]]",
+            "null",
+            r#""text""#,
+            "",
+        ];
+        let mut props = EncodedProps::default();
+        for (i, document) in documents.into_iter().enumerate() {
+            props.push_nested(KeyId::new(i.try_into().unwrap()), document);
+        }
+        props.push(KeyId::new(20), PropValueRef::Str(r#"{"a":1}"#));
+        props.push(KeyId::new(21), PropValueRef::I64(7));
+
+        let mut bytes = Vec::new();
+        encode(&mut bytes, Some(1), None, &props, Geom::Fill);
+        let record = Record::decode(&bytes).unwrap();
+
+        let mut expected: Vec<_> = documents
+            .into_iter()
+            .enumerate()
+            .map(|(i, d)| (KeyId::new(i.try_into().unwrap()), PropValueRef::Str(d)))
+            .collect();
+        expected.push((KeyId::new(20), PropValueRef::Str(r#"{"a":1}"#)));
+        expected.push((KeyId::new(21), PropValueRef::I64(7)));
+        assert_eq!(record.props().collect::<TileGenResult<Vec<_>>>().unwrap(), expected);
+
+        let (mut nested, mut text) = (EncodedProps::default(), EncodedProps::default());
+        nested.push_nested(KeyId::new(0), "[]");
+        text.push(KeyId::new(0), PropValueRef::Str("[]"));
+        assert_ne!(nested.bytes, text.bytes, "the sort keeps a document apart from text");
+    }
+
+    #[test]
+    fn the_sort_key_is_an_optional_field_after_the_id() {
+        let mut props = EncodedProps::default();
+        props.push(KeyId::new(2), PropValueRef::I64(-1));
+        let geom = Geom::Points(&[[3, -2]]);
+        let mut unsorted = Vec::new();
+        encode(&mut unsorted, Some(4), None, &props, geom);
+        assert_eq!(unsorted, [0, 1, 4, 0, 3, 2, 1, 1, 1, 6, 3]);
+        let mut sorted = Vec::new();
+        encode(&mut sorted, Some(4), Some(&[9, 8]), &props, geom);
+        assert_eq!(sorted, [0, 1, 4, 1, 2, 9, 8, 3, 2, 1, 1, 1, 6, 3]);
+    }
+
+    #[test]
+    fn pieces_append_into_one_buffer() {
+        let mut buf = GeomBuf::default();
+        for vertices in [&[[1, 1], [2, 2]][..], &[[3, 3], [4, 4], [5, 5]]] {
+            let mut bytes = Vec::new();
+            let parts = [u32::try_from(vertices.len()).unwrap()];
+            encode(
+                &mut bytes,
+                Some(1),
+                None,
+                &EncodedProps::default(),
+                Geom::Lines {
+                    parts: &parts,
+                    vertices,
+                },
+            );
+            Record::decode(&bytes).unwrap().append_geometry(&mut buf).unwrap();
+        }
+        assert_eq!(buf.parts, [2, 3]);
+        assert_eq!(buf.vertices.len(), 5);
+    }
+
+    #[test]
+    fn rejects_truncated_records() {
+        let mut bytes = Vec::new();
+        encode(
+            &mut bytes,
+            Some(7),
+            Some(&[1, 2]),
+            &props(),
+            Geom::Polygons {
+                polygons: &[1],
+                rings: &[2],
+                vertices: &[[1, 2], [3, 4]],
+            },
+        );
+        for len in 0..bytes.len() {
+            let result = Record::decode(&bytes[..len]).and_then(|r| {
+                r.props().try_for_each(|p| p.map(drop))?;
+                r.append_geometry(&mut GeomBuf::default())
+            });
+            assert!(matches!(result, Err(TileGenError::CorruptRecord)), "len {len}");
+        }
+    }
+}

@@ -1,0 +1,61 @@
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
+#![forbid(unsafe_code)]
+// Static dispatch over `AnySource` inlines every variant's tile future into the
+// request future, and the nesting outgrows rustc's default query depth.
+#![recursion_limit = "512"]
+
+pub mod config;
+#[cfg(feature = "mbtiles")]
+pub mod cp;
+#[cfg(feature = "postgres")]
+pub mod generate;
+pub mod logging;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub mod mesa_shader_cache;
+// `rendering` pulls in `tiff` for the OGC API map renderer, which also needs `ogcapi` on Linux.
+#[cfg(all(feature = "rendering", not(all(feature = "ogcapi", target_os = "linux"))))]
+use tiff as _;
+
+#[cfg(feature = "_tiles")]
+mod source;
+#[cfg(feature = "_tiles")]
+pub use crate::source::TileSources;
+
+#[cfg(feature = "_tiles")]
+mod reload;
+#[cfg(feature = "_tiles")]
+pub use crate::reload::{DeletedSource, NewSource, ReloadAdvisory};
+
+#[cfg(feature = "_tiles")]
+mod tile_source_manager;
+#[cfg(feature = "_tiles")]
+pub use crate::tile_source_manager::TileSourceManager;
+
+mod error;
+pub use crate::error::{StartupError, StartupResult};
+
+#[cfg(all(test, feature = "_tiles"))]
+mod test_support;
+
+#[cfg(feature = "resources")]
+pub mod maplibre_style;
+
+pub mod srv;
+#[cfg(feature = "tui")]
+pub mod tui;
+
+#[cfg(feature = "unstable-schemas")]
+pub mod schemas;
+
+// Ensure README.md contains valid code
+#[cfg(doctest)]
+mod test_readme {
+    macro_rules! external_doc_test {
+        ($x:expr) => {
+            #[doc = $x]
+            unsafe extern "C" {}
+        };
+    }
+
+    external_doc_test!(include_str!("../README.md"));
+}

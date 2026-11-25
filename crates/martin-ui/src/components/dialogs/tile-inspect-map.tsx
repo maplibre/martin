@@ -1,0 +1,391 @@
+'use client';
+
+import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
+import type { MapRef } from '@vis.gl/react-maplibre';
+import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
+import { Maximize2 } from 'lucide-react';
+import type { Map as MapLibre, VectorSourceSpecification } from 'maplibre-gl';
+import { Popup } from 'maplibre-gl';
+import { useTheme } from 'next-themes';
+import { type ErrorInfo, useEffect, useId, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { useAsyncOperation } from '@/hooks/use-async-operation';
+import { useToast } from '@/hooks/use-toast';
+import { useUnderlayPreference } from '@/hooks/use-underlay-preference';
+import { buildMartinUrl } from '@/lib/api';
+import { martinClient } from '@/lib/martin-client';
+import { isMltContentType, mltAcceptTransformRequest } from '@/lib/mlt';
+import type { Catalog } from '@/lib/types.gen';
+import { ErrorBoundary } from '../error/error-boundary';
+import { LoadingSpinner } from '../loading/loading-spinner';
+import { UnderlayPicker } from './underlay-picker';
+import { findProvider, UNDERLAY_PROVIDER_IDS, type UnderlayProviderId } from './underlay-providers';
+
+interface TileInspectDialogMapProps {
+  name: string;
+  source: Catalog['tiles'][string];
+}
+
+interface TileJson {
+  bounds: [number, number, number, number];
+  maxzoom?: number;
+  minzoom?: number;
+  center?: [number, number, number];
+}
+
+const UNDERLAY_SOURCE_ID = 'martin-underlay';
+const UNDERLAY_LAYER_ID = 'martin-underlay-layer';
+
+const fetchTileJson = async (endpoint: string): Promise<TileJson> => {
+  const { data, response } = await martinClient.GET('/{source_ids}', {
+    params: { path: { source_ids: endpoint } },
+  });
+  if (data === undefined) {
+    throw new Error(`Failed to fetch tileJson: ${response.statusText}`);
+  }
+  // The OpenAPI spec types this response as `unknown` (TileJSON 3.0.0); the
+  // local `TileJson` interface narrows to the fields this component reads.
+  return data as TileJson;
+};
+
+function applyUnderlay(map: MapLibre, underlayId: UnderlayProviderId | undefined) {
+  const provider = findProvider(underlayId);
+  // Short-circuit when the existing source already serves the requested
+  // provider: avoids removing & re-adding (and re-fetching the tiles) when
+  // the user picks the same option twice.
+  const existingSource = map.getSource(UNDERLAY_SOURCE_ID) as
+    | { tiles?: readonly string[] }
+    | undefined;
+  if (
+    provider &&
+    existingSource?.tiles?.[0] === provider.tiles &&
+    map.getLayer(UNDERLAY_LAYER_ID)
+  ) {
+    return;
+  }
+
+  if (map.getLayer(UNDERLAY_LAYER_ID)) {
+    map.removeLayer(UNDERLAY_LAYER_ID);
+  }
+  if (existingSource) {
+    map.removeSource(UNDERLAY_SOURCE_ID);
+  }
+
+  if (!provider) return;
+
+  map.addSource(UNDERLAY_SOURCE_ID, {
+    attribution: provider.attribution,
+    tileSize: 256,
+    tiles: [provider.tiles],
+    type: 'raster',
+  });
+
+  const existingLayers = map.getStyle().layers ?? [];
+  const beforeId = existingLayers.find(
+    (l) => l.id !== UNDERLAY_LAYER_ID && l.type !== 'background',
+  )?.id;
+  map.addLayer(
+    {
+      id: UNDERLAY_LAYER_ID,
+      paint: document.documentElement.classList.contains('dark')
+        ? { 'raster-brightness-max': 0.5, 'raster-contrast': 0.1, 'raster-saturation': -0.5 }
+        : {},
+      source: UNDERLAY_SOURCE_ID,
+      type: 'raster',
+    },
+    beforeId,
+  );
+}
+
+export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps) {
+  const { toast } = useToast();
+  const id = useId();
+  const mapRef = useRef<MapRef>(null);
+  const inspectControlRef = useRef<MaplibreInspect>(null);
+  const { resolvedTheme } = useTheme();
+  const [selectedUnderlay, setSelectedUnderlay] = useUnderlayPreference(
+    UNDERLAY_PROVIDER_IDS,
+    'osm',
+  );
+  const [mapReady, setMapReady] = useState(false);
+  const [noFeatures, setNoFeatures] = useState(false);
+  const selectedUnderlayRef = useRef(selectedUnderlay);
+  selectedUnderlayRef.current = selectedUnderlay;
+
+  const tileJsonOperation = useAsyncOperation<TileJson>(() => fetchTileJson(name), {
+    onError: (error: Error) => console.error('TileJson Fetch Failed:', error),
+    showErrorToast: false,
+  });
+
+  const isImageSource = ['image/gif', 'image/jpeg', 'image/png', 'image/webp'].includes(
+    source.content_type,
+  );
+
+  useEffect(() => {
+    tileJsonOperation.execute();
+  }, []);
+
+  // Re-apply when the user clicks a different underlay button. The
+  // styledata listener wired in onLoad covers the maplibre-gl-inspect
+  // setStyle case; this effect covers user-driven changes only.
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (map?.isStyleLoaded()) {
+      applyUnderlay(map, selectedUnderlay);
+    }
+  }, [selectedUnderlay]);
+
+  // The map's onLoad can fire before the TileJSON fetch resolves, in which case
+  // configureMap() early-returns and the view/constraints are never applied.
+  // Re-run it once the TileJSON arrives (and the map has loaded) so the inspect
+  // map opens centered on the tileset instead of the default 0/0/0 world view.
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (map?.isStyleLoaded() && tileJsonOperation.data) {
+      configureMap();
+    }
+  }, [tileJsonOperation.data]);
+
+  const configureMap = () => {
+    if (!mapRef.current) {
+      console.error('Map not found despite being initialized, this cannot happen');
+      return;
+    }
+    const map = mapRef.current.getMap();
+    // Apply the underlay before the TileJSON early-return: on initial map
+    // load the TileJSON fetch is still in flight, but the underlay should
+    // be visible immediately rather than only after maplibre-gl-inspect's
+    // ~1s setStyle re-fires styledata.
+    applyUnderlay(map, selectedUnderlay);
+    if (!tileJsonOperation.data) {
+      return;
+    }
+    const tileJson: TileJson = tileJsonOperation.data;
+
+    let isWorld = false;
+    if (tileJson.bounds) {
+      const [west, south, east, north] = tileJson.bounds;
+      isWorld = west <= -179 && east >= 179;
+      if (!isWorld) {
+        map.setMaxBounds([
+          [west, south],
+          [east, north],
+        ]);
+      }
+    }
+    // Use `!== undefined` rather than a truthy check: a valid minzoom/maxzoom
+    // of 0 is falsy, so `if (tileJson.minzoom)` would silently skip world-min
+    // tilesets (e.g. OpenMapTiles, minzoom 0).
+    if (tileJson.minzoom !== undefined) {
+      map.setMinZoom(tileJson.minzoom);
+    }
+    if (tileJson.maxzoom !== undefined) {
+      map.setMaxZoom(tileJson.maxzoom);
+    }
+
+    // Apply the initial view from the TileJSON, unless the URL already pins one
+    // (a shared deep link such as #map=9/43.1/-89.2). The `hash="map"` prop
+    // writes a default "#map=0/0/0" on first render, which we treat as "unset".
+    const hash = window.location.hash;
+    const hasExplicitView = hash.startsWith('#map=') && hash !== '#map=0/0/0';
+    if (!hasExplicitView) {
+      if (tileJson.bounds && !isWorld) {
+        // Derive both center and zoom from the data extent. This also sidesteps
+        // the previous bug where center[2] (the recommended zoom) was dropped.
+        const [west, south, east, north] = tileJson.bounds;
+        map.fitBounds(
+          [
+            [west, south],
+            [east, north],
+          ],
+          { animate: false, padding: 20 },
+        );
+      } else if (tileJson.center) {
+        map.jumpTo({
+          center: [tileJson.center[0], tileJson.center[1]],
+          zoom: tileJson.center[2] ?? tileJson.minzoom ?? 0,
+        });
+      }
+    }
+  };
+
+  const zoomToBounds = () => {
+    const bounds = tileJsonOperation.data?.bounds;
+    const map = mapRef.current?.getMap();
+    if (!bounds || !map) return;
+    const [west, south, east, north] = bounds;
+    map.fitBounds(
+      [
+        [west, south],
+        [east, north],
+      ],
+      { padding: 24 },
+    );
+  };
+
+  const addInspectorToMap = () => {
+    if (!mapRef.current) {
+      console.error('Map not found despite being initialized, this cannot happen');
+      return;
+    }
+    const map = mapRef.current.getMap();
+
+    map.addSource(name, {
+      type: 'vector',
+      url: buildMartinUrl(`/${name}`),
+      ...(isMltContentType(source.content_type) && { encoding: 'mlt' }),
+    } as VectorSourceSpecification);
+    // Import and add the inspect control
+    if (inspectControlRef.current) {
+      map.removeControl(inspectControlRef.current);
+    }
+
+    inspectControlRef.current = new MaplibreInspect({
+      backgroundColor: resolvedTheme === 'dark' ? '#14152c' : '#f1f1f8',
+      popup: new Popup({
+        closeButton: false,
+        closeOnClick: false,
+      }),
+      showInspectButton: false,
+      showInspectMap: true,
+      showInspectMapPopup: true,
+      showInspectMapPopupOnHover: true,
+      showMapPopup: true,
+    });
+
+    map.addControl(inspectControlRef.current);
+
+    // maplibre-gl-inspect renders by calling map.setStyle(...) ~1s after the
+    // vector source loads, which wipes our raster underlay. Listen for
+    // styledata and re-apply only when the underlay has actually been wiped
+    // - checking the source's presence avoids re-entering this handler on
+    // every styledata fired by our own addSource/addLayer calls.
+    map.on('styledata', () => {
+      const wanted = selectedUnderlayRef.current;
+      if (wanted && !map.getSource(UNDERLAY_SOURCE_ID)) {
+        applyUnderlay(map, wanted);
+      }
+    });
+
+    // The inspector paints points with a tiny default radius; enlarge them with a halo
+    map.on('idle', () => {
+      const ownLayers = map
+        .getStyle()
+        .layers.filter((l) => 'source' in l && l.source === name)
+        .map((l) => l.id);
+      if (ownLayers.length > 0 && map.isSourceLoaded(name)) {
+        setNoFeatures(map.queryRenderedFeatures({ layers: ownLayers }).length === 0);
+      }
+      for (const layer of map.getStyle().layers) {
+        if (layer.type !== 'circle' || !('source' in layer) || layer.source !== name) continue;
+        if (map.getPaintProperty(layer.id, 'circle-stroke-width') === 1.5) continue;
+        map.setPaintProperty(layer.id, 'circle-radius', [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          0,
+          4,
+          8,
+          6,
+          14,
+          9,
+        ]);
+        map.setPaintProperty(layer.id, 'circle-stroke-width', 1.5);
+        map.setPaintProperty(layer.id, 'circle-stroke-color', '#ffffff');
+        map.setPaintProperty(layer.id, 'circle-opacity', 1);
+      }
+    });
+
+    configureMap();
+  };
+
+  return (
+    <ErrorBoundary
+      onError={(error: Error, errorInfo: ErrorInfo) => {
+        console.error('Application error:', error, errorInfo);
+        toast({
+          description: 'An unexpected error occurred. The page will reload automatically.',
+          title: 'Application Error',
+          variant: 'destructive',
+        });
+
+        // Auto-reload after 3 seconds
+        setTimeout(() => {
+          window.location.reload();
+        }, 3000);
+      }}
+    >
+      <div className="flex flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-card p-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 pl-1 text-xs font-medium text-muted-foreground">Basemap</span>
+            <UnderlayPicker onChange={setSelectedUnderlay} value={selectedUnderlay} />
+          </div>
+          <Button
+            disabled={!tileJsonOperation.data?.bounds}
+            onClick={zoomToBounds}
+            size="sm"
+            variant="outline"
+          >
+            <Maximize2 />
+            Zoom to data
+          </Button>
+        </div>
+        <div className="relative h-[40dvh] min-h-56 bg-sunken sm:h-[clamp(280px,38dvh,460px)]">
+          {isImageSource ? (
+            <MapLibreMap
+              hash="map"
+              onIdle={() => setMapReady(true)}
+              onLoad={configureMap}
+              ref={mapRef}
+              reuseMaps={false}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <Source id={`${id}tile-source`} type="raster" url={buildMartinUrl(`/${name}`)} />
+              <Layer id={`${id}tile-layer`} source={`${id}tile-source`} type="raster" />
+            </MapLibreMap>
+          ) : (
+            <MapLibreMap
+              hash="map"
+              onIdle={() => setMapReady(true)}
+              onLoad={addInspectorToMap}
+              ref={mapRef}
+              reuseMaps={false}
+              style={{ height: '100%', width: '100%' }}
+              transformRequest={mltAcceptTransformRequest(() => mapRef.current?.getMap())}
+            ></MapLibreMap>
+          )}
+          {mapReady && noFeatures && !tileJsonOperation.error ? (
+            <div
+              className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3"
+              role="status"
+            >
+              <p className="rounded-full border bg-card/95 px-3 py-1.5 text-center text-sm text-muted-foreground shadow-card">
+                No features in this view. Zoom or pan to find data.
+              </p>
+            </div>
+          ) : null}
+          {mapReady && !tileJsonOperation.error ? null : (
+            <div
+              aria-live="polite"
+              className="tile-grid pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center"
+              role="status"
+            >
+              {tileJsonOperation.error ? (
+                <>
+                  <p className="text-sm font-medium text-foreground">Couldn't load this source</p>
+                  <p className="text-xs text-muted-foreground">{tileJsonOperation.error.message}</p>
+                </>
+              ) : (
+                <>
+                  <LoadingSpinner />
+                  <p className="text-sm text-muted-foreground">Loading tiles…</p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </ErrorBoundary>
+  );
+}

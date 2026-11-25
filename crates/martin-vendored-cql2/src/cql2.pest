@@ -1,0 +1,127 @@
+WHITESPACE = _{ SEPARATOR | "\n" | "\r" | "\t" }
+COLON      = _{ ":" }
+LPAREN     = _{ "(" }
+RPAREN     = _{ ")" }
+DQUOTE     = _{ "\"" }
+PERIOD     = _{ "." }
+UNDERSCORE = _{ "_" }
+COMMA      = _{ "," }
+COMMADELIM = _{ WHITESPACE* ~ COMMA ~ WHITESPACE* }
+
+// A date or timestamp is read as a `SingleQuotedString` and interpreted in `temporal.rs`, so
+// `DATE('2020-01-01')` and a bare literal reach the same code and agree.
+
+// wkt
+PADDED_DECIMAL     = { WHITESPACE* ~ DECIMAL ~ WHITESPACE* }
+COORD              = { #four_d = PADDED_DECIMAL{4} | #three_d = PADDED_DECIMAL{3} | #two_d = PADDED_DECIMAL{2} }
+PCOORD             = { WHITESPACE* ~ LPAREN ~ COORD ~ RPAREN ~ WHITESPACE* }
+COORDLIST          = { WHITESPACE* ~ COORD ~ (COMMADELIM ~ COORD)* ~ WHITESPACE* }
+PCOORDLIST         = { WHITESPACE* ~ LPAREN ~ COORDLIST ~ RPAREN ~ WHITESPACE* }
+PCOORDLISTLIST     = { WHITESPACE* ~ LPAREN ~ PCOORDLIST ~ (COMMADELIM ~ PCOORDLIST)* ~ RPAREN ~ WHITESPACE* }
+PCOORDLISTLISTLIST = { WHITESPACE* ~ LPAREN ~ PCOORDLISTLIST ~ (COMMADELIM ~ PCOORDLISTLIST)* ~ RPAREN ~ WHITESPACE* }
+
+ZM = { WHITESPACE* ~ (^"ZM" | ^"Z" | ^"M")? ~ WHITESPACE* }
+
+// A geometry with no coordinates at all, written `POLYGON EMPTY` rather than with an empty
+// coordinate list. Every geometry type has one, and this crate emits them: GeoJSON coordinates of
+// `[]` render as `POLYGON EMPTY`, so without this production its own output would not parse.
+//
+// `!NameChar` ends the keyword where a name would, so `POINT EMPTYISH` is not an empty point
+// followed by nonsense.
+EMPTYSET = { ^"EMPTY" ~ !NameChar }
+
+POINT      = ${ ^"POINT" ~ ZM ~ (PCOORD | EMPTYSET) }
+LINESTRING = ${ ^"LINESTRING" ~ ZM ~ (PCOORDLIST | EMPTYSET) }
+POLYGON    = ${ ^"POLYGON" ~ ZM ~ (PCOORDLISTLIST | EMPTYSET) }
+
+MULTIPOINT_1     = ${ ^"MULTIPOINT" ~ ZM ~ PCOORDLIST }
+MULTIPOINT_2     = ${ ^"MULTIPOINT" ~ ZM ~ PCOORDLISTLIST }
+MULTIPOINT_EMPTY = ${ ^"MULTIPOINT" ~ ZM ~ EMPTYSET }
+MULTIPOINT       = ${ MULTIPOINT_1 | MULTIPOINT_2 | MULTIPOINT_EMPTY }
+
+MULTILINESTRING = ${ ^"MULTILINESTRING" ~ ZM ~ (PCOORDLISTLIST | EMPTYSET) }
+MULTIPOLYGON    = ${ ^"MULTIPOLYGON" ~ ZM ~ (PCOORDLISTLISTLIST | EMPTYSET) }
+
+GEOMETRY_SINGLE = ${ WHITESPACE* ~ (POINT | LINESTRING | POLYGON | MULTIPOINT | MULTILINESTRING | MULTIPOLYGON) ~ WHITESPACE* }
+
+// A member is any geometry, a collection included. WKT allows the nesting, and matching it here is
+// what keeps `GEOMETRYCOLLECTION(GEOMETRYCOLLECTION(...), POINT(...))` from falling through to the
+// `Function` production and becoming an operation named `GEOMETRYCOLLECTION`. The cql2-json schema
+// admits only the six non-collection types as members, so `parse_expr` rejects a nested one with a
+// message that says so - an error the author can act on, rather than a silent reinterpretation.
+GEOMETRY_MEMBER     = ${ GEOMETRY_SINGLE | GEOMETRY_COLLECTION }
+GEOMETRY_COLLECTION = ${ WHITESPACE* ~ ^"GEOMETRYCOLLECTION" ~ ZM ~ (GEOMETRY_MEMBERS | EMPTYSET) ~ WHITESPACE* }
+GEOMETRY_MEMBERS    = _{ LPAREN ~ GEOMETRY_MEMBER ~ (COMMADELIM ~ GEOMETRY_MEMBER)* ~ RPAREN }
+
+GEOMETRY = ${ GEOMETRY_SINGLE | GEOMETRY_COLLECTION }
+
+// A keyword only ends where a name would: `notes` is a property, not `not` applied to `es`.
+NameChar = _{ ALPHABETIC | NUMBER | UNDERSCORE | PERIOD | COLON }
+
+IdentifierInner = _{
+    ALPHABETIC ~ NameChar*
+}
+
+IdentifierQuoted = { DQUOTE ~ (DQUOTE ~ DQUOTE | !DQUOTE ~ ANY)* ~ DQUOTE }
+
+Identifier = @{ IdentifierInner | IdentifierQuoted }
+
+NotFlag                   = @{ ^"not" ~ !NameChar }
+
+// Anchored so that input the grammar cannot fully consume is an error. Matching `Expr` alone lets
+// pest stop at the last complete atom and report success, discarding the remainder.
+ExprRoot                  = _{ SOI ~ Expr ~ EOI }
+Expr                      =  { (Negative* ~ ExprAtomValue ~ (ExprInfixOp ~ Negative* ~ ExprAtomValue)*) }
+ExprInfixOp = _{ ArithInfixOp | CmpInfixOp | And | Or }
+
+// `BETWEEN` is the three-operand `isBetweenPredicate` rather than an infix operator, because the
+// `AND` inside it delimits the bounds rather than being the boolean connective.
+//
+// A bound is any comparable expression: a number, a string, a date or timestamp, a property, a
+// function call, an arithmetic expression, or a parenthesised one. The spec's numeric requirement
+// (Requirement 6 -- functions and properties SHALL evaluate to a numericLiteral) is semantic, so
+// operands of other types parse here and are left to the validator.
+//
+// The one thing a bound cannot contain is a bare `AND` or `OR`, which is what makes
+// `x BETWEEN 1 AND 2 AND y = 3` unambiguous -- the second `AND` can only be the connective.
+BetweenOperand =  { Negative* ~ AtomicExpr ~ (ArithInfixOp ~ Negative* ~ AtomicExpr)* }
+BetweenPostfix =  { NotFlag? ~ ^"between" ~ BetweenOperand ~ ^"and" ~ BetweenOperand }
+And                       =  { ^"and" }
+Or                        =  { ^"or" }
+ArithInfixOp              = _{ Add | Subtract | Multiply | Divide | Modulo | Power}
+Add                       =  { "+" }
+Subtract                  =  { "-" }
+Multiply                  =  { "*" }
+Divide                    =  { "/" | ^"div" }
+Modulo                    =  { "%" }
+Power                    =  { "^" }
+Negative                   = { "-" }
+// `IS NULL` is the postfix `IsNullPostfix` predicate, matched as part of `ExprAtomValue` before any
+// infix operator is looked for.
+CmpInfixOp                = _{ NotEq | GtEq | Gt | LtEq | Lt | Eq | In | Like }
+Eq                        =  { "=" }
+Gt                        =  { ">" }
+GtEq                      =  { ">=" }
+Lt                        =  { "<" }
+LtEq                      =  { "<=" }
+Like                      =  { NotFlag? ~ ^"like" }
+NotEq                     =  { "<>" | "!=" }
+In                        =  { NotFlag? ~ ^"in" }
+ExprAtomValue             = _{ UnaryNot* ~ AtomicExpr ~ (IsNullPostfix | BetweenPostfix)? }
+UnaryNot                  = @{ NotFlag }
+IsNullPostfix             =  { ^"is" ~ NotFlag? ~ ^"null" }
+AtomicExpr                = _{ Literal | Function | Identifier | ExpressionInParentheses | Array }
+// `DECIMAL` matches an integer with no fractional part, so it subsumes a bare integer alternative:
+// anything `Integer` would match here, `DECIMAL` already matched.
+Literal                   = _{ GEOMETRY | True | False | Null | Double | DECIMAL | SingleQuotedString }
+True                      = @{ ^"true" ~ !NameChar }
+False                     = @{ ^"false" ~ !NameChar }
+Null                      = @{ ^"null" ~ !NameChar }
+DECIMAL                   = @{ Integer ~ ("." ~ ASCII_DIGIT*)? }
+Double                    = @{ Integer ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ Integer) }
+Integer                   = @{ ("+" | "-")? ~ ASCII_DIGIT+ }
+SingleQuotedString        = @{ "'" ~ ("''" | (!"'" ~ ANY))* ~ "'" }
+FunctionArgs              = _{ (Expr ~ ("," ~ Expr)*)? }
+Function                  =  { Identifier ~ LPAREN ~ FunctionArgs ~ RPAREN }
+ExpressionInParentheses   =  { "(" ~ Expr ~ ")" }
+Array = { "(" ~ Expr ~ ("," ~ Expr)* ~ ")" }

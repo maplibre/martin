@@ -45,17 +45,19 @@ postgres:
 
 Every feature is offered to each layer, which may take it or not. Inside each tile, the layers of one
 table come in the order they are listed. Tables come in the order of `--source`, or ordered by source id
-without it. Layer names must be unique across all sources, and a run holds at most 256 layers.
+without it. Layers with the same name, or the same [`layer`](#combining-layers), are written into one
+output layer, which comes where its first layer would. A run holds at most 256 layers.
 
 ## Layer keys
 
 | Key                               | Meaning                                                          | Details                                            |
 |-----------------------------------|------------------------------------------------------------------|----------------------------------------------------|
+| `layer`                           | The output layer it writes into; the layer's key when unset      | [Combining layers](#combining-layers)              |
 | `minzoom`, `maxzoom`              | A number, or an expression for each feature's own zoom           | [Zooms](#zooms)                                    |
 | `extent`, `buffer`, `clip_geom`   | Override the table source's                                      |                                                    |
 | `simplify`, `simplify_at_maxzoom` | Pixels of tolerance when simplifying lines and polygons          | [Simplification](#simplification-and-minimum-size) |
 | `min_size`, `min_size_at_maxzoom` | Pixels, below which lines and polygons are dropped               | [Simplification](#simplification-and-minimum-size) |
-| `geometry`                        | Only features of one type, or a point computed from each         | [Geometry](#geometry)                              |
+| `geometry`                        | Only features of some types, or a point computed from each       | [Geometry](#geometry)                              |
 | `where`                           | An expression: only features for which it is `true`              | [Features](#features)                              |
 | `attributes`                      | Which properties to write, and under which names                 | [Attributes](#attributes)                          |
 | `id`                              | `true` (default), `false`, or an expression                      | [Feature ids](#feature-ids)                        |
@@ -123,13 +125,13 @@ A rule's `simplify` and `min_size` apply at every zoom, including the max zoom.
 A feature belongs to a layer when all of these hold:
 
 1. the table source's `filter`, which the database applies while reading,
-2. the type the layer's [`geometry`](#geometry) takes, if set,
+2. the types the layer's [`geometry`](#geometry) takes, if set,
 3. the layer's `where` expression, if set. `null` and failed evaluations count as `false`.
 
 A [rule](#rules)'s `where` is not one of them.
 A feature that matches no rule stays in the layer.
 
-The database also applies the geometry type and `where` of every layer at the zoom being read, so rows no
+The database also applies the geometry types and `where` of every layer at the zoom being read, so rows no
 layer takes are never read. This needs a SQL equivalent for each `where` of the table. These have one:
 
 - comparisons of a column with a literal,
@@ -148,19 +150,38 @@ Without a SQL equivalent, Martin reads every row and checks `where` itself, with
 
 `geometry` sets the features a layer takes and what it draws for each, with Planetiler's names:
 
-| `geometry`         | Takes    | Draws                  |
-|--------------------|----------|------------------------|
-| `point`            | points   | the points             |
-| `line`             | lines    | the lines              |
-| `polygon`          | polygons | the polygons           |
-| `polygon_centroid` | polygons | the centroid, a point  |
-| `line_centroid`    | lines    | the centroid, a point  |
-| `centroid`         | all      | the centroid, a point  |
+| `geometry`                   | Takes    | Draws                                               |
+|------------------------------|----------|-----------------------------------------------------|
+| `point`                      | points   | the points                                          |
+| `line`                       | lines    | the lines                                           |
+| `polygon`                    | polygons | the polygons                                        |
+| `polygon_centroid`           | polygons | the centroid, a point                               |
+| `line_centroid`              | lines    | the centroid, a point                               |
+| `centroid`                   | all      | the centroid, a point                               |
+| `polygon_point_on_surface`   | polygons | a point on its surface                              |
+| `polygon_centroid_if_convex` | polygons | the centroid if convex, else a point on its surface |
 
-The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all
-parts of a multi-geometry. It can lie outside a concave polygon. It is computed once per feature, in Web
-Mercator, and drawn like any point: only in the tiles it reaches, with no `min_size`, and
-[per-tile operations](#per-tile-operations) see a point.
+The centroid is area-weighted for polygons, length-weighted for lines, and the mean for points, over all parts
+of a multi-geometry. It can lie outside a concave polygon. A point on the surface lies inside the polygon: the
+middle of the widest stretch inside it of a horizontal line through the middle of its bounding box, and for a
+multi-polygon, that of the part where this stretch is widest. As in Planetiler, a polygon is convex when it
+has no holes and no turn of its outline goes the other way by more than a thousandth of its largest turn; a
+multi-polygon never is. Each point is computed once per feature, in Web Mercator, and drawn like any point:
+only in the tiles it reaches, with no `min_size`, and [per-tile operations](#per-tile-operations) see a point.
+
+`geometry` can also be a list, as Planetiler lists several `features` with one filter and the same attributes.
+Each feature is drawn by the first entry that takes its type, and only once; the entries share the layer's
+`where`, zooms and attributes. All entries of a list draw points, and an entry whose types the entries before
+it all take is refused.
+
+```yaml
+layers:
+  pois:
+    geometry: [point, polygon_point_on_surface]
+    where: "amenity == 'cafe'"
+```
+
+This layer draws a cafe point as itself and a cafe polygon as a point on its surface, and leaves out cafe lines.
 
 ## Attributes
 
@@ -171,9 +192,74 @@ A list copies those properties as they are. A map names each output attribute:
 - a string is an expression, so `kind: class` writes the column `class` as `kind`,
 - `{ value: ... }`, a number or a boolean is a literal,
 - `{ expr: ..., minzoom: ..., maxzoom: ... }` is only written at those zooms.
+- `{ expr: ..., hidden: true }` is not written to tiles, see [Hidden attributes](#hidden-attributes).
 
 In both, `name:*` copies the columns starting with `name:`, written `"name:*": "name:*"` in a map.
 An expression that is `null` leaves the attribute out.
+
+### Hidden attributes
+
+[Per-tile operations](#per-tile-operations) read a feature's attributes, not the source's columns. When an
+operation needs a value that the tiles do not, add it as an attribute with `hidden: true`. The operation
+reads it, and Martin leaves it out of the tile. Planetiler's temporary tags do the same job.
+
+Use a hidden attribute to:
+
+- key a `thinning` by a value you do not publish,
+- keep features apart in `merge_lines`, or in `merge_polygons` without `group_by`. Both merge only
+  features whose attributes are all equal, hidden attributes included.
+
+This layer keeps one point per street and house number in each tile, and writes only the house number:
+
+```yaml
+postgres:
+  tables:
+    addresses:
+      schema: public
+      table: addresses
+      geometry_column: geom
+      properties:
+        street: text
+        housenumber: text
+      layers:
+        housenumber:
+          geometry: point
+          attributes:
+            housenumber: housenumber
+            _street: { expr: street, hidden: true }
+          thinning: { method: tile, keys: [_street, housenumber] }
+```
+
+`merge_lines` can reverse a joined line, which breaks one-way roads. This layer gives each one-way road its
+own `_unmerged` value, so it never merges. Two-way roads have no `_unmerged`, since a `null` expression
+leaves the attribute out, and merge as before:
+
+```yaml
+postgres:
+  tables:
+    roads:
+      schema: public
+      table: roads
+      geometry_column: geom
+      properties:
+        osm_id: int8
+        highway: text
+        oneway: text
+      layers:
+        transportation:
+          geometry: line
+          attributes:
+            class: highway
+            _unmerged: { expr: "oneway == 'yes' ? osm_id : null", hidden: true }
+          merge_lines: {}
+```
+
+A hidden attribute is:
+
+- left out of every tile and of the `vector_layers` metadata,
+- left out of the MVT key table, also with `--mvt-quirk keep-unused-keys`,
+- hidden for the whole output layer. When a layer or one of its rules hides an attribute, Martin also
+  hides it in the features of other layers that [write into the same output layer](#combining-layers).
 
 ## Feature ids
 
@@ -219,7 +305,8 @@ A rule can set:
 
 ## Draw order
 
-Without `sort_by`, the features of a layer keep the order the source reads them in.
+Without `sort_by`, the features of a layer keep the order the source reads them in. An output layer
+that [combines layers](#combining-layers) holds the features of its first layer, then those of the next.
 
 === "PostgreSQL"
 
@@ -323,7 +410,8 @@ more meet, as at a junction, they are not. The joined lines are simplified by `t
 way `simplify` does it, clipped to the tile and `buffer`, and dropped when their length inside is below
 `min_length`. The lines of equal attributes become one line or multi-line feature, or nothing if no line
 is left. Joining may reverse a line's direction. To join lines that differ in some attribute, leave it out
-of `attributes` at those zooms.
+of `attributes` at those zooms. To keep lines apart by a value you do not publish, use a
+[hidden attribute](#hidden-attributes).
 
 ```yaml
 merge_lines:
@@ -422,14 +510,16 @@ postgres:
               thinning: { maxzoom: 9, method: grid, size: 128, limit: 1 }
 ```
 
-| Option               | Default                             | Meaning                                                    |
-|----------------------|-------------------------------------|------------------------------------------------------------|
-| `method`             | required                            | `grid`, `distance` or `tile`                               |
-| `size`               | required by `grid`                  | Side of a square above 0, in pixels of a 256-pixel tile    |
-| `limit`              | required by `grid`                  | Points kept per square and key in each tile, 1 or more     |
-| `distance`           | required by `distance`              | Pixels within which a feature with the same key is dropped |
-| `keys`               | one key for all; required by `tile` | CEL expressions forming the key                            |
-| `minzoom`, `maxzoom` | the layer's zooms                   | Where it runs                                              |
+| Option               | Default                                | Meaning                                                    |
+|----------------------|----------------------------------------|------------------------------------------------------------|
+| `method`             | required                               | `grid`, `distance` or `tile`                               |
+| `size`               | required by `grid`                     | Side of a square above 0, in pixels of a 256-pixel tile    |
+| `limit`              | every point; `grid` needs it or `rank` | Points kept per square and key in each tile, 1 or more     |
+| `rank`               | none                                   | `grid`: attribute each kept point's position is written to |
+| `rank_offset`        | `0`                                    | `grid`: added to the position `rank` writes                |
+| `distance`           | required by `distance`                 | Pixels within which a feature with the same key is dropped |
+| `keys`               | one key for all; required by `tile`    | CEL expressions forming the key                            |
+| `minzoom`, `maxzoom` | the layer's zooms                      | Where it runs                                              |
 
 `grid` thins out points, such as labels, the way Planetiler's point label grid does. At each zoom it
 covers, the world is cut into squares of `size` pixels, aligned to the world rather than to tiles. Each
@@ -442,8 +532,26 @@ same way in both tiles only when each sees all of its points, so set the layer's
 
 --8<-- "images/generate/per-tile-thinning-grid.svg"
 
-A rule may set its own grid `thinning` for the features it takes, without `keys`, replacing the layer's
-grid, or `null` to turn the grid off for them. `distance` and `tile` thinning see every feature of the
+With `rank`, each point the grid keeps gets its position among the kept points of its square and key in
+the tile, in draw order and counting from 1, plus `rank_offset`, as Planetiler's OpenMapTiles `place` layer
+writes `rank` from its `gridrank`. A point that already has the attribute keeps its value, but still takes
+a position. Without `limit`, the grid keeps every point and only ranks them.
+
+```yaml
+place:
+  geometry: point
+  sort_by: [{ expr: "rank" }]
+  thinning: { maxzoom: 12, method: grid, size: 128, rank: rank, rank_offset: 10 }
+  rules:
+    - where: "rank == null"   # unranked towns and villages are thinned as well as ranked
+      thinning:
+        - { maxzoom: 8, method: grid, size: 128, limit: 4 }
+        - { minzoom: 9, maxzoom: 12, method: grid, size: 128, limit: 8 }
+```
+
+A rule may set its own grid `thinning` for the features it takes, with a `limit` and without `keys` or
+`rank`, replacing the layer's grid, or `null` to turn the grid off for them. The layer's `rank` still
+ranks the points a rule's grid keeps. `distance` and `tile` thinning see every feature of the
 layer; to spare some features, give them a key of only `null`s.
 
 `distance` places each feature at a representative point of what the tile holds of it, in the tile and its
@@ -500,6 +608,54 @@ dropped from the buffer of the next.
 
 Unlike `max_feature_count` of a table source, which limits the rows read for a tile, `limit` limits the
 features written to it.
+
+## Combining layers
+
+`layer` names the output layer a layer writes into. Without it, the layer's key is its output layer.
+Layers of one output layer, from one source or from several sources of one run, are merged into that one
+layer in each tile. The key stays the layer's name in errors, warnings and [`martin test`](martin-test.md)
+paths.
+
+```yaml
+postgres:
+  tables:
+    parks:
+      schema: public
+      table: parks
+      geometry_column: geom
+      id_column: osm_id
+      properties:
+        class: text
+        name: text
+      layers:
+        park:
+          geometry: polygon
+          buffer: 4
+          attributes: [class]
+        park_label:
+          layer: park
+          where: "name != null"
+          geometry: polygon_point_on_surface
+          buffer: 256
+          attributes: [name]
+```
+
+Each layer keeps its own `where`, `geometry`, zooms, `buffer`, `clip_geom`, simplification, `attributes`,
+`id` and `rules`, and its features keep their ids. With the `parks` source above, each tile holds one `park`
+layer, with each park's polygon and, for a named park, the point labeling it.
+
+The output layer has some settings once, so its layers must agree on them, or the run fails naming two
+of them:
+
+| Key                                                                            | Must be                                                         |
+|--------------------------------------------------------------------------------|-----------------------------------------------------------------|
+| `extent`                                                                       | Equal on all of them, after defaulting to the source's or 4096  |
+| `sort_by`, `merge_lines`, `merge_polygons`, `thinning`, `merge_multi`, `limit` | Equal wherever set; set on one layer, it applies to all         |
+
+`sort_by` and the per-tile operations act on the features of all the layers together, within the zooms
+of all of them. An operation without its own `buffer` keeps the widest `buffer` of the layers. The
+`vector_layers` metadata lists the output layer once, with the attributes of all its layers, and the
+zooms its tiles have it at.
 
 ## Expressions
 
@@ -566,6 +722,18 @@ expression in YAML, for example `where: "kind == 'park'"`.
     'Main St'.indexOf('St')             // 5
     ```
 
+=== "Regular expressions"
+
+    ```text
+    '12a'.matches('^[0-9]+$')                              // false
+    matches('12', '^[0-9]+$')                              // true
+    regex.replace('5a;7b', '[^0-9;]', '')                  // '5;7'
+    regex.replace('B 39', '([A-Z]+) ([0-9]+)', '\\2 \\1')  // '39 B'
+    ```
+
+    Patterns use the syntax of Rust's [`regex`](https://docs.rs/regex/latest/regex/#syntax) crate,
+    which has no lookaround and no backreferences.
+
 === "Lists and maps"
 
     ```text
@@ -589,8 +757,41 @@ expression in YAML, for example `where: "kind == 'park'"`.
 Martin adds these functions to CEL:
 
 - `coalesce(a, b, ...)` returns its first argument that is not `null`.
+- `max(a, b, ...)`, `max(list)` or `list.max()` returns the largest value, `null` for an empty list, as
+  `max(ref.split(';').map(r, size(r)))` for the longest part of a `ref`.
+- `min(a, b, ...)`, `min(list)` or `list.min()` returns the smallest value, `null` for an empty list.
+- `regex.replace(text, pattern, replacement)` replaces each match of `pattern` in `text`, as cel-go's
+  `regex.replace`: `\1` to `\9` in `replacement` insert a group, `\0` the whole match and `\\` a backslash
+  (written `'\\1'` in a CEL string). It returns `null` for a `null` text.
+- `text.isLatin()` is `true` when `text` holds only Latin letters and characters that are no letters, such as digits,
+  punctuation and spaces, as Planetiler's `containsOnlyLatinCharacters`. It is `false` for `null` and `''`.
+- `text.removeLatin()` drops the Latin letters from `text`, then brackets left empty and the spaces, dots, slashes
+  and dashes at both ends, as Planetiler's `removeLatinCharacters`. It returns `null` for `null` and when dropping
+  Latin letters leaves only blanks, so `'日本 (Japan)'.removeLatin()` is `'日本'`. A `text` without Latin letters is
+  only trimmed, so `''.removeLatin()` is `''`.
+- The `area(unit)` function calculates the total surface area of a geometry, returning 0.0 for points and lines. It measures the shape on a spherical model of the Earth using its average radius and ignores any internal holes. For context, measuring a one-degree square at the equator will return approximately 12,364 square kilometers.
 
-Regular expressions (`matches`) and timestamps are not available.
+  You must specify a valid unit using either abbreviations or common spellings, such as `km2` or `square meters`. Supported units include metric (`m2`, `km2`, `ha`, `a`) and imperial or nautical units (`ft2`, `yd2`, `mi2`, `ac`, `nm2`). You can also use Web Mercator squares, where `z0 ti2` represents the entire world as `1`, and `z0 px2` represents the entire world as `65,536` (though Planetiler handles this by dividing instead).
+
+  Limitations are that you cannot use it within a `where` clause (because no direct SQL equivalent), and you cannot use it within `thinning` keys.
+
+Timestamps are not available. A `where` calling `matches`, `regex.replace`, `max`, `min`, `isLatin` or
+`removeLatin` has no SQL equivalent.
+
+OpenMapTiles' `name:latin` is the first name written only in Latin letters, and `name:nonlatin` the rest of a
+name that is not:
+
+```yaml
+attributes:
+  name: name
+  "name:latin": >-
+    name.isLatin() ? name
+    : feature['name:en'].isLatin() ? feature['name:en']
+    : int_name.isLatin() ? int_name
+    : feature['name:de'].isLatin() ? feature['name:de']
+    : null
+  "name:nonlatin": "name.isLatin() ? null : name.removeLatin()"
+```
 
 | Expression           | Result                                                              |
 |----------------------|---------------------------------------------------------------------|
@@ -672,8 +873,9 @@ postgres:
   `thinning` option its `method` does not take, or a per-tile operation on a table source or, except a
   grid `thinning`, in a rule. Unknown keys are warned about.
 - **Before rendering**, after connecting to the database, the run fails on unknown property names,
-  duplicate layer names, more than 256 layers, a zoom above 27, and the settings that are not supported
-  yet, and on a `group_by` attribute the layer does not write. It warns about a per-tile operation whose
+  layers of one output layer that disagree on `extent`, `sort_by` or a per-tile operation, more than 256
+  layers, a zoom above 27, and the settings that are not supported yet, and on a `group_by` attribute the
+  layer does not write. It warns about a per-tile operation whose
   zooms miss the layer's, and drops it, about one that never acts on the layer's `geometry`, and about a
   grid `thinning` with squares larger than the layer's `buffer`.
 

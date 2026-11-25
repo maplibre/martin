@@ -1,1 +1,1 @@
-../../../mbtiles/sql/init-cache.sql
+../../../crates/mbtiles/sql/init-cache.sql

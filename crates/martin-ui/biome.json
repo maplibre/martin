@@ -1,0 +1,21 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
+  "extends": "//",
+  "files": {
+    "includes": [
+      "*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
+      "{__tests__,__mocks__,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
+      "!node_modules",
+      "!dist",
+      "!src/lib/types.gen.ts"
+    ]
+  },
+  "linter": {
+    "rules": {
+      "style": {
+        "useComponentExportOnlyModules": "off"
+      }
+    }
+  },
+  "root": false
+}

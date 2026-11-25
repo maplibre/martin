@@ -1,0 +1,8 @@
+---
+source: e2e-tests/tests/martin_cp_osm.rs
+expression: listings
+---
+default:
+12/2132/2602 17024 bytes
+tessellated:
+12/2132/2602 26248 bytes

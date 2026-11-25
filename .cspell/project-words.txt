@@ -11,15 +11,20 @@ basemap
 bindiff
 binstall
 bpchar
+brunnel
 bsdiff
 bsdiffraw
 bsdiffrawgz
+zstdpatchgz
+zstdpatchraw
 bytea
 cacreateserial
 callgrind
 casei
+centerlines
 circularstring
 clippy
+colour
 configtest
 csscolorparser
 ctid
@@ -31,6 +36,7 @@ debuginfo
 deckgl
 dedup
 demotiles
+diffable
 dflt
 dpkg
 duckdb
@@ -55,6 +61,7 @@ geoparquet
 geospatial
 geotransform
 geozero
+gridrank
 gungraun
 haswell
 healthcheck
@@ -62,6 +69,7 @@ healthchecks
 hillshade
 hillshading
 hotpath
+housenumber
 httpfs
 icount
 impls
@@ -69,6 +77,7 @@ indicatif
 inspectable
 isnull
 isolines
+landcover
 legacycpu
 jpegxl
 justfiles
@@ -86,6 +95,7 @@ manbhav
 mapbox
 maplibre
 maplibregl
+mapterhorn
 maptiler
 maptilers
 maputnik
@@ -95,6 +105,7 @@ mbtiles
 minzoom
 moka
 msvc
+multipoint
 multipolygon
 multisurface
 mydb
@@ -104,16 +115,19 @@ newtype
 nextest
 nixpkgs
 nodata
+nonlatin
 notnull
 noto
 NZTM
 ogcapi
 ogrinfo
 oklch
+oneway
 onthegomap
 openlayers
 openmaptiles
 optfile
+osmdata
 osmus
 overturemaps
 PDOK
@@ -134,6 +148,7 @@ postgis
 qgis
 quadtree
 queryless
+rans
 reproject
 reprojected
 reprojection
@@ -148,6 +163,7 @@ serde
 setseed
 setsrid
 shapefile
+shapefiles
 spreet
 spritesheet
 sqlx
@@ -178,7 +194,9 @@ toon
 tui
 unclipped
 undecoded
+unranked
 untap
+upsamples
 urlencode
 USGS
 usize
@@ -198,3 +216,9 @@ zstd
 zune
 ctid
 quadkey
+landuse
+openstreetmap
+osmflow
+versatiles
+aeroway
+pois

@@ -44,6 +44,12 @@
       groupName: 'pyo3 crates',
     },
     {
+      // sqlx and the rusqlite-based sqlite-* crates each pin one libsqlite3-sys, which links a single sqlite3, so they move together.
+      matchManagers: ['cargo'],
+      matchPackageNames: ['sqlx', 'sqlite-compressions', 'sqlite-hashes'],
+      groupName: 'sqlite crates',
+    },
+    {
       // Maintained by us, so no need to wait for the ecosystem to catch up.
       matchManagers: ['cargo'],
       matchPackageNames: ['maplibre_native', 'mlt-core'],
@@ -73,7 +79,7 @@
     },
     {
       // Test setup intentionally pins Postgres 15 with PostGIS 3.5 (oldest versions we support).
-      // Keep in sync with MINIMUM_POSTGRES_VERSION in martin-core/src/tiles/postgres/pool.rs.
+      // Keep in sync with MINIMUM_POSTGRES_VERSION in crates/martin-core/src/tiles/postgres/pool.rs.
       matchDatasources: ['docker'],
       matchPackageNames: ['postgis/postgis'],
       matchCurrentValue: '/^15-3\\.5/',

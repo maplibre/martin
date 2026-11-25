@@ -1,0 +1,531 @@
+#[cfg(feature = "_tiles")]
+use std::collections::BTreeMap;
+use std::fmt;
+use std::path::PathBuf;
+use std::sync::LazyLock;
+
+use clap::ValueEnum;
+#[cfg(feature = "_tiles")]
+use martin_core::tiles::BoxedSource;
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{DeserializeSeed, IntoDeserializer as _, MapAccess, Visitor};
+use serde::{Deserialize, Serialize};
+use tracing::{error, instrument, warn};
+
+#[cfg(feature = "_tiles")]
+use crate::config::file::SourceBuildResult;
+#[cfg(feature = "_tiles")]
+use crate::config::file::TileGridsConfig;
+#[cfg(feature = "cog")]
+use crate::config::file::cog::CogConfig;
+#[cfg(feature = "unstable-duckdb")]
+use crate::config::file::duckdb::DuckDbConfig;
+#[cfg(feature = "resources")]
+use crate::config::file::fonts::FontConfig;
+#[cfg(feature = "processing")]
+use crate::config::file::geojson::GeoJsonConfig;
+#[cfg(feature = "mbtiles")]
+use crate::config::file::mbtiles::MbtConfig;
+#[cfg(feature = "osm")]
+use crate::config::file::osm::OsmConfig;
+#[cfg(feature = "passthrough")]
+use crate::config::file::passthrough::PassthroughConfig;
+#[cfg(feature = "pmtiles")]
+use crate::config::file::pmtiles::PmtConfig;
+#[cfg(feature = "postgres")]
+use crate::config::file::postgres::PostgresConfig;
+#[cfg(feature = "_tiles")]
+use crate::config::file::process::{MltProcessConfig, MvtProcessConfig};
+#[cfg(feature = "shapefile")]
+use crate::config::file::shapefile::ShapefileConfig;
+#[cfg(feature = "resources")]
+use crate::config::file::sprites::SpriteConfig;
+use crate::config::file::srv::SrvConfig;
+#[cfg(feature = "resources")]
+use crate::config::file::styles::StyleConfig;
+use crate::config::file::{
+    CollectUnrecognizedKeys, ConfigFileError, ConfigFileResult, DeserializeFields as _, GlobalCacheConfig,
+    UnrecognizedValues,
+};
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "cog",
+    feature = "processing",
+    feature = "resources",
+    feature = "resources",
+    feature = "resources",
+))]
+use crate::config::file::{FileConfig, path_or_config};
+#[cfg(feature = "postgres")]
+use crate::config::primitives::one_or_many;
+#[cfg(feature = "_tiles")]
+use crate::tile_source_manager::TileSourceManager;
+
+/// Warnings that can occur during tile source resolution
+#[derive(thiserror::Error, Debug, Clone)]
+pub enum TileSourceWarning {
+    #[error("Source {source_id}: {error}")]
+    SourceError { source_id: String, error: String },
+
+    #[error("Path {path}: {error}")]
+    PathError { path: PathBuf, error: String },
+}
+
+#[cfg(feature = "_tiles")]
+pub type ResolutionResult = SourceBuildResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)>;
+
+pub struct ServerState {
+    #[cfg(feature = "_tiles")]
+    pub tile_manager: TileSourceManager,
+
+    #[cfg(feature = "resources")]
+    pub sprites: martin_core::sprites::SpriteSources,
+    #[cfg(feature = "resources")]
+    pub sprite_cache: martin_core::sprites::OptSpriteCache,
+
+    #[cfg(feature = "resources")]
+    pub fonts: martin_core::fonts::FontSources,
+    #[cfg(feature = "resources")]
+    pub font_cache: martin_core::fonts::OptFontCache,
+
+    #[cfg(feature = "resources")]
+    pub styles: martin_core::styles::StyleSources,
+}
+
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, CollectUnrecognizedKeys)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub struct Config {
+    /// Cache configuration
+    /// Use `cache: disable` to disable all caching entirely.
+    #[serde(default, skip_serializing_if = "GlobalCacheConfig::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::GlobalCacheConfigShape")
+    )]
+    pub cache: GlobalCacheConfig,
+
+    /// The policy for handling invalid sources during startup. \[default: abort\]
+    ///
+    /// Invalid sources are those that are missing (file not found, table doesn't exist, ...),
+    /// reference columns that don't exist, and so on.
+    /// Currently limited to tile sources; broader rollout is planned.
+    ///
+    /// Options:
+    /// - `warn`: log warning messages
+    /// - `abort`: log warnings as error messages, abort startup
+    #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"abort"))]
+    pub on_invalid: Option<OnInvalid>,
+
+    #[serde(flatten)]
+    pub srv: SrvConfig,
+
+    /// Tile grids sources can be served in, besides the built-in ones such as `WebMercatorQuad` and `NZTM2000Quad`
+    ///
+    /// A grid is a square power-of-two quad grid in a coordinate reference system, given by the zoom-0 tile's top-left corner and side in CRS units.
+    /// Sources refer to a grid by its name here.
+    /// ```yaml
+    /// tile_grids:
+    ///   DutchRD:
+    ///     crs: EPSG:28992
+    ///     origin: [-285401.92, 903401.92]
+    ///     extent_at_zoom0: 880803.84
+    /// ```
+    #[cfg(feature = "_tiles")]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tile_grids: TileGridsConfig,
+
+    /// Database configuration
+    ///
+    /// This can also be a list of PG configs, for example:
+    /// ```yaml
+    /// postgres:
+    ///   - connection_string:  postgres://postgres:postgres@localhost:5432/db
+    ///     default_srid: 4326
+    ///   - connection_string:  postgres://postgres:postgres@another_host:5432/another_db
+    ///     default_srid: 3857
+    /// ```
+    #[cfg(feature = "postgres")]
+    #[serde(default, with = "one_or_many", skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "one_or_many::OneOrMany<PostgresConfig>")
+    )]
+    pub postgres: Vec<PostgresConfig>,
+
+    /// Publish `PMTiles` files from local disk or proxy to a web server
+    #[cfg(feature = "pmtiles")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<PmtConfig>")
+    )]
+    pub pmtiles: FileConfig<PmtConfig>,
+
+    /// Publish `MBTiles` files
+    #[cfg(feature = "mbtiles")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<MbtConfig>")
+    )]
+    pub mbtiles: FileConfig<MbtConfig>,
+
+    /// Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
+    /// Each upstream is configured under `sources`.
+    #[cfg(feature = "passthrough")]
+    #[serde(default, skip_serializing_if = "PassthroughConfig::is_empty")]
+    pub passthrough: PassthroughConfig,
+
+    #[cfg(feature = "cog")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<CogConfig>")
+    )]
+    pub cog: FileConfig<CogConfig>,
+
+    /// Publish `DuckDB` / `GeoParquet` sources (unstable)
+    #[cfg(feature = "unstable-duckdb")]
+    #[serde(default, skip_serializing_if = "DuckDbConfig::is_empty")]
+    pub duckdb: DuckDbConfig,
+
+    /// OpenStreetMap PBF files, which only `martin cp --mode bulk` renders (unstable)
+    #[cfg(feature = "osm")]
+    #[serde(default, skip_serializing_if = "OsmConfig::is_empty")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub osm: OsmConfig,
+
+    /// ESRI shapefiles, which only `martin cp --mode bulk` renders (unstable)
+    #[cfg(feature = "shapefile")]
+    #[serde(default, skip_serializing_if = "ShapefileConfig::is_empty")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub shapefile: ShapefileConfig,
+
+    /// Publish `GeoJSON` files as vector tile sources
+    #[cfg(feature = "processing")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<GeoJsonConfig>")
+    )]
+    pub geojson: FileConfig<GeoJsonConfig>,
+
+    /// Named combinations of tile sources.
+    ///
+    /// Each alias can be requested like a tile source and serves the listed sources combined,
+    /// exactly like the composite request `/{source1},{source2}`.
+    /// Aliases may only reference tile sources, not other aliases.
+    /// An alias sharing the name of a tile source takes precedence over it.
+    #[cfg(feature = "_tiles")]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub aliases: BTreeMap<String, Vec<String>>,
+
+    /// Sprite configuration
+    #[cfg(feature = "resources")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<crate::config::file::sprites::InnerSpriteConfig>")
+    )]
+    pub sprites: SpriteConfig,
+
+    /// Publish `MapLibre` style files
+    /// You can also configure us to render the styles on the server side.
+    #[cfg(feature = "resources")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<crate::config::file::styles::InnerStyleConfig>")
+    )]
+    pub styles: StyleConfig,
+
+    /// Font configuration
+    #[cfg(feature = "resources")]
+    #[serde(
+        default,
+        deserialize_with = "path_or_config::deserialize",
+        skip_serializing_if = "FileConfig::is_default"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "path_or_config::FileConfigShape<crate::config::file::fonts::InnerFontConfig>")
+    )]
+    pub fonts: FontConfig,
+
+    /// Encoder settings for MVT->MLT conversion (global level).
+    /// Overridden by source-type or per-source `convert_to_mlt` keys.
+    ///
+    /// Can be either:
+    /// - (default) `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitly configured
+    #[cfg(feature = "_tiles")]
+    #[serde(default)]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+
+    /// Settings for MLT->MVT conversion (global level).
+    /// Overridden by source-type or per-source `convert_to_mvt` keys.
+    ///
+    /// Can be either:
+    /// - (default) `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitly configured
+    #[cfg(feature = "_tiles")]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
+}
+
+/// Reads a [`Config`] with the server keys read straight into `srv`, so their errors keep their YAML location.
+pub(crate) struct ConfigVisitor;
+
+impl<'de> Visitor<'de> for ConfigVisitor {
+    type Value = Config;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("struct Config")
+    }
+
+    fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<Config, M::Error> {
+        let mut srv = SrvConfig::default();
+        let mut config = Config::deserialize(MapAccessDeserializer::new(WithoutSrvKeys { map, srv: &mut srv }))?;
+        config.srv = srv;
+        Ok(config)
+    }
+}
+
+/// The live map with the server keys read into `srv` instead of being passed on.
+struct WithoutSrvKeys<'a, M> {
+    map: M,
+    srv: &'a mut SrvConfig,
+}
+
+impl<'de, M: MapAccess<'de>> MapAccess<'de> for WithoutSrvKeys<'_, M> {
+    type Error = M::Error;
+
+    fn next_key_seed<K: DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>, M::Error> {
+        while let Some(key) = self.map.next_key::<String>()? {
+            if !self.srv.deserialize_field(&key, &mut self.map)? {
+                return seed.deserialize(key.into_deserializer()).map(Some);
+            }
+        }
+        Ok(None)
+    }
+
+    fn next_value_seed<V: DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value, M::Error> {
+        self.map.next_value_seed(seed)
+    }
+}
+
+/// Describes the action to take during startup when configuration is found to be invalid
+/// but Martin could still startup in a degraded state (ie, some sources not served).
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum OnInvalid {
+    /// Log warning messages, abort if the error is critical
+    #[serde(alias = "warnings", alias = "warning", alias = "continue", alias = "ignore")]
+    Warn,
+    /// Log warnings as errors, abort startup
+    #[default]
+    Abort,
+}
+
+fn fmt_warnings(warnings: &[TileSourceWarning]) -> String {
+    warnings
+        .iter()
+        .map(|w| format!("  - {w}"))
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+impl OnInvalid {
+    /// Handle warnings based on `policy`
+    #[instrument(skip_all, fields(warnings.count = warnings.len()), err(Debug))]
+    pub fn handle_tile_warnings(self, warnings: &[TileSourceWarning]) -> ConfigFileResult<()> {
+        if warnings.is_empty() {
+            return Ok(());
+        }
+        match warnings {
+            [warning] => match self {
+                Self::Warn => warn!(warning = %warning, "Tile source resolution warning"),
+                Self::Abort => error!(warning = %warning, "Tile source resolution warning"),
+            },
+            warnings => match self {
+                Self::Warn => {
+                    warn!(warnings = %fmt_warnings(warnings), "Tile source resolution warnings");
+                }
+                Self::Abort => {
+                    error!(warnings = %fmt_warnings(warnings), "Tile source resolution warnings");
+                }
+            },
+        }
+
+        match self {
+            Self::Abort => Err(ConfigFileError::TileResolutionWarningsIssued),
+            Self::Warn => Ok(()),
+        }
+    }
+}
+
+pub fn parse_base_path(path: &str) -> ConfigFileResult<String> {
+    if !path.starts_with('/') {
+        return Err(ConfigFileError::InvalidBasePath(path.to_owned()));
+    }
+    if let Ok(uri) = path.parse::<actix_web::http::Uri>() {
+        return Ok(uri.path().trim_end_matches('/').to_owned());
+    }
+    Err(ConfigFileError::InvalidBasePath(path.to_owned()))
+}
+
+/// Installs the process-wide rustls crypto provider.
+///
+/// With the `fips` feature, this is the FIPS 140-3 validated AWS-LC module,
+/// and startup fails if the installed provider is not FIPS-compliant.
+pub fn init_aws_lc_tls() {
+    #[cfg(not(feature = "fips"))]
+    use rustls::crypto::aws_lc_rs;
+
+    // https://github.com/rustls/rustls/issues/1877
+    static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
+        #[cfg(feature = "fips")]
+        let provider = rustls::crypto::default_fips_provider();
+        #[cfg(not(feature = "fips"))]
+        let provider = aws_lc_rs::default_provider();
+
+        provider.install_default().expect("Unable to init rustls");
+
+        #[cfg(feature = "fips")]
+        rustls::crypto::CryptoProvider::get_default()
+            .filter(|p| p.fips())
+            .expect("rustls crypto provider is not in FIPS mode");
+    });
+    *INIT_TLS;
+}
+
+#[cfg(test)]
+mod tests {
+    use martin_core::CacheZoomRange;
+
+    use super::*;
+    use crate::config::file::{CachePolicy, ConfigFileError};
+    use crate::config::test_helpers::render_finalize_failure;
+    use crate::logging::LogFormat;
+
+    #[test]
+    fn non_spanned_error_renders_as_json_envelope() {
+        // For errors that don't carry source location info, JSON mode still emits a JSON
+        // document so downstream tools can keep parsing rather than choking on a free-form
+        // log line.
+        let envelope = crate::StartupError::from(ConfigFileError::InvalidBasePath("not-a-path".to_owned()))
+            .render_diagnostic_with(LogFormat::Json);
+        let parsed: serde_json::Value =
+            serde_json::from_str(&envelope).unwrap_or_else(|e| panic!("not JSON: {e}\n{envelope}"));
+        let msg = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
+        assert!(
+            msg.contains("not-a-path"),
+            "expected envelope to include the error message; got: {envelope}"
+        );
+    }
+
+    #[test]
+    fn parse_base_path_accepts_valid_paths() {
+        assert_eq!("", parse_base_path("/").unwrap());
+        assert_eq!("", parse_base_path("//").unwrap());
+        assert_eq!("/foo/bar", parse_base_path("/foo/bar").unwrap());
+        assert_eq!("/foo/bar", parse_base_path("/foo/bar/").unwrap());
+    }
+
+    #[test]
+    fn parse_base_path_rejects_invalid_paths() {
+        parse_base_path("").unwrap_err();
+        parse_base_path("foo/bar").unwrap_err();
+    }
+
+    #[tokio::test]
+    async fn finalize_base_path_must_start_with_slash() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                pmtiles: /tmp
+                base_path: not-a-path
+            "}).await,
+            @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'not-a-path'"
+        );
+    }
+
+    #[tokio::test]
+    async fn finalize_route_prefix_must_start_with_slash() {
+        insta::assert_snapshot!(
+            render_finalize_failure(indoc::indoc! {"
+                pmtiles: /tmp
+                route_prefix: oops
+            "}).await,
+            @"Base path must be a valid URL path, and must begin with a '/' symbol, but is 'oops'"
+        );
+    }
+
+    #[test]
+    fn cache_disable_per_source() {
+        let policy: CachePolicy = serde_saphyr::from_str("disable").unwrap();
+        assert_eq!(policy, CachePolicy::disabled());
+        for zoom in 0..=u8::MAX {
+            assert!(
+                !policy.zoom().contains(zoom),
+                "A disabled policy should never match any zoom level"
+            );
+        }
+    }
+
+    #[test]
+    fn cache_disable_per_source_ignores_global_defaults() {
+        // Per-source disable is not overridden by global defaults
+        let disabled = CachePolicy::disabled();
+        let defaults = CachePolicy::new(CacheZoomRange::new(Some(0), Some(20)));
+        let merged = disabled.or(&defaults);
+        for zoom in 0..=u8::MAX {
+            assert!(!merged.zoom().contains(zoom));
+        }
+    }
+
+    #[test]
+    fn cache_disable_global_can_be_overridden_per_source() {
+        // Per-source config re-enables caching despite global disable
+        let source = CachePolicy::new(CacheZoomRange::new(Some(0), Some(10)));
+        let global_disabled = CachePolicy::disabled();
+        let merged = source.or(&global_disabled);
+        assert!(merged.zoom().contains(0));
+        assert!(merged.zoom().contains(5));
+        assert!(merged.zoom().contains(10));
+        assert!(!merged.zoom().contains(11));
+    }
+}

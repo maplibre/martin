@@ -1,0 +1,1012 @@
+//! `martin cp --mode bulk`: bulk tile generation from whole-table scans.
+
+pub mod layers;
+mod metadata;
+#[cfg(feature = "osm")]
+mod osm;
+pub mod postgres;
+mod progress;
+pub mod serve;
+#[cfg(feature = "shapefile")]
+mod shapefile;
+pub mod spec;
+
+use std::collections::{BTreeMap, HashSet};
+use std::num::NonZeroUsize;
+use std::ops::RangeInclusive;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Instant;
+
+use martin_core::tiles::postgres::{PostgresError, PostgresPool};
+use martin_tile_utils::{Encoding, WEB_MERCATOR_QUAD};
+use martin_tilegen::plan::{TableDef, Untranslatable};
+use martin_tilegen::source::{FeatureSource, SourceChain, WkbError};
+use martin_tilegen::{
+    GenerateConfig, MbtilesOptions, MbtilesSink, PmtilesSink, Progress, SortConfig, Summary, TileFormat, TileGenError,
+    TileGenResult, generate,
+};
+use mbtiles::{HASH_ALGORITHM, HashAlgorithm, MbtType, MbtTypeCli, check_metadata_edit};
+use mlt_core::encoder::{EncoderConfig, Network};
+use postgres_protocol::escape::escape_identifier;
+use tilejson::Bounds;
+#[cfg(unix)]
+use tokio::signal::unix::{Signal, SignalKind, signal};
+#[cfg(windows)]
+use tokio::signal::windows::{CtrlBreak, CtrlC, ctrl_break, ctrl_c};
+use tracing::{debug, info, warn};
+
+use crate::StartupError;
+use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
+use crate::config::file::MltEncoderConfig;
+use crate::config::file::postgres::resolver::{linear_geometry, row_filter};
+use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresInfo as _, SourceSpec, TableInfo};
+use crate::config::file::process::{MltProcessConfig, ProcessConfig};
+use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
+use crate::config::primitives::IdResolver;
+use crate::config::primitives::env::OsEnv;
+use crate::cp::{CopierArgs, CopyArgs, CopyFormat, MartinCpError, MvtQuirk, check_bboxes};
+use crate::generate::layers::{LowerOptions, OutputLayerMismatch, OutputLayers, lower_table_with, table_settings};
+use crate::generate::metadata::BulkMetadata;
+use crate::generate::postgres::{PgScanSource, ScanTable};
+use crate::generate::progress::Monitor;
+use crate::logging::LogFormat;
+use crate::srv::RESERVED_KEYWORDS;
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Per-worker sort buffers are kept between these: smaller spills too many runs, larger cannot be indexed.
+const BUFFER_BYTES: RangeInclusive<u64> = (16 << 20)..=(u32::MAX as u64);
+/// Runs are ranges of a few shared mapped temp files, so a wider merge only deepens the loser tree,
+/// while each intermediate merge rewrites its runs on one thread.
+const MAX_FAN_IN: usize = 4096;
+const DEFAULT_MEMORY: u64 = 2 << 30;
+const DEFAULT_MAX_ZOOM: u8 = 14;
+
+/// What a bulk run renders and how, resolved from the `martin cp` arguments.
+#[derive(Debug)]
+struct GenerateOptions {
+    sources: Vec<String>,
+    output_file: PathBuf,
+    format: TileFormat,
+    /// The format as asked for, which also tells the MLT wire version.
+    copy_format: CopyFormat,
+    encoding: Encoding,
+    zooms: RangeInclusive<u8>,
+    bbox: Option<Bounds>,
+    memory: u64,
+    temp_dirs: Vec<PathBuf>,
+    threads: usize,
+    mvt_preserve_ring_start: bool,
+    mvt_keep_unused_keys: bool,
+    mbtiles: MbtilesOptions,
+}
+
+impl GenerateOptions {
+    /// Takes the options bulk mode reads, and refuses the ones it would ignore.
+    fn new(args: CopyArgs, meta: &MetaArgs) -> GenerateResult<Self> {
+        if args.url_query.is_some() {
+            return Err(GenerateError::UrlQuery);
+        }
+        if args.concurrency.is_some() {
+            return Err(GenerateError::Concurrency);
+        }
+        if args.on_duplicate.is_some() {
+            return Err(GenerateError::OnDuplicate);
+        }
+        if meta.save_config.is_some() {
+            return Err(GenerateError::SaveConfig);
+        }
+        let mbtiles_only: Vec<&str> = [
+            ("--mbtiles-type", args.mbt_type.is_some()),
+            ("--skip-agg-tiles-hash", args.skip_agg_tiles_hash),
+            ("--set-meta", !args.set_meta.is_empty()),
+            ("--delete-meta", !args.delete_meta.is_empty()),
+        ]
+        .into_iter()
+        .filter_map(|(option, used)| used.then_some(option))
+        .collect();
+        if is_pmtiles(&args.output_file) && !mbtiles_only.is_empty() {
+            return Err(GenerateError::MbtilesOnly {
+                options: mbtiles_only.join("`, `"),
+            });
+        }
+        check_metadata_edit(&args.set_meta, &args.delete_meta).map_err(TileGenError::from)?;
+        if let Some((_, algorithm)) = args.set_meta.iter().find(|(key, _)| key == HASH_ALGORITHM)
+            && HashAlgorithm::parse(algorithm).is_none()
+        {
+            return Err(GenerateError::UnknownHashAlgorithm {
+                algorithm: algorithm.clone(),
+            });
+        }
+        let copy_format = args.format.unwrap_or(CopyFormat::MltV1);
+        let format = match copy_format {
+            CopyFormat::Mvt => TileFormat::Mvt,
+            #[cfg(feature = "unstable-mlt-v2")]
+            CopyFormat::MltV2 => TileFormat::Mlt,
+            CopyFormat::MltV1 => TileFormat::Mlt,
+        };
+        if !args.mvt_quirks.is_empty() && !matches!(format, TileFormat::Mvt) {
+            return Err(GenerateError::MvtQuirkWithoutMvt);
+        }
+        let encoding = args
+            .encoding
+            .as_deref()
+            .map(|value| Encoding::parse(value).ok_or_else(|| GenerateError::BadEncoding(value.to_owned())))
+            .transpose()?;
+        let encoding = resolve_encoding(&args.output_file, format, encoding)?;
+        let bbox = match args.bbox.as_slice() {
+            [] => None,
+            [bbox] => Some(*bbox),
+            _ => return Err(GenerateError::SeveralBboxes),
+        };
+        if let Some(bbox) = bbox {
+            check_bboxes(&WEB_MERCATOR_QUAD, vec![bbox])?;
+        }
+        let threads = args
+            .threads
+            .or_else(|| std::thread::available_parallelism().ok())
+            .map_or(1, NonZeroUsize::get);
+        Ok(Self {
+            sources: args
+                .source
+                .iter()
+                .flat_map(|ids| ids.split(','))
+                .map(str::to_owned)
+                .collect(),
+            output_file: args.output_file,
+            format,
+            copy_format,
+            encoding,
+            zooms: zoom_range(args.min_zoom, args.max_zoom, args.zoom_levels)?,
+            bbox,
+            memory: args.memory.unwrap_or(DEFAULT_MEMORY),
+            temp_dirs: if args.temp_dir.is_empty() {
+                vec![std::env::temp_dir()]
+            } else {
+                args.temp_dir
+            },
+            threads,
+            mvt_preserve_ring_start: args.mvt_quirks.contains(&MvtQuirk::PreserveRingStart),
+            mvt_keep_unused_keys: args.mvt_quirks.contains(&MvtQuirk::KeepUnusedKeys),
+            mbtiles: MbtilesOptions {
+                mbt_type: MbtType::from(args.mbt_type.unwrap_or(MbtTypeCli::Normalized)),
+                agg_tiles_hash: !args.skip_agg_tiles_hash,
+                set_meta: args.set_meta,
+                delete_meta: args.delete_meta,
+            },
+        })
+    }
+}
+
+/// The zooms to render: `--zoom-levels` without gaps, or `--min-zoom` to `--max-zoom`.
+fn zoom_range(min_zoom: Option<u8>, max_zoom: Option<u8>, mut levels: Vec<u8>) -> GenerateResult<RangeInclusive<u8>> {
+    levels.sort_unstable();
+    levels.dedup();
+    match (levels.first(), levels.last()) {
+        (Some(&first), Some(&last)) if usize::from(last - first) + 1 == levels.len() => Ok(first..=last),
+        (Some(_), _) => Err(GenerateError::ZoomGaps),
+        _ => Ok(min_zoom.unwrap_or(0)..=max_zoom.unwrap_or(DEFAULT_MAX_ZOOM)),
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum GenerateError {
+    #[error(transparent)]
+    Startup(#[from] StartupError),
+    #[error(transparent)]
+    Postgres(#[from] PostgresError),
+    #[error(transparent)]
+    TileGen(#[from] TileGenError),
+    #[error(transparent)]
+    Bbox(#[from] MartinCpError),
+    #[error("`--mode bulk` renders tables and views, and only function sources read `--url-query`")]
+    UrlQuery,
+    #[error("`--mode bulk` does not read `--concurrency`; use `--threads` for its worker threads")]
+    Concurrency,
+    #[error("`--mode bulk` writes only a new or empty file, so it does not read `--on-duplicate`")]
+    OnDuplicate,
+    #[error("`--mode bulk` cannot save its configuration with `--save-config` yet")]
+    SaveConfig,
+    #[error(
+        "`--mode bulk` cannot cap the features of a tile yet; remove `--max-feature-count` and the config's `max_feature_count`"
+    )]
+    MaxFeatureCount,
+    #[error("`--mode bulk` reads `{options}` only for `.mbtiles` output")]
+    MbtilesOnly { options: String },
+    #[error("`--set-meta hash_algorithm={algorithm}` is not one of md5, fnv1a, fnv1a-decimal, xxh64 or xxh3")]
+    UnknownHashAlgorithm { algorithm: String },
+    #[error("`--mode bulk` takes at most one `--bbox`")]
+    SeveralBboxes,
+    #[error("`--mode bulk` renders a range of zooms; `--zoom-levels` must not skip a zoom")]
+    ZoomGaps,
+    #[error("`--mvt-quirk` only changes MVT tiles; add `--format mvt`")]
+    MvtQuirkWithoutMvt,
+    #[error("unknown encoding `{0}`; `--mode bulk` takes one of gzip, zlib, br, zstd or none")]
+    BadEncoding(String),
+    #[error("No table source matches `{0}`. Available table sources: {1}")]
+    UnknownSource(String, String),
+    #[error("Source `{0}` has no `id_column`, which `martin test` selects its rows by")]
+    NoIdColumn(String),
+    #[error("Case of `{0}` has no id in its input")]
+    CaseWithoutId(String),
+    #[error("Source `{0}` is a function source; only tables and views can be scanned")]
+    FunctionSource(String),
+    #[error(
+        "Source `{source_id}` sets `convert_to_mlt: disabled`, but `--mode bulk` writes MLT unless given `--format mvt`"
+    )]
+    MltDisabled { source_id: String },
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[error(
+        "Source `{source_id}` sets `{key}` in `convert_to_mlt`, which changes only `--format mlt2` tiles; add `--format mlt2`"
+    )]
+    V2OnlyKey { source_id: String, key: &'static str },
+    #[cfg(feature = "unstable-mlt-v2")]
+    #[error(
+        "layer `{layer}` of source `{source_id}` selects `{key}`, which is not a column: `--format mlt2` keeps a `jsonb` column ({documents}) whole as one nested column, so a key inside it cannot be selected; select the column instead"
+    )]
+    KeyInsideDocument {
+        source_id: String,
+        layer: String,
+        key: String,
+        documents: String,
+    },
+    #[error("Source `{0}` uses tile grid `{1}`; `--mode bulk` supports Web Mercator only")]
+    UnsupportedGrid(String, String),
+    #[error(transparent)]
+    OutputLayerMismatch(Box<OutputLayerMismatch>),
+    #[error("layer `{layer}`: {what} is not supported by `--mode bulk` yet")]
+    Unsupported { layer: String, what: String },
+    #[error(
+        "layer `{layer}`: `geometry: [{geometry}]` mixes geometry types; the entries of a list must all draw points"
+    )]
+    MixedGeometry { layer: String, geometry: String },
+    #[error(
+        "layer `{layer}`: `{entry}` in `geometry: [{geometry}]` takes no feature, as the entries before it take all of \
+         its types"
+    )]
+    UnreachableGeometry {
+        layer: String,
+        entry: &'static str,
+        geometry: String,
+    },
+    #[error(
+        "`--mode bulk` renders file sources (`osm`, `shapefile`) or database sources in one run, not both; pick them with `--source`"
+    )]
+    MixedSources,
+    #[cfg(any(feature = "osm", feature = "shapefile"))]
+    #[error(
+        "`martin test` tests file sources (`osm`, `shapefile`) or database sources, not both; put them in separate configuration files"
+    )]
+    MixedTestSources,
+    #[cfg(all(feature = "osm", feature = "shapefile"))]
+    #[error("Source id `{source_id}` is both a `shapefile` and an `osm` source; give them different ids")]
+    SharedFileSourceId { source_id: String },
+    #[cfg(feature = "shapefile")]
+    #[error("Source `{source_id}` has a field `{field}`, which `martin test` reserves in each case's input")]
+    ShapefileReservedField { source_id: String, field: String },
+    #[cfg(feature = "osm")]
+    #[error("Source `{source_id}` reads the tag `{tag}`, which `martin test` reserves in each case's input")]
+    OsmReservedTag { source_id: String, tag: String },
+    #[cfg(feature = "osm")]
+    #[error("Cannot read OSM file {}: {error}", path.display())]
+    OsmFile {
+        path: PathBuf,
+        #[source]
+        error: std::io::Error,
+    },
+    #[error("Sources come from more than one database; generate them separately")]
+    MultipleDatabases,
+    #[error("No table sources to generate")]
+    NoSources,
+    #[error("No layer has a zoom between {0} and {1}")]
+    NoLayers(u8, u8),
+    #[error("layer `{}`: `max_feature_count` needs `where` checked in SQL, but `{}` {}", .0.layer, .0.expr, .0.reason)]
+    UnlimitableWhere(Untranslatable),
+    #[error("Martin cannot serve compressed MLT tiles from PMTiles; use `--encoding none`")]
+    CompressedPmtilesMlt,
+    #[error("Martin cannot detect {0} compression in MBTiles; use `--encoding gzip`, `zlib` or `none`")]
+    UndetectableMbtilesEncoding(&'static str),
+    #[error("Interrupted; removed the partial output {}", .0.display())]
+    Interrupted(PathBuf),
+    #[error("Could not listen for interrupts: {0}")]
+    Signal(#[source] std::io::Error),
+    #[error("Cannot read spec file {}: {}", .0.display(), .1)]
+    ReadSpec(PathBuf, #[source] std::io::Error),
+    #[error("Cannot parse spec file {}: {}", .0.display(), .1)]
+    ParseSpec(PathBuf, #[source] Box<serde_saphyr::Error>),
+    #[error("Cannot write spec file {}: {}", .0.display(), .1)]
+    WriteSpec(PathBuf, #[source] std::io::Error),
+    #[error(
+        "`martin test` holds one connection open for its snapshot and reads through another, but `pool_size` is {pool_size}; set it to at least 2"
+    )]
+    PoolTooSmall { pool_size: usize },
+    #[error("Row {key} of `{table}` renders more than {tiles} tiles; pass a lower `--max-zoom`")]
+    CaseTooLarge { table: String, key: u64, tiles: usize },
+    #[error(
+        "Source `{source_id}`: {error}\nCount the rows of each geometry type it cannot render with:\n  {count_sql}"
+    )]
+    FeatureGeometry {
+        source_id: String,
+        #[source]
+        error: Box<TileGenError>,
+        count_sql: String,
+    },
+    #[error("Row {key} of `{source_id}`: {error}")]
+    CaseGeometry {
+        source_id: String,
+        key: u64,
+        #[source]
+        error: WkbError,
+    },
+    #[error("Cannot decode a tile bulk mode wrote: {0}")]
+    Decode(#[source] mlt_core::MltError),
+    #[cfg(feature = "tui")]
+    #[error("The review terminal failed: {0}")]
+    Review(#[source] std::io::Error),
+    #[error("Background task failed: {0}")]
+    Join(#[from] tokio::task::JoinError),
+}
+
+impl From<ConfigFileError> for GenerateError {
+    fn from(err: ConfigFileError) -> Self {
+        Self::Startup(err.into())
+    }
+}
+
+impl From<ArgsError> for GenerateError {
+    fn from(err: ArgsError) -> Self {
+        Self::Startup(err.into())
+    }
+}
+
+impl GenerateError {
+    /// Renders the error for the terminal: config errors as diagnostics matching `log_format`, the rest with every cause.
+    #[must_use]
+    pub fn render_diagnostic_with(&self, log_format: LogFormat) -> String {
+        if let Self::Startup(err) = self {
+            return err.render_diagnostic_with(log_format);
+        }
+        let mut message = self.to_string();
+        let mut source = std::error::Error::source(self);
+        while let Some(err) = source {
+            let cause = err.to_string();
+            if !message.contains(&cause) {
+                message = format!("{message}: {cause}");
+            }
+            source = err.source();
+        }
+        message
+    }
+}
+
+pub type GenerateResult<T> = Result<T, GenerateError>;
+
+/// Renders whole tables into the output file, as `martin cp --mode bulk`.
+pub async fn start(args: CopierArgs) -> GenerateResult<()> {
+    let options = GenerateOptions::new(args.copy, &args.meta)?;
+    info!(martin.version = %VERSION, "Starting Martin tile generator");
+    let started = Instant::now();
+    let progress = Arc::new(Progress::default());
+    let monitor = Monitor::start(Arc::clone(&progress));
+    let mut config = match &args.meta.config {
+        Some(path) => read_config(path, &OsEnv)?,
+        None => Config::default(),
+    };
+    Args {
+        command: None,
+        meta: args.meta,
+        extras: ExtraArgs::default(),
+        srv: SrvArgs::default(),
+        pg: args.pg,
+    }
+    .merge_into_config(&mut config)?;
+    if config.postgres.iter().any(|pg| pg.max_feature_count.is_some()) {
+        return Err(GenerateError::MaxFeatureCount);
+    }
+    config.finalize().await?;
+    config.warn_unrecognized_keys();
+
+    let mut sources: Vec<(Box<dyn FeatureSource + Send>, Vec<TableDef>)> = Vec::new();
+    let mut geometry_finders = Vec::new();
+    let files = file_sources(&config, &options)?;
+    let metadata = if files.is_empty() {
+        let (pool, scans, bounds) = select_sources(&config, &options).await?;
+        for scan in &scans {
+            geometry_finders.push(Some((scan.id.clone(), unsupported_geometry_sql(&scan.info)?)));
+        }
+        let metadata = bulk_metadata(
+            &options,
+            bounds,
+            scans
+                .iter()
+                .map(|scan| scan.info.discovered.tilejson.as_ref())
+                .collect(),
+        );
+        let defs = scans.iter().map(|scan| scan.def.clone()).collect();
+        let source = PgScanSource::new(pool, scans, PgScanSource::PARTITION_BLOCKS).await?;
+        sources.push((Box::new(source), defs));
+        metadata
+    } else {
+        #[cfg(any(feature = "osm", feature = "shapefile"))]
+        let outputs = Arc::new(file_outputs(&config, &files, &options.zooms)?);
+        #[cfg(feature = "shapefile")]
+        if let Some((source, defs)) = shapefile::source(&config, &options, &files, &outputs).await? {
+            geometry_finders.extend(defs.iter().map(|_| None));
+            sources.push((Box::new(source), defs));
+        }
+        #[cfg(feature = "osm")]
+        if let Some((source, defs)) = osm::source(&config, &options, &files, &outputs).await? {
+            geometry_finders.extend(defs.iter().map(|_| None));
+            sources.push((Box::new(source), defs));
+        }
+        if sources.is_empty() {
+            return Err(GenerateError::NoLayers(*options.zooms.start(), *options.zooms.end()));
+        }
+        bulk_metadata(&options, options.bbox, Vec::new())
+    };
+    monitor.set_tables(geometry_finders.len());
+    let source = SourceChain::new(sources).map_err(TileGenError::from)?;
+    run(source, options, metadata, progress, monitor, started, geometry_finders).await
+}
+
+/// Fails if a source id is both a `shapefile` and an `osm` source.
+///
+/// # Errors
+///
+/// If `config` has such an id.
+#[cfg(all(feature = "osm", feature = "shapefile"))]
+pub fn check_file_source_ids(config: &Config) -> GenerateResult<()> {
+    match config
+        .shapefile
+        .sources
+        .keys()
+        .find(|id| config.osm.sources.contains_key(*id))
+    {
+        Some(id) => Err(GenerateError::SharedFileSourceId { source_id: id.clone() }),
+        None => Ok(()),
+    }
+}
+
+/// The ids of the file sources the run renders, shapefile and OSM sources, in the order `--source` names them; empty
+/// if it renders database sources.
+///
+/// # Errors
+///
+/// If the run asks for file sources and database sources together.
+fn file_sources(config: &Config, options: &GenerateOptions) -> GenerateResult<Vec<String>> {
+    #[cfg(all(feature = "osm", feature = "shapefile"))]
+    check_file_source_ids(config)?;
+    #[cfg_attr(
+        not(any(feature = "osm", feature = "shapefile")),
+        expect(unused_mut, reason = "this build reads no kind of file source")
+    )]
+    let mut files: Vec<&String> = Vec::new();
+    #[cfg(feature = "shapefile")]
+    files.extend(config.shapefile.sources.keys());
+    #[cfg(feature = "osm")]
+    files.extend(config.osm.sources.keys());
+    if files.is_empty() {
+        return Ok(Vec::new());
+    }
+    if options.sources.is_empty() {
+        if !config.postgres.is_empty() {
+            return Err(GenerateError::MixedSources);
+        }
+        return Ok(files.into_iter().cloned().collect());
+    }
+    let (ours, others): (Vec<&String>, Vec<&String>) = options.sources.iter().partition(|id| files.contains(id));
+    if !ours.is_empty() && !others.is_empty() {
+        return Err(GenerateError::MixedSources);
+    }
+    Ok(ours.into_iter().cloned().collect())
+}
+
+/// The output layers of the file sources `ids`, rendered at `zooms`.
+///
+/// # Errors
+///
+/// If layers writing into one output layer disagree on a setting it has once.
+#[cfg(any(feature = "osm", feature = "shapefile"))]
+fn file_outputs(config: &Config, ids: &[String], zooms: &RangeInclusive<u8>) -> GenerateResult<OutputLayers> {
+    let mut sources = Vec::new();
+    #[cfg(feature = "shapefile")]
+    sources.extend(
+        ids.iter()
+            .filter_map(|id| Some((id.as_str(), shapefile::settings(config.shapefile.sources.get(id)?)))),
+    );
+    #[cfg(feature = "osm")]
+    sources.extend(
+        ids.iter()
+            .filter_map(|id| Some((id.as_str(), osm::settings(config.osm.sources.get(id)?)))),
+    );
+    OutputLayers::new(sources, zooms)
+}
+
+/// The metadata of a bulk tileset covering `bounds`, merged from the tables' SQL `comments`.
+fn bulk_metadata(
+    options: &GenerateOptions,
+    bounds: Option<Bounds>,
+    comments: Vec<Option<&serde_json::Value>>,
+) -> tilejson::TileJSON {
+    BulkMetadata {
+        name: options
+            .output_file
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned()),
+        bounds,
+        compression: (!is_pmtiles(&options.output_file)).then_some(options.encoding),
+        comments,
+        generator: format!("martin cp v{VERSION} (bulk)"),
+    }
+    .into_tilejson()
+}
+
+/// Renders `source` into the output file with `metadata`.
+async fn run(
+    source: SourceChain,
+    options: GenerateOptions,
+    metadata: tilejson::TileJSON,
+    progress: Arc<Progress>,
+    monitor: Monitor,
+    started: Instant,
+    geometry_finders: Vec<Option<(String, String)>>,
+) -> GenerateResult<()> {
+    let generate_config = generate_config(&options);
+    let format = generate_config.format;
+    let encoding = options.encoding;
+    let output = options.output_file;
+    let mut interrupt = Interrupt::register()?;
+    let sink = {
+        let (output, format, mbtiles) = (output.clone(), generate_config.format, options.mbtiles);
+        tokio::task::spawn_blocking(move || Output::create(&output, format, encoding, mbtiles)).await??
+    };
+
+    let task = tokio::task::spawn_blocking({
+        let progress = Arc::clone(&progress);
+        move || -> GenerateResult<Summary> { Ok(sink.generate(&source, &generate_config, metadata, &progress)?) }
+    });
+    let result = tokio::select! {
+        result = task => result.map_err(GenerateError::from).and_then(|r| r),
+        () = interrupt.recv() => Err(GenerateError::Interrupted(output.clone())),
+    };
+    if result.is_ok() {
+        monitor.finish().await;
+    } else {
+        drop(monitor);
+    }
+    let summary = result
+        .map_err(|err| explain_feature_geometry(err, &geometry_finders))
+        .inspect_err(|_| remove_output(&output))?;
+    info!(
+        features = summary.features,
+        tiles = summary.tiles,
+        elapsed = ?started.elapsed(),
+        mbtiles.file = %output.display(),
+        "Generated tiles"
+    );
+    log_summary(&summary, format);
+    Ok(())
+}
+
+/// Logs what the run skipped, what failed, and what each per-tile operation did.
+fn log_summary(summary: &Summary, format: TileFormat) {
+    if summary.skipped > 0 {
+        debug!(
+            features.skipped = summary.skipped,
+            "Skipped features with empty geometries"
+        );
+    }
+    for failed in &summary.slice_errors {
+        warn!(
+            layer.id = %failed.layer,
+            feature_zooms.skipped = failed.errors,
+            feature.id = failed.id,
+            feature.partition = failed.partition,
+            feature.row = failed.row,
+            tile.zoom = failed.zoom,
+            error = %failed.error,
+            "Skipped feature-zooms whose geometry the slicer could not handle"
+        );
+    }
+    for failed in &summary.expr_errors {
+        warn!(
+            "Layer `{}`: `{}` failed {} times and was taken as null",
+            failed.layer, failed.expr, failed.errors
+        );
+    }
+    let stored_as = match format {
+        TileFormat::Mlt => "every tile stores them as text",
+        TileFormat::Mvt => "tiles that hold more than one of them store them as text",
+    };
+    for mixed in &summary.mixed_kinds {
+        warn!(
+            "Layer `{}`: `{}` has values of different types; {stored_as}",
+            mixed.layer, mixed.key
+        );
+    }
+    for rounded in &summary.rounded {
+        warn!(
+            "Layer `{}`: {} integers of `{}` shared a column with floats, which rounded them",
+            rounded.layer, rounded.values, rounded.key
+        );
+    }
+    for op in &summary.per_tile {
+        info!(
+            layer.id = %op.layer,
+            tiles = op.counts.tiles,
+            features.input = op.counts.features_in,
+            features.output = op.counts.features_out,
+            "Ran `{}`",
+            op.op.name()
+        );
+        if op.counts.groups_failed > 0 {
+            warn!(
+                "Layer `{}`: `{}` could not merge {} groups, which kept their features",
+                op.layer,
+                op.op.name(),
+                op.counts.groups_failed
+            );
+        }
+    }
+}
+
+/// `err` naming the source of a feature whose geometry stopped the run, with `finders` by table:
+/// the source id and a query counting the rows of each geometry type it cannot render, for database tables.
+fn explain_feature_geometry(err: GenerateError, finders: &[Option<(String, String)>]) -> GenerateError {
+    let GenerateError::TileGen(err) = err else {
+        return err;
+    };
+    let (TileGenError::FeatureWkb { table, .. } | TileGenError::RowWkb { table, .. }) = &err else {
+        return GenerateError::TileGen(err);
+    };
+    let Some(Some((source_id, sql))) = finders.get(usize::from(*table)) else {
+        return GenerateError::TileGen(err);
+    };
+    GenerateError::FeatureGeometry {
+        source_id: source_id.clone(),
+        count_sql: sql.clone(),
+        error: Box::new(err),
+    }
+}
+
+/// A query counting the rows of `info` that pass its filter, by each geometry type bulk mode cannot render.
+fn unsupported_geometry_sql(info: &TableInfo) -> GenerateResult<String> {
+    Ok(format!(
+        "SELECT ST_GeometryType(g), count(*) FROM (SELECT {} AS g FROM {}.{} WHERE {} IS NOT NULL{}) AS t WHERE ST_GeometryType(g) NOT IN ('ST_Point', 'ST_MultiPoint', 'ST_LineString', 'ST_MultiLineString', 'ST_Polygon', 'ST_MultiPolygon') AND NOT (ST_GeometryType(g) = 'ST_GeometryCollection' AND ST_IsEmpty(g)) GROUP BY 1",
+        linear_geometry(info),
+        escape_identifier(&info.schema),
+        escape_identifier(&info.table),
+        escape_identifier(&info.geometry_column),
+        row_filter(info, "AND")?,
+    ))
+}
+
+/// Created before the run starts, so that a failure removes only a file this run created.
+enum Output {
+    Mbtiles(MbtilesSink),
+    Pmtiles(PmtilesSink),
+}
+
+impl Output {
+    fn create(path: &Path, format: TileFormat, encoding: Encoding, mbtiles: MbtilesOptions) -> TileGenResult<Self> {
+        if is_pmtiles(path) {
+            PmtilesSink::create(path, format, encoding).map(Self::Pmtiles)
+        } else {
+            MbtilesSink::create_with(path, mbtiles).map(Self::Mbtiles)
+        }
+    }
+
+    fn generate(
+        self,
+        source: &SourceChain,
+        config: &GenerateConfig,
+        metadata: tilejson::TileJSON,
+        progress: &Progress,
+    ) -> TileGenResult<Summary> {
+        match self {
+            Self::Mbtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
+            Self::Pmtiles(sink) => generate(source, source.plan(), sink, config, metadata, progress),
+        }
+    }
+}
+
+fn is_pmtiles(path: &Path) -> bool {
+    path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("pmtiles"))
+}
+
+/// The tile compression to write, refusing any that Martin could not serve the output with.
+fn resolve_encoding(output_file: &Path, format: TileFormat, encoding: Option<Encoding>) -> GenerateResult<Encoding> {
+    let pmtiles_mlt = is_pmtiles(output_file) && matches!(format, TileFormat::Mlt);
+    match encoding {
+        None if pmtiles_mlt => Ok(Encoding::Uncompressed),
+        None => Ok(Encoding::Gzip),
+        Some(encoding) if pmtiles_mlt && encoding.is_encoded() => Err(GenerateError::CompressedPmtilesMlt),
+        Some(encoding @ (Encoding::Brotli | Encoding::Zstd)) if !is_pmtiles(output_file) => Err(
+            GenerateError::UndetectableMbtilesEncoding(encoding.compression().unwrap_or_default()),
+        ),
+        Some(encoding) => Ok(encoding),
+    }
+}
+
+fn generate_config(options: &GenerateOptions) -> GenerateConfig {
+    let threads = options.threads;
+    let per_thread = (options.memory / threads as u64).clamp(*BUFFER_BYTES.start(), *BUFFER_BYTES.end());
+    GenerateConfig {
+        threads,
+        sort: SortConfig {
+            temp_dirs: options.temp_dirs.clone(),
+            buffer_bytes: usize::try_from(per_thread).unwrap_or(usize::MAX),
+            max_fan_in: MAX_FAN_IN,
+        },
+        format: options.format,
+        encoding: options.encoding,
+        batch_tiles: 256,
+        window: threads * 4,
+        mvt_preserve_ring_start: options.mvt_preserve_ring_start,
+        mvt_keep_unused_keys: options.mvt_keep_unused_keys,
+    }
+}
+
+/// The sources discovered on every PostgreSQL connection of a config.
+struct Discovered {
+    /// The discovery of each connection, in config order.
+    builders: Vec<PostgresAutoDiscoveryBuilder>,
+    /// Table sources by id, with the index of their connection.
+    tables: BTreeMap<String, (TableInfo, usize)>,
+    /// Ids of the function sources, which bulk mode cannot scan.
+    functions: HashSet<String>,
+}
+
+/// Discovers the sources of every PostgreSQL connection, handling the warnings as `on_invalid` says.
+async fn discover(config: &Config) -> GenerateResult<Discovered> {
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+    let grids = TileGrids::resolve(&config.tile_grids)?;
+    let mut discovered = Discovered {
+        builders: Vec::new(),
+        tables: BTreeMap::new(),
+        functions: HashSet::new(),
+    };
+    let mut warnings = Vec::new();
+    for pg in &config.postgres {
+        let builder = PostgresAutoDiscoveryBuilder::new(pg, resolver.clone(), config.cache.policy(), &grids).await?;
+        let (specs, pg_warnings) = builder.discover().await?;
+        warnings.extend(pg_warnings);
+        for (id, spec) in specs {
+            match spec {
+                SourceSpec::Table(info) => {
+                    discovered.tables.insert(id, (info, discovered.builders.len()));
+                }
+                SourceSpec::Function(..) => {
+                    discovered.functions.insert(id);
+                }
+            }
+        }
+        discovered.builders.push(builder);
+    }
+    config.on_invalid.unwrap_or_default().handle_tile_warnings(&warnings)?;
+    Ok(discovered)
+}
+
+/// Discovers the table sources and lowers the requested ones, within `--bbox` or else the bounds of the
+/// lowered sources, which it returns too.
+async fn select_sources(
+    config: &Config,
+    options: &GenerateOptions,
+) -> GenerateResult<(PostgresPool, Vec<ScanTable>, Option<Bounds>)> {
+    let Discovered {
+        mut builders,
+        tables,
+        functions,
+    } = discover(config).await?;
+    let global = ProcessConfig {
+        convert_to_mlt: config.convert_to_mlt.clone(),
+        convert_to_mvt: config.convert_to_mvt.clone(),
+        ..ProcessConfig::default()
+    };
+    let requested: Vec<String> = if options.sources.is_empty() {
+        tables.keys().cloned().collect()
+    } else {
+        options.sources.clone()
+    };
+
+    let mut chosen = Vec::with_capacity(requested.len());
+    let mut pool = None;
+    for id in requested {
+        let Some((info, pool_idx)) = tables.get(&id) else {
+            if functions.contains(&id) {
+                return Err(GenerateError::FunctionSource(id));
+            }
+            return Err(GenerateError::UnknownSource(
+                id,
+                tables.keys().cloned().collect::<Vec<_>>().join(", "),
+            ));
+        };
+        let connection = &config.postgres[*pool_idx];
+        if let Some(grid) = info
+            .tile_grid
+            .as_deref()
+            .or(connection.tile_grid.as_deref())
+            .filter(|g| *g != "WebMercatorQuad")
+        {
+            return Err(GenerateError::UnsupportedGrid(id, grid.to_owned()));
+        }
+        if pool.replace(*pool_idx).is_some_and(|p| p != *pool_idx) {
+            return Err(GenerateError::MultipleDatabases);
+        }
+        let per_connection = ProcessConfig {
+            convert_to_mlt: connection.convert_to_mlt.clone(),
+            convert_to_mvt: connection.convert_to_mvt.clone(),
+            ..ProcessConfig::default()
+        };
+        let per_table = ProcessConfig {
+            convert_to_mlt: info.convert_to_mlt.clone(),
+            convert_to_mvt: info.convert_to_mvt.clone(),
+            ..ProcessConfig::default()
+        };
+        let convert = ProcessConfig::layered(&global, &per_connection, &per_table).convert_to_mlt;
+        let encoder = mlt_encoder(convert, options.copy_format, options.encoding, &id)?;
+        chosen.push((id, info, encoder, connection.order_by));
+    }
+    let settings = chosen.iter().map(|(id, info, ..)| (id.as_str(), table_settings(info)));
+    let outputs = OutputLayers::new(settings, &options.zooms)?;
+    let mut scans = Vec::with_capacity(chosen.len());
+    for (id, info, encoder, order_by) in chosen {
+        let options = LowerOptions {
+            zooms: options.zooms.clone(),
+            bounds: options.bbox,
+            encoder,
+            order_by,
+        };
+        scans.extend(lower_table_with(&id, info.clone(), &options, &outputs)?);
+    }
+    let pool = pool.ok_or(GenerateError::NoSources)?;
+    if scans.is_empty() {
+        return Err(GenerateError::NoLayers(*options.zooms.start(), *options.zooms.end()));
+    }
+    let bounds = if options.bbox.is_some() {
+        options.bbox
+    } else {
+        let mut all = Vec::with_capacity(scans.len());
+        for scan in &mut scans {
+            builders[pool].resolve_bounds(&scan.id, &mut scan.info).await?;
+            all.push(scan.info.to_tilejson(scan.id.clone()).bounds);
+        }
+        let bounds = source_bounds(all);
+        for layer in scans.iter_mut().flat_map(|scan| &mut scan.def.layers) {
+            layer.bounds = bounds;
+        }
+        bounds
+    };
+    Ok((builders.swap_remove(pool).pool().clone(), scans, bounds))
+}
+
+/// The union of `bounds`, clamped to the tiled world, as tile mode renders without `--bbox`. `None`, the
+/// whole world, when a source has no valid bounds.
+fn source_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) -> Option<Bounds> {
+    let world = Bounds::MAX_TILED;
+    let mut union: Option<Bounds> = None;
+    for bounds in bounds {
+        let bounds = bounds.filter(|b| b.left <= b.right && b.bottom <= b.top)?;
+        let clamped = Bounds::new(
+            bounds.left.clamp(world.left, world.right),
+            bounds.bottom.clamp(world.bottom, world.top),
+            bounds.right.clamp(world.left, world.right),
+            bounds.top.clamp(world.bottom, world.top),
+        );
+        union = Some(union.map_or(clamped, |union| union + clamped));
+    }
+    if let Some(bounds) = union {
+        info!(bounds = %bounds, "No bbox specified, using source bounds");
+    }
+    union
+}
+
+/// The MLT encoder settings of a source's `convert_to_mlt` for tiles of `format`, or `None` for MVT.
+///
+/// Where the settings name no `network`, compressed tiles are encoded as for `4g`, which leaves out the codecs
+/// that cost bytes after compression, and uncompressed ones as for `offline`.
+///
+/// # Errors
+///
+/// If MLT conversion is disabled for a source that is written as MLT, or sets a key MLT v1 tiles ignore.
+fn mlt_encoder(
+    convert: Option<MltProcessConfig>,
+    format: CopyFormat,
+    encoding: Encoding,
+    source_id: &str,
+) -> GenerateResult<Option<EncoderConfig>> {
+    let settings = match convert {
+        Some(MltProcessConfig::Explicit(cfg)) => {
+            #[cfg(feature = "unstable-mlt-v2")]
+            if matches!(format, CopyFormat::MltV1)
+                && let Some(key) = cfg.v2_only_key()
+            {
+                return Err(GenerateError::V2OnlyKey {
+                    source_id: source_id.to_owned(),
+                    key,
+                });
+            }
+            cfg
+        }
+        Some(MltProcessConfig::Disabled) if !matches!(format, CopyFormat::Mvt) => {
+            return Err(GenerateError::MltDisabled {
+                source_id: source_id.to_owned(),
+            });
+        }
+        _ => MltEncoderConfig::default(),
+    };
+    if matches!(format, CopyFormat::Mvt) {
+        return Ok(None);
+    }
+    let network = if matches!(encoding, Encoding::Uncompressed | Encoding::Internal) {
+        Network::Offline
+    } else {
+        Network::Cellular4G
+    };
+    let encoder = settings.encoder_config(network);
+    #[cfg(feature = "unstable-mlt-v2")]
+    if matches!(format, CopyFormat::MltV2) {
+        return Ok(Some(encoder.with_wire_version(mlt_core::encoder::WireVersion::V02)));
+    }
+    Ok(Some(encoder))
+}
+
+/// Ctrl-C and `SIGTERM` (Ctrl+Break on Windows), registered before the output exists so that neither can leave it behind.
+struct Interrupt {
+    #[cfg(unix)]
+    interrupt: Signal,
+    #[cfg(unix)]
+    terminate: Signal,
+    #[cfg(windows)]
+    ctrl_c: CtrlC,
+    #[cfg(windows)]
+    ctrl_break: CtrlBreak,
+}
+
+impl Interrupt {
+    fn register() -> GenerateResult<Self> {
+        #[cfg(unix)]
+        {
+            Ok(Self {
+                interrupt: signal(SignalKind::interrupt()).map_err(GenerateError::Signal)?,
+                terminate: signal(SignalKind::terminate()).map_err(GenerateError::Signal)?,
+            })
+        }
+        #[cfg(windows)]
+        {
+            Ok(Self {
+                ctrl_c: ctrl_c().map_err(GenerateError::Signal)?,
+                ctrl_break: ctrl_break().map_err(GenerateError::Signal)?,
+            })
+        }
+    }
+
+    async fn recv(&mut self) {
+        #[cfg(unix)]
+        tokio::select! {
+            _ = self.interrupt.recv() => {}
+            _ = self.terminate.recv() => {}
+        }
+        #[cfg(windows)]
+        tokio::select! {
+            _ = self.ctrl_c.recv() => {}
+            _ = self.ctrl_break.recv() => {}
+        }
+    }
+}
+
+/// A failed or interrupted run leaves no partial tileset behind.
+fn remove_output(path: &Path) {
+    for path in [
+        path.to_path_buf(),
+        PathBuf::from(format!("{}-journal", path.display())),
+        PathBuf::from(format!("{}-wal", path.display())),
+        PathBuf::from(format!("{}-shm", path.display())),
+    ] {
+        if path.exists()
+            && let Err(err) = std::fs::remove_file(&path)
+        {
+            warn!(path = %path.display(), error = %err, "Could not remove partial output");
+        }
+    }
+}

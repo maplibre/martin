@@ -399,7 +399,7 @@ These are the current monitoring and observability options:
 
 === "Health checks"
 
-    We allow health checks via `/health` and `/catalog` endpoints:
+    Martin allows health checks via `/health` and `/catalog` endpoints:
 
     - `/health` - Basic health check (HTTP 200)
     - `/catalog` - Source availability check

@@ -9,7 +9,7 @@ tags:
 
 It's time to get involved once you have the [fork and all required software](development/index.md).
 This guide covers IDE setup and debugging.
-While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
+While this guide uses Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
 
 ## Editor-specific Guides
 
@@ -66,7 +66,7 @@ Press `F1` on your keyboard, and input "Generate Launch Configurations from Carg
 
 ## Modify
 
-Let's say you want to debug Martin with this command:
+Say you want to debug Martin with this command:
 
 ```shell
 martin postgres://postgres:postgres@localhost:5411/db
@@ -125,7 +125,7 @@ Just copy and paste after it, and modify your pasted like this:
 
 Go to any part you're interested in of martin code and add a breakpoint.
 
-We add a breakpoint here in the [start of martin](https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10).
+Add a breakpoint here in the [start of martin](https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10).
 
 ```rust
 use clap::Parser;

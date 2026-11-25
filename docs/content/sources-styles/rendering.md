@@ -14,7 +14,8 @@ as XYZ tiles, or as a single static image at a chosen camera.
 
 !!! warning
     Rendering is **not** part of the default build.
-    It relies on `maplibre_native`, which links pre-compiled native libraries with strict runtime requirements.
+    It relies on [MapLibre Native](https://github.com/maplibre/maplibre-native-ffi), which needs EGL and OpenGL ES at runtime.
+    It renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's `llvmpipe` otherwise.
     We only ship it where we control the runtime environment.
     You get it by either:
 
@@ -26,7 +27,7 @@ as XYZ tiles, or as a single static image at a chosen camera.
     Limitations of our current implementation:
 
     - Rendering support is currently only available on Linux.
-      To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-rs>.
+      To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-ffi>.
     - Martin does not cache rendered requests.
 
 To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:
@@ -45,8 +46,10 @@ styles:
     rendering:
         enabled: true
         workers: 4
-        # Renderers each worker keeps loaded, one per style and pixel ratio [default: 8]
+        # Renderers each tile worker keeps loaded, one per style and pixel ratio [default: 8]
         renderers_per_worker: 8
+        # Renderers each static worker keeps loaded, one per style and pixel ratio [default: 2]
+        static_renderers_per_worker: 2
         # Width and height of XYZ tiles in pixels: 256 or 512 [default: 512]
         tile_size: 512
         # Whole-number @{n}x pixel ratios served, each 1 to 4 [default: [1, 2]]
@@ -121,7 +124,7 @@ styles:
 
 ## Rendered XYZ tiles
 
-We support generating a rasterized image for an XYZ tile of a given style.
+Martin supports generating a rasterized image for an XYZ tile of a given style.
 
 After enabling rendering, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg/webp content.
 
@@ -143,12 +146,37 @@ In Leaflet, this is the `{r}`-placeholder (`/style/<style_id>/{z}/{x}/{y}{r}.png
 
 ### Renderers per worker
 
-Each render worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured).
+Martin renders XYZ tiles and [static images](#static-images) in two separate pools, each with `workers` threads.
+Each tile worker keeps a renderer for every style and pixel ratio it has been asked for, up to `renderers_per_worker` (8 unless configured).
 Beyond that, the least recently used one is dropped, and loaded again the next time it is needed.
+Each static worker keeps up to `static_renderers_per_worker` renderers (2 unless configured), also one per style and pixel ratio.
+When all of them are in use, Martin loads the new style into the least recently used one, and rebuilds that renderer first if its pixel ratio differs.
+A renderer that does not answer within a minute is dropped too, so the next request for its style starts from a fresh map.
 With `tile_size: 256`, the zoom 0 tile takes one more renderer per pixel ratio.
 
 Reloading styles costs CPU on every request that misses, so set `renderers_per_worker` to at least the number of styles times the pixel ratios you serve.
-Each renderer holds its own memory: lower `renderers_per_worker` or list fewer `pixel_ratios` to reduce memory usage.
+Each renderer holds its own memory.
+To use less, lower `renderers_per_worker` or `static_renderers_per_worker`, or list fewer `pixel_ratios`.
+A worker renders one image at a time, so its renderers take turns in one graphics context instead of holding one each.
+
+### Request scheduling
+
+Each pool keeps one queue of requests.
+When a worker is free, it picks the next request like this:
+
+1. If the oldest request has waited 1 s or more, the worker takes it.
+2. Otherwise, it takes the oldest request for a renderer it already holds, looking at the first 64 requests in the queue.
+3. Otherwise, it takes the oldest request if that request has waited at least the switch cost, or if the worker holds no renderer yet.
+4. Otherwise, it waits until the oldest request has waited the switch cost, or until another request arrives or finishes, and starts again at step 1.
+
+The switch cost is the extra time a render takes when the worker first has to load the style or build the renderer.
+Martin measures it from the renders it serves and keeps it between 5 ms and 500 ms.
+
+Waiting this briefly keeps each worker on the renderers it already holds, so mixed styles and pixel ratios switch renderers far less often.
+A busy style still spreads to more workers: once its oldest request has waited the switch cost, any free worker takes it.
+If all requests use the same style and pixel ratio, workers take them oldest first.
+
+--8<-- "images/styles/render-scheduling.svg"
 
 ### Ambient cache
 
@@ -160,7 +188,7 @@ Keep it for styles that fetch from other servers.
 
 ### Shader cache
 
-On the CPU, Mesa (`lavapipe`) compiles every new renderer's shaders and caches them on disk, in `$XDG_CACHE_HOME` or `$HOME/.cache`.
+On the CPU, Mesa (`llvmpipe`) compiles every new renderer's shaders and caches them on disk, in `$XDG_CACHE_HOME` or `$HOME/.cache`.
 Without that cache, creating a renderer, at startup or after one was [dropped](#renderers-per-worker), takes several times longer.
 
 When neither directory is writable, as in a read-only container, Martin caches shaders in a private directory under `$TMPDIR` (`/tmp` unless set) until it exits, and logs that it did.
@@ -173,10 +201,15 @@ docker run --read-only --tmpfs /tmp ... ghcr.io/maplibre/martin:2.0.0-beta.8-ful
 
 Martin leaves `MESA_SHADER_CACHE_DIR` and `MESA_SHADER_CACHE_DISABLE` alone when they are set.
 
+## Logs
+
+MapLibre logs its own messages under the `maplibre_native` target, which Martin's default log filter hides.
+`RUST_LOG=martin=info,maplibre_native=warn` shows MapLibre's warnings and errors, such as a tile or a glyph range that failed to load.
+
 ## Static images
 
 !!! info
-    We currently do not have the same [capabilities as Tileserver-GL](https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images) to layout images.
+    Martin currently does not have the same [capabilities as Tileserver-GL](https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images) to layout images.
     We are working on adding this feature and are very open to contributions if you want to help!
 
 !!! warning

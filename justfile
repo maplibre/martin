@@ -6,13 +6,13 @@ set shell := ['bash', '-c']
 mod demo 'demo/justfile'
 
 # Import map-tile-toolkit sub-justfile as a module
-mod toolkit 'map-tile-toolkit/justfile'
+mod toolkit 'crates/map-tile-toolkit/justfile'
 
 # Import martin-ui sub-justfile as a module
-mod ui 'martin/martin-ui/justfile'
+mod ui 'crates/martin-ui/justfile'
 
 # list of features we deem stable for release packaging (also the default feature set)
-stable_features := 'cog,lambda,mbtiles,metrics,ogcapi,passthrough,pmtiles,postgres,processing,resources,tui,webui'
+stable_features := 'cog,lambda,mbtiles,metrics,ogcapi,osm,passthrough,pmtiles,postgres,processing,resources,shapefile,tui,webui'
 # stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
 full_features := stable_features + ',rendering'
 
@@ -39,9 +39,6 @@ export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'
 # Use `RELEASE_MODE= just build-release <target>` to build in debug mode locally.
 release_mode := if env('RELEASE_MODE', '1') != '' {'1'} else {''}
 
-# Download the prebuilt maplibre_native core amalgam instead of compiling the ~1 GB C++ core from source.
-# Set MLN_PRECOMPILE=0 to build maplibre_native from source instead.
-export MLN_PRECOMPILE := env('MLN_PRECOMPILE', '1')
 #export RUST_LOG := 'debug'
 #export RUST_LOG := 'sqlx::query=info,trace'
 
@@ -109,12 +106,12 @@ gen-schemas: fetch
     # on it as a starting point.
     "$gen" --target config-doc  > docs/content/files/generated_config.md
     # Inside the crate, which embeds it to serve at `/ogc/api`.
-    "$gen" --target openapi     > martin/openapi.json
-    # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
-    # written `martin/openapi.json`. Kept after the cargo runs so the spec
+    "$gen" --target openapi     > crates/martin/openapi.json
+    # Regenerate `crates/martin-ui/src/lib/types.gen.ts` from the freshly
+    # written `crates/martin/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
     {{just}} ui::gen-ui-types
-    martin/martin-ui/node_modules/.bin/biome check --write schemas/config.json martin/openapi.json
+    crates/martin-ui/node_modules/.bin/biome check --write schemas/config.json crates/martin/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
@@ -123,8 +120,8 @@ gen-schemas: fetch
 test-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ ! -f schemas/config.json || ! -f martin/openapi.json ]]; then
-        echo "schemas/config.json or martin/openapi.json missing - run 'just gen-schemas' first" >&2
+    if [[ ! -f schemas/config.json || ! -f crates/martin/openapi.json ]]; then
+        echo "schemas/config.json or crates/martin/openapi.json missing - run 'just gen-schemas' first" >&2
         exit 1
     fi
 
@@ -135,7 +132,7 @@ test-schemas:
 
     echo "::group::Validate OpenAPI document against the OpenAPI 3.1 spec"
     uvx --from openapi-spec-validator openapi-spec-validator \
-        martin/openapi.json
+        crates/martin/openapi.json
     echo "::endgroup::"
 
     echo "::group::Validate real config fixtures against the config schema"
@@ -145,8 +142,8 @@ test-schemas:
     # is wrong, not the config. Each snapshot carries an insta header ending in a
     # `---` line, which is dropped to leave the config itself.
     fixtures=(
-        e2e-tests/tests/snapshots/save_config__every_discovered_source_and_resource_is_spelled_out.snap
-        e2e-tests/tests/snapshots/save_config__every_documented_setting_survives_the_round_trip.snap
+        crates/e2e-tests/tests/snapshots/save_config__every_discovered_source_and_resource_is_spelled_out.snap
+        crates/e2e-tests/tests/snapshots/save_config__every_documented_setting_survives_the_round_trip.snap
     )
     for f in "${fixtures[@]}"; do
         if [[ -f "$f" ]]; then
@@ -233,16 +230,16 @@ bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta'
     cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
     {{insta_test}} --package martin-e2e-tests --features test-duckdb --test duckdb
 
-# Bless the style rendering tests end-to-end
+# Bless the style rendering and OGC API - Maps tests end-to-end
 [linux]
 bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    cargo build --package martin --no-default-features --features rendering
-    {{insta_test}} --package martin-e2e-tests --features test-rendering --test rendering
+    cargo build --package martin --no-default-features --features ogcapi,cog,mbtiles,pmtiles,rendering
+    {{insta_test}} --package martin-e2e-tests --features test-rendering,test-ogc-maps --test rendering --test ogc_maps
 
 # Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 # Pass true as the second argument for optimized native Linux Docker binaries.
-build-release target pgo='false': fetch
+build-release target pgo='false': fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
     pgo={{quote(pgo)}}
@@ -283,7 +280,7 @@ pgo-install target:
 # Build and stage native Linux Docker binaries with PGO and, on x86, BOLT.
 # Run `just pgo-install <target>` first and provide an initialized DATABASE_URL.
 [linux]
-pgo-build target: fetch prepare-mbtiles
+pgo-build target: fetch ui::build prepare-mbtiles
     #!/usr/bin/env bash
     set -euo pipefail
     target={{quote(target)}}
@@ -330,8 +327,8 @@ pgo-train binary:
     wait "$server"
     trap - EXIT
 
-# Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
-build-release-full target: fetch
+# Build `-full` binaries (adds rendering). Linux gnu only.
+build-release-full target: fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
@@ -340,18 +337,18 @@ build-release-full target: fetch
     cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}}
 
 # Build debian package
-# Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
-# and maplibre_native pre-built libraries require newer glibc.
-build-deb output: fetch (cargo-install 'cargo-deb')
+# Note: the rendering feature is not packaged yet, although its prebuilt MapLibre library only needs
+# glibc 2.35, which the ubuntu-22.04 build has.
+build-deb output: fetch ui::build (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
     RUSTFLAGS='-C strip=symbols {{x86_cpu_flag}}' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Cross-compile for a musl or FreeBSD target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
-# Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for these targets.
+# Note: the rendering feature is excluded; maplibre-native-ffi publishes no FreeBSD library and musl is not wired up yet.
 # -A linker_messages: rustc passes -Wl,-O1 to cc-flavored linkers at opt-level 2+, and zig's linker has no -O levels so it always warns on it.
 # Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/158192
-build-release-zig target: fetch
+build-release-zig target: fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
@@ -386,7 +383,7 @@ check *args: fetch (cargo-install 'cargo-hack')
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
-    cargo binstall martin --manifest-path martin/Cargo.toml --dry-run --no-confirm
+    cargo binstall martin --manifest-path crates/martin/Cargo.toml --dry-run --no-confirm
 
 # Test documentation generation
 check-doc:  (docs-build)
@@ -399,9 +396,9 @@ clean: stop ui::clean
     cargo clean -p static-files
     cargo clean
 
-# Run cargo clippy to lint the code
+# Run cargo clippy to lint the code (with `rendering` on Linux, the only platform it builds on)
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb{{ if os() == "linux" { ",martin/rendering" } else { "" } }} {{args}}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -409,7 +406,7 @@ clippy-md:
       'echo -e "/workdir/README.md\n$(find /workdir/docs/content -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
 # folders ignored from coverage
-coverage_ignore_regex := '^e2e-tests/src/'
+coverage_ignore_regex := '^crates/e2e-tests/src/'
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clean start
@@ -536,41 +533,20 @@ help:
     @echo ""
     @echo "Full list: just --list"
 
-# Install Linux dependencies (Ubuntu/Debian). Supports 'vulkan' and 'opengl' backends.
+# Install what rendering needs at runtime (Ubuntu/Debian): EGL, OpenGL ES, and Mesa's drivers, whose llvmpipe renders without a GPU.
+# Building needs nothing extra; the MapLibre library is downloaded prebuilt.
 [linux]
-install-dependencies backend='vulkan':
+install-dependencies:
     sudo apt-get update
-    sudo apt-get install -y \
-      {{if backend == 'opengl' {'libgl1-mesa-dev libglu1-mesa-dev'} else {''} }} \
-      {{if backend == 'vulkan' {'mesa-vulkan-drivers glslang-dev'} else {''} }} \
-      build-essential \
-      libcurl4-openssl-dev \
-      libglfw3-dev \
-      libicu-dev \
-      libjpeg-dev \
-      libpng-dev \
-      libuv1-dev \
-      libwebp-dev \
-      libz-dev
+    sudo apt-get install -y libegl1 libgles2 libegl-mesa0
 
-# Install macOS dependencies via Homebrew
 [macos]
-install-dependencies backend='vulkan':
-    brew install \
-        {{if backend == 'vulkan' {'molten-vk vulkan-headers'} else {''} }} \
-        curl \
-        glfw \
-        icu4c \
-        jpeg-turbo \
-        libpng \
-        libuv \
-        webp \
-        zlib
+install-dependencies:
+    @echo "rendering styles is only supported on Linux"
 
-# Install Windows dependencies
 [windows]
-install-dependencies backend='vulkan':
-    @echo "rendering styles is not currently supported on windows"
+install-dependencies:
+    @echo "rendering styles is only supported on Linux"
 
 # Run common lints
 lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml spellcheck
@@ -620,8 +596,8 @@ sbom-mbtiles target: (cargo-install 'cargo-cyclonedx')
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
     # cargo-cyclonedx writes one file into every workspace member, only the mbtiles one is kept
-    cargo cyclonedx --manifest-path mbtiles/Cargo.toml --format json --target {{quote(trim_end_match(target, '-legacycpu'))}} --no-build-deps --override-filename "$name" --quiet
-    mv "mbtiles/$name.json" "$tmp/sbom.cdx.json"
+    cargo cyclonedx --manifest-path crates/mbtiles/Cargo.toml --format json --target {{quote(trim_end_match(target, '-legacycpu'))}} --no-build-deps --override-filename "$name" --quiet
+    mv "crates/mbtiles/$name.json" "$tmp/sbom.cdx.json"
     rm -f */"$name.json"
     syft convert "$tmp/sbom.cdx.json" --output "spdx-json=$tmp/sbom.spdx.json"
     jq --compact-output --arg name "$name" '.name = $name' "$tmp/sbom.spdx.json" > "target/$name.spdx.json"
@@ -656,9 +632,9 @@ prepare-sqlite: fetch install-sqlx
         # it is safer to handle NULLs than to expect it to never be there
         sed -E -e 's/[[:space:]]+NOT[[:space:]]+NULL//g' \
                -e 's/CREATE (TABLE|VIEW) /CREATE \1 IF NOT EXISTS /' \
-            "mbtiles/sql/$f.sql" | sqlite3 -bail "$db"
+            "crates/mbtiles/sql/$f.sql" | sqlite3 -bail "$db"
     done
-    cd mbtiles
+    cd crates/mbtiles
     mkdir -p .sqlx
     cargo sqlx prepare --database-url "sqlite://$db" -- --lib --tests --benches --features transcode
     find .sqlx -name '*.json' -type f -exec sh -c \
@@ -679,11 +655,11 @@ restart:
     {{just}} start
 
 # Start Martin server
-run *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch
+run *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch ui::build
     cargo run -p martin -- {{args}}
 
 # Start release-compiled Martin server and a test database
-run-release *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch start
+run-release *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch ui::build start
     cargo run -p martin --release -- {{args}}
 
 # Check semver compatibility with prior published version. Install it with `cargo install cargo-semver-checks`
@@ -723,8 +699,7 @@ test: fetch start
 
 # Run PostgreSQL-requiring tests only
 test-pg: fetch start (cargo-install 'cargo-nextest')
-    cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
-    cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
+    cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
     cargo nextest run --features test-pg --package martin-core --no-default-features --lib
     {{just}} test-e2e-pg
 
@@ -746,16 +721,16 @@ test-cog-stac: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --no-default-features --features cog
     cargo nextest run --package martin-e2e-tests --features test-stac --test cog_stac
 
-# Regenerate cog-tiles-py/cog_tiles.pyi from the Python bindings
+# Regenerate crates/cog-tiles-py/cog_tiles.pyi from the Python bindings
 sync-cog-py-stubs:
     LD_LIBRARY_PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
         cargo run --package cog-tiles-py --bin stub-gen --features stub-gen
 
 # Build the cog-tiles Python bindings and run their tests
 test-cog-py:
-    cd cog-tiles-py && uv sync --group dev --no-install-project
-    cd cog-tiles-py && uv run --no-sync maturin develop
-    cd cog-tiles-py && uv run --no-sync pytest
+    cd crates/cog-tiles-py && uv sync --group dev --no-install-project
+    cd crates/cog-tiles-py && uv run --no-sync maturin develop
+    cd crates/cog-tiles-py && uv run --no-sync pytest
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch (cargo-install 'cargo-nextest')
@@ -800,6 +775,10 @@ test-packages-ci: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --package martin --features unstable-mlt-v2
     {{just}} test-e2e
 
+# Run the OpenMapTiles examples test, which debug builds skip as too slow
+test-omt: fetch (cargo-install 'cargo-nextest')
+    cargo nextest run --release --package martin --test osm_openmaptiles_test
+
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
@@ -810,9 +789,9 @@ test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
     cargo nextest run --package martin-e2e-tests --features test-pg,test-mlt-v2 --test config_file --test engine_serve --test martin_cp --test martin_cp_bulk --test martin_test_generate --test postgres --test process {{args}}
 
-# Run Rust doc tests, except map-tile-toolkit (see `just toolkit::test`)
+# Run Rust doc tests, except map-tile-toolkit (see `just toolkit::test`) and the vendored crates (their doctests need upstream files)
 test-doc *args: fetch
-    cargo test --doc --workspace --exclude map-tile-toolkit --exclude cog-tiles-py {{args}}
+    cargo test --doc --workspace --exclude map-tile-toolkit --exclude cog-tiles-py --exclude martin-vendored-cql2 {{args}}
 
 # Test code formatting
 test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
@@ -948,6 +927,21 @@ update-lockfile: fetch
     cargo update --precise 1.0.2 sdf_glyph_renderer
     # keeps bindgen's syn and prettyplease on the same major, remove once closed: https://github.com/rust-lang/rust-bindgen/issues/3448
     cargo update -p bindgen
+
+# Re-vendor developmentseed/cql2-rs main as martin-vendored-cql2, with geo's default `earcut` off (geo 0.33.1 pins it to =0.4.5, mlt-core needs ^0.4.10)
+vendor-cql2:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    git clone --quiet --depth 1 https://github.com/developmentseed/cql2-rs "$tmp/repo"
+    sha="$(git -C "$tmp/repo" rev-parse HEAD)"
+    (cd "$tmp/repo" && cargo package --package cql2 --no-verify --allow-dirty --quiet)
+    mkdir "$tmp/pkg"
+    tar -xzf "$tmp"/repo/target/package/cql2-*.crate -C "$tmp/pkg" --strip-components=1
+    python3 -I .github/files/vendor-crate.py "$tmp/pkg" martin-vendored-cql2 martin-vendored-cql2 \
+        "developmentseed/cql2-rs@$sha" src,README.md,LICENSE,NOTICE,rustfmt.toml geo
+    cargo update --workspace
 
 # Validate that all required development tools are installed
 validate-tools:

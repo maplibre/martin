@@ -113,35 +113,37 @@ which can significantly reduce the size of difference files.
 The flag combines two choices:
 
 - **Input type** - whether the tiles are raw or gzip-compressed
-- **Output type** - whether to store whole tiles (`whole`) or binary diffs (`bin-diff`)
+- **Output type** - whether to store whole tiles (`whole`) or a delta against the old tile (`bin-diff`, `zstd`)
 
-The key distinction is between `whole` and `bin-diff`:
+| `--patch-type`  | Input        | Output                                              |
+| --------------- | ------------ | --------------------------------------------------- |
+| `whole`         | any          | Full tile stored as-is                              |
+| `bin-diff-raw`  | uncompressed | Brotli-compressed bsdiff patch                      |
+| `bin-diff-gz`   | gzip         | Brotli-compressed bsdiff patch of decompressed data |
+| `zstd-raw`      | uncompressed | New tile compressed by zstd against the old tile    |
+| `zstd-gz`       | gzip         | Same as `zstd-raw`, on decompressed data            |
 
-| `--patch-type`  | Input        | Output                           |
-| --------------- | ------------ | -------------------------------- |
-| `whole`         | any          | Full tile stored as-is           |
-| `bin-diff-raw`  | uncompressed | Brotli-compressed binary diff    |
-| `bin-diff-gz`   | gzip         | Binary diff of decompressed data |
+`zstd-*` patches are about as small as `bin-diff-*` patches and take a few hundred times less CPU to create.
 
 ### Creating a diff
 
 ```bash
-mbtiles diff original.mbtiles updated.mbtiles diff.mbtiles --patch-type bin-diff-raw
+mbtiles diff original.mbtiles updated.mbtiles diff.mbtiles --patch-type zstd-raw
 ```
 
 ### Applying a patch
 
 The `mbtiles` CLI automatically detects and applies binary patches
-if `bsdiffraw` or `bsdiffrawgz` tables are present:
+if a `bsdiffraw`, `bsdiffrawgz`, `zstdpatchraw` or `zstdpatchgz` table is present:
 
 ```bash
 mbtiles copy diff.mbtiles original.mbtiles target.mbtiles --apply-patch
 ```
 
 !!! note
-    `bin-diff-gz` skips `agg_tiles_hash_after_apply` validation after
+    `bin-diff-gz` and `zstd-gz` skip `agg_tiles_hash_after_apply` validation after
     patching, because re-compressing gzip tiles may produce different bytes.
-    Use `bin-diff-raw` if you need aggregate hash validation.
+    Use `bin-diff-raw` or `zstd-raw` if you need aggregate hash validation.
 
 !!! note
     `mbtiles apply-patch` does not currently support binary patching.

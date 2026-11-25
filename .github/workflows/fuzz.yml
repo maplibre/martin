@@ -49,5 +49,5 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fuzz-artifacts-${{ matrix.target }}
-          path: map-tile-toolkit/fuzz/artifacts
+          path: crates/map-tile-toolkit/fuzz/artifacts
           if-no-files-found: ignore

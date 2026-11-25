@@ -54,13 +54,13 @@ jobs:
         with: { tools: 'just,cargo-cyclonedx' }
       - name: Download syft
         id: syft
-        uses: anchore/sbom-action/download-syft@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
       - name: Put syft on the PATH
         env:
           SYFT_CMD: ${{ steps.syft.outputs.cmd }}
         run: dirname "$SYFT_CMD" >> "$GITHUB_PATH"
       - name: Generate SPDX SBOM
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: .
           output-file: martin.spdx.json
@@ -153,11 +153,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { rendering: true }
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 26 }
+      # martin-ui publishes the built bundle, and its build.rs refuses a package without one.
+      - name: Build the web UI bundle
+        run: just ui::build
       # A GitHub App token, so that the tags, releases and PRs release-plz creates
       # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
       - name: Generate GitHub token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: generate-token
         with:
           app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
@@ -166,7 +171,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@8b5bf233ecb5779f63508db7cd050e948ee77cc2 # v0.5.144
+        uses: release-plz/action@66b324fd6c72d05d2a08568492ecdd62bfb8a62b # v0.5.148
         id: release
         with: { command: release }
         env:
@@ -208,13 +213,8 @@ jobs:
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Install uv
         continue-on-error: true
-        uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
-      - if: ${{ steps.release.outputs.releases_created == 'false' }}
-        name: Setup Node.js
-        continue-on-error: true
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with: { node-version: 26 }
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: Check out main's head for the release PR
         run: git fetch origin main && git reset --hard FETCH_HEAD
@@ -233,9 +233,9 @@ jobs:
           uvx prek@0.5.5 run --all-files || [ $? -eq 1 ] # 1 is a hook that changed files
           just fmt-toml
           npm --prefix demo/frontend install --package-lock-only --no-fund
-          npm --prefix martin/martin-ui install --package-lock-only --no-fund
+          npm --prefix crates/martin-ui install --package-lock-only --no-fund
           just gen-schemas
-          uvx prek@0.5.5 run --files schemas/config.json martin/openapi.json martin/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
+          uvx prek@0.5.5 run --files schemas/config.json crates/martin/openapi.json crates/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
           # release-pr bumps these itself
           if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
           just update-lockfile
@@ -245,9 +245,7 @@ jobs:
         run: git reset --hard && git clean -fd
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@8b5bf233ecb5779f63508db7cd050e948ee77cc2 # v0.5.144
+        uses: release-plz/action@66b324fd6c72d05d2a08568492ecdd62bfb8a62b # v0.5.148
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
-          # cargo-semver-checks builds martin-core with `rendering`, so take the prebuilt maplibre-native core like the justfile does
-          MLN_PRECOMPILE: 1

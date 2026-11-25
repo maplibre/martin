@@ -1,1 +1,1 @@
-../../../mbtiles/sql/init-flat-with-hash.sql
+../../../crates/mbtiles/sql/init-flat-with-hash.sql

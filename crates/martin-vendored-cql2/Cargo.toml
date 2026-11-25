@@ -1,0 +1,93 @@
+# Vendored by Martin from developmentseed/cql2-rs@98a3eb1dd3e9429985b97b7d0e59567f0a77499b. Regenerate with `just vendor-cql2` instead of editing.
+[package]
+edition = "2021"
+name = "martin-vendored-cql2"
+version = "0.6.1"
+authors = [
+    "David Bitner <bitner@dbspatial.com>",
+    "Pete Gadomski <pete.gadomski@gmail.com>",
+]
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Parse, validate, and convert Common Query Language (CQL2) text and JSON (vendored by Martin from developmentseed/cql2-rs@98a3eb1dd3e9429985b97b7d0e59567f0a77499b)"
+documentation = "https://docs.rs/cql2"
+readme = "README.md"
+keywords = ["cql2"]
+license = "MIT"
+repository = "https://github.com/developmentseed/cql2-rs"
+
+[lib]
+name = "cql2"
+path = "src/lib.rs"
+test = false
+doctest = false
+bench = false
+
+[dependencies.geo]
+version = "0.33.0"
+default-features = false
+
+[dependencies.geo-types]
+version = "0.7.17"
+
+[dependencies.geojson]
+version = "1.0.0"
+
+[dependencies.geozero]
+version = "0.15.1"
+
+[dependencies.jiff]
+version = "1.0.0"
+
+[dependencies.json_dotpath]
+version = "1.1.0"
+
+[dependencies.jsonschema]
+version = "0.61.2"
+default-features = false
+
+[dependencies.lazy_static]
+version = "1.5"
+
+[dependencies.like]
+version = "0.3.1"
+
+[dependencies.pest]
+version = "2.8.1"
+
+[dependencies.pest_derive]
+version = "2.8.1"
+features = ["grammar-extras"]
+
+[dependencies.pg_escape]
+version = "0.1.1"
+
+[dependencies.serde]
+version = "1.0"
+
+[dependencies.serde_json]
+version = "1.0.143"
+features = ["preserve_order"]
+
+[dependencies.sqlparser]
+version = "0.64.0"
+features = ["visitor"]
+
+[dependencies.thiserror]
+version = "2.0.16"
+
+[dependencies.unaccent]
+version = "0.1.0"
+
+[dependencies.wkt]
+version = "0.14.0"
+
+[lints.rust]
+warnings = "allow"
+
+[lints.clippy]
+all = "allow"

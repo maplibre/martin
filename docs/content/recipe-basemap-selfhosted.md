@@ -19,10 +19,10 @@ A rendered basemap needs four things:
 - the **glyphs** (fonts) the style labels text with, and
 - the **sprites** (icons) the style marks points of interest with.
 
-We will produce each one, then wire them together.
+You will produce each one, then wire them together.
 
 !!! note "Prerequisites"
-    We expect you have the following already installed:
+    You need the following already installed:
 
     - [Docker](https://docker.io) to generate the tile archive
     - [Martin binary](installation.md)
@@ -32,9 +32,9 @@ We will produce each one, then wire them together.
 
 ## Generate a tile archive from OpenStreetMap
 
-We will use [Planetiler](https://github.com/onthegomap/planetiler/) to build an MBTiles archive of Monaco from [OpenStreetMap](https://osm.org) data.
+You will use [Planetiler](https://github.com/onthegomap/planetiler/) to build an MBTiles archive of Monaco from [OpenStreetMap](https://osm.org) data.
 Planetiler downloads the OSM extract for you and tiles it into the [OpenMapTiles](https://openmaptiles.org/) schema.
-See [Setting up a Basemap and Overlaying Points from PostGIS](recipe-basemap-postgis.md) for a discussion of why a tiling step is needed and what OpenMapTiles is, and [our tile source comparison](sources-tiles/index.md) for the pros and cons of the different archive formats.
+See [Setting up a Basemap and Overlaying Points from PostGIS](recipe-basemap-postgis.md) for a discussion of why a tiling step is needed and what OpenMapTiles is, and [the tile source comparison](sources-tiles/index.md) for the pros and cons of the different archive formats.
 
 ```bash
 mkdir --parents data
@@ -58,8 +58,8 @@ Any other [Geofabrik extract name](https://download.geofabrik.de/) works as `--a
 ## Get a style
 
 A style only works with data in the schema it was written for.
-Planetiler produced tiles in the OpenMapTiles schema, so we need an OpenMapTiles style.
-We will use [OSM Bright](https://github.com/openmaptiles/osm-bright-gl-style).
+Planetiler produced tiles in the OpenMapTiles schema, so you need an OpenMapTiles style.
+You will use [OSM Bright](https://github.com/openmaptiles/osm-bright-gl-style).
 [Positron](https://github.com/openmaptiles/positron-gl-style), [Dark Matter](https://github.com/openmaptiles/dark-matter-gl-style), [MapTiler Basic](https://github.com/openmaptiles/maptiler-basic-gl-style), and [OSM Liberty](https://github.com/maputnik/osm-liberty) are alternatives.
 
 ```bash
@@ -76,7 +76,7 @@ cp osm-bright-gl-style/style.json styles/basemap.json
 ## Get the fonts the style uses
 
 OSM Bright labels text with `Noto Sans Regular`, `Noto Sans Bold`, and `Noto Sans Italic`.
-Martin generates the glyph ranges MapLibre asks for [directly from `.ttf`/`.otf` files](sources-fonts.md), so all we need are the font files themselves:
+Martin generates the glyph ranges MapLibre asks for [directly from `.ttf`/`.otf` files](sources-fonts.md), so all you need are the font files themselves:
 
 ```bash
 mkdir --parents fonts
@@ -102,7 +102,7 @@ The directory name becomes the sprite ID, so these will be served under `/sprite
 ## Point the style at your server
 
 The copied style still references the original author's tile, glyph, and sprite servers.
-Open `styles/basemap.json` and change three values to point at the Martin instance we are about to start:
+Open `styles/basemap.json` and change three values to point at the Martin instance you are about to start:
 
 | Key                          | New value                                        |
 |------------------------------|--------------------------------------------------|

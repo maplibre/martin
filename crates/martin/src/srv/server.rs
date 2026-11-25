@@ -1,0 +1,479 @@
+#[cfg(feature = "webui")]
+use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
+use std::time::Duration;
+
+#[cfg(feature = "webui")]
+use actix_web::guard::fn_guard;
+use actix_web::http::header::{CACHE_CONTROL, HeaderValue};
+use actix_web::middleware::{DefaultHeaders, NormalizePath, TrailingSlash};
+use actix_web::web::Data;
+use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
+use futures::TryFutureExt as _;
+#[cfg(feature = "lambda")]
+use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
+use tracing_actix_web::TracingLogger;
+
+#[cfg(feature = "webui")]
+use crate::config::args::WebUiMode;
+#[cfg(feature = "_catalog")]
+use crate::config::file::ServerState;
+use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, DEFAULT_SHUTDOWN_TIMEOUT, SrvConfig};
+use crate::srv::ServerStartError;
+#[cfg(not(feature = "webui"))]
+use crate::srv::admin::get_index_no_ui;
+#[cfg(feature = "webui")]
+use crate::srv::admin::get_index_ui_disabled;
+use crate::srv::admin::{Catalog, get_catalog};
+#[cfg(feature = "resources")]
+use crate::srv::fonts;
+#[cfg(feature = "ogcapi")]
+use crate::srv::ogcapi;
+#[cfg(feature = "resources")]
+use crate::srv::sprites;
+#[cfg(feature = "resources")]
+use crate::srv::styles;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use crate::srv::styles_rendering;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use crate::srv::styles_static;
+#[cfg(feature = "_tiles")]
+use crate::srv::tiles;
+
+/// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
+///
+/// Reserved keywords must never end in a "dot number" (e.g. ".1").
+/// This list is documented in the `docs/content/using.md` file, which should be kept in sync.
+pub const RESERVED_KEYWORDS: &[&str] = &[
+    "_", "catalog", "config", "font", "health", "help", "index", "manifest", "metrics", "ogc", "refresh", "reload",
+    "sprite", "status",
+];
+
+/// Maps any classified error onto an HTTP response.
+///
+/// The status comes from the error's own `ErrorKind`, so a failure mode is classified once
+/// where it is defined rather than at each handler that can surface it. Only failures the
+/// caller cannot act on are logged.
+#[cfg(any(feature = "_tiles", feature = "resources"))]
+pub fn map_error<E: std::fmt::Display + martin_core::Classify + ?Sized>(e: &E) -> actix_web::Error {
+    use actix_web::error::{ErrorBadRequest, ErrorInternalServerError, ErrorNotFound, ErrorServiceUnavailable};
+    use martin_core::ErrorKind::{Internal, InvalidInput, NotFound, Unavailable};
+
+    match e.kind() {
+        NotFound => ErrorNotFound(e.to_string()),
+        InvalidInput => ErrorBadRequest(e.to_string()),
+        Unavailable => {
+            tracing::error!("{e}");
+            ErrorServiceUnavailable(e.to_string())
+        }
+        Internal => {
+            tracing::error!("{e}");
+            ErrorInternalServerError(e.to_string())
+        }
+    }
+}
+
+/// Resolve the URL path prefix under which Martin is publicly served.
+///
+/// Returns an empty string when no prefix applies, otherwise a leading-slash
+/// path with no trailing slash (e.g. `/tiles`).
+///
+/// Note: `X-Rewrite-URL` is intentionally not honored here. Unlike the
+/// `TileJSON` case where the header's full path can be used directly, for
+/// styles the header would contain the full style request path
+/// (e.g. `/tiles/style/foo/style.json`), which isn't a usable prefix.
+#[cfg(any(feature = "resources", feature = "ogcapi"))]
+pub fn path_prefix(req: &actix_web::HttpRequest, srv_config: &SrvConfig) -> String {
+    let Some(prefix) = srv_config.public_path_prefix() else {
+        return req
+            .headers()
+            .get("X-Forwarded-Prefix")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<actix_web::http::Uri>().ok())
+            .map_or_default(|v| v.path().trim_end_matches('/').to_owned());
+    };
+    prefix.to_owned()
+}
+
+/// Helper struct for debounced warning messages in redirect handlers.
+/// Ensures warnings are logged no more than once per hour to avoid log spam.
+#[cfg(feature = "_catalog")]
+pub struct DebouncedWarning {
+    last_warning: std::sync::LazyLock<tokio::sync::Mutex<std::time::Instant>>,
+}
+
+#[cfg(feature = "_catalog")]
+impl DebouncedWarning {
+    /// Create a new `DebouncedWarning` instance
+    pub const fn new() -> Self {
+        Self {
+            last_warning: std::sync::LazyLock::new(|| tokio::sync::Mutex::new(std::time::Instant::now())),
+        }
+    }
+
+    /// Execute the provided closure at most once per hour.
+    /// This allows tracing's log filtering to work correctly by keeping the warn! call site
+    /// in the caller's context.
+    pub async fn once_per_hour<F: FnOnce()>(&self, f: F) {
+        let mut last = self.last_warning.lock().await;
+        if last.elapsed() >= Duration::from_hours(1) {
+            *last = std::time::Instant::now();
+            drop(last);
+            f();
+        }
+    }
+}
+
+/// Return 200 OK if healthy. Used for readiness and liveness probes.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/health",
+        responses((status = 200, description = "Service healthy", body = String)),
+    )
+)]
+#[route("/health", method = "GET", method = "HEAD")]
+pub async fn get_health(
+    #[cfg(feature = "_tiles")] tile_manager: Data<crate::tile_source_manager::TileSourceManager>,
+) -> impl Responder {
+    #[cfg(feature = "_tiles")]
+    tile_manager.wait_until_loaded().await;
+    HttpResponse::Ok()
+        .insert_header((CACHE_CONTROL, "no-cache"))
+        .message_body("OK")
+}
+
+pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
+    // If route_prefix is configured, wrap all routes in a scope
+    if let Some(prefix) = &usr_cfg.route_prefix {
+        cfg.service(web::scope(prefix).configure(|cfg| {
+            register_services(
+                cfg,
+                #[cfg(any(feature = "webui", feature = "_tiles"))]
+                usr_cfg,
+            );
+        }));
+        cfg.service(get_health);
+    } else {
+        register_services(
+            cfg,
+            #[cfg(any(feature = "webui", feature = "_tiles"))]
+            usr_cfg,
+        );
+    }
+}
+
+/// Helper function to register all services
+fn register_services(
+    cfg: &mut web::ServiceConfig,
+    #[cfg(any(feature = "webui", feature = "_tiles"))] usr_cfg: &SrvConfig,
+) {
+    cfg.service(get_health).service(get_catalog);
+
+    // Register the OGC API BEFORE the tile routes, whose `/{source_ids}` would take `/ogc`
+    #[cfg(feature = "ogcapi")]
+    cfg.service(ogcapi::get_landing_page)
+        .service(ogcapi::get_api)
+        .service(ogcapi::get_conformance)
+        .service(ogcapi::get_tile_matrix_sets)
+        .service(ogcapi::get_tile_matrix_set)
+        .service(ogcapi::get_collections)
+        .service(ogcapi::get_collection)
+        .service(ogcapi::get_tilesets)
+        .service(ogcapi::get_tileset)
+        .service(ogcapi::get_tile);
+    #[cfg(all(feature = "ogcapi", feature = "resources"))]
+    cfg.service(ogcapi::get_styles);
+    #[cfg(all(feature = "ogcapi", feature = "rendering", target_os = "linux"))]
+    cfg.service(ogcapi::get_style_map)
+        .service(ogcapi::get_collection_map)
+        .service(ogcapi::get_dataset_map)
+        .service(ogcapi::get_dataset_map_tilesets)
+        .service(ogcapi::get_dataset_map_tileset)
+        .service(ogcapi::get_dataset_map_tile)
+        .service(ogcapi::get_style_map_tilesets)
+        .service(ogcapi::get_style_map_tileset)
+        .service(ogcapi::get_style_map_tile);
+
+    #[cfg(feature = "_tiles")]
+    {
+        // Register tile format suffix redirects BEFORE the main tile route
+        // because Actix-Web matches routes in registration order
+        cfg.service(tiles::content::redirect_tile_ext)
+            .service(tiles::metadata::get_source_info)
+            .service(tiles::content::get_tile);
+
+        // Register /tiles/ prefix redirect after main tile route
+        cfg.service(tiles::content::redirect_tiles);
+
+        if usr_cfg
+            .endpoints
+            .as_ref()
+            .is_some_and(|endpoints| endpoints.purge_cache.unwrap_or(false))
+        {
+            cfg.service(super::cache::purge_source);
+        }
+    }
+
+    #[cfg(feature = "resources")]
+    cfg.service(sprites::get_sprite_sdf_json)
+        .service(sprites::redirect_sdf_sprites_json)
+        .service(sprites::get_sprite_json)
+        .service(sprites::redirect_sprites_json)
+        .service(sprites::get_sprite_sdf_png)
+        .service(sprites::redirect_sdf_sprites_png)
+        .service(sprites::get_sprite_png)
+        .service(sprites::redirect_sprites_png);
+
+    #[cfg(feature = "resources")]
+    // Register the glyph file-extension redirect BEFORE the main font route
+    cfg.service(fonts::redirect_font_ext)
+        .service(fonts::get_font)
+        .service(fonts::redirect_fonts);
+
+    #[cfg(feature = "resources")]
+    cfg.service(styles::get_style_json).service(styles::redirect_styles);
+
+    // `.jpeg` redirects must register before the main routes so they win.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    cfg.service(styles_static::redirect_static_jpeg)
+        .service(styles_static::get_rendered_static_style)
+        .service(styles_static::post_rendered_static_style)
+        .service(styles_rendering::redirect_tile_jpeg)
+        .service(styles_rendering::get_rendered_tile_style);
+
+    #[cfg(feature = "webui")]
+    match usr_cfg.web_ui.unwrap_or_default() {
+        WebUiMode::EnableForAll => {
+            cfg.service(webui_scope());
+        }
+        WebUiMode::Enable => {
+            let guard = fn_guard(|c| c.head().peer_addr.is_some_and(|addr| addr.ip().is_loopback()));
+            cfg.service(webui_scope().guard(guard)).service(get_index_ui_disabled);
+        }
+        WebUiMode::Disable => {
+            cfg.service(get_index_ui_disabled);
+        }
+    }
+
+    #[cfg(not(feature = "webui"))]
+    cfg.service(get_index_no_ui);
+}
+
+#[cfg(feature = "webui")]
+fn webui_scope() -> actix_web::Scope {
+    use actix_web_static_files::ResourceFiles;
+
+    let mut files = martin_ui::assets();
+    let index = files.remove_entry("index.html").into_iter().collect::<HashMap<_, _>>();
+    let assets = files
+        .into_iter()
+        .filter_map(|(path, file)| Some((path.strip_prefix("_/assets/")?, file)))
+        .collect::<HashMap<_, _>>();
+    web::scope("")
+        .service(web::scope("/").service(ResourceFiles::new("", index)))
+        .service(web::scope("/_/assets").service(ResourceFiles::new("", assets)))
+}
+
+type Server = Pin<Box<dyn Future<Output = Result<(), ServerStartError>>>>;
+
+fn cache_control_middleware(value: Option<HeaderValue>) -> middleware::Condition<DefaultHeaders> {
+    let enabled = value.is_some();
+    let value = value.unwrap_or_else(|| HeaderValue::from_static(""));
+    middleware::Condition::new(enabled, DefaultHeaders::new().add((CACHE_CONTROL, value)))
+}
+
+/// Create a future for an Actix web server together with the listening address.
+#[hotpath::measure]
+pub fn new_server(
+    config: SrvConfig,
+    #[cfg(feature = "_catalog")] state: ServerState,
+) -> Result<(Server, String), ServerStartError> {
+    let cache_control = config.cache_control_header();
+    #[cfg(feature = "metrics")]
+    let prometheus = {
+        let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
+            format!("{prefix}/_/metrics")
+        } else {
+            "/_/metrics".to_owned()
+        };
+        actix_web_prom::PrometheusMetricsBuilder::new("martin")
+            .registry(prometheus::default_registry().clone())
+            .endpoint(&metrics_endpoint)
+            // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
+            .mask_unmatched_patterns("UNKNOWN")
+            .const_labels(
+                config
+                    .observability
+                    .clone()
+                    .unwrap_or_default()
+                    .metrics
+                    .unwrap_or_default()
+                    .add_labels,
+            )
+            .build()
+            .map_err(ServerStartError::MetricsInitialisation)?
+    };
+    let catalog = Catalog::new(
+        #[cfg(feature = "resources")]
+        &state,
+    )?;
+
+    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(DEFAULT_KEEP_ALIVE));
+    let shutdown_timeout = config.shutdown_timeout.unwrap_or(DEFAULT_SHUTDOWN_TIMEOUT);
+    let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
+    let listen_addresses = config
+        .listen_addresses
+        .clone()
+        .unwrap_or_else(|| DEFAULT_LISTEN_ADDRESSES.to_owned());
+
+    let cors_config = config.cors.clone().unwrap_or_default();
+    cors_config.validate()?;
+    cors_config.log_current_configuration();
+
+    // only build a span for each request when the log filter keeps it
+    let request_spans = tracing::enabled!(
+        kind: tracing::metadata::Kind::SPAN,
+        target: "tracing_actix_web::root_span_builder",
+        tracing::Level::INFO
+    );
+
+    let factory = move || {
+        let cors_middleware = cors_config.make_cors_middleware();
+
+        let app = App::new()
+            .app_data(Data::new(catalog.clone()))
+            .app_data(Data::new(config.clone()));
+
+        #[cfg(feature = "_tiles")]
+        let app = app.app_data(Data::new(state.tile_manager.clone()));
+
+        #[cfg(feature = "resources")]
+        let app = app
+            .app_data(Data::new(state.sprites.clone()))
+            .app_data(Data::new(state.sprite_cache.clone()));
+
+        #[cfg(feature = "resources")]
+        let app = app
+            .app_data(Data::new(state.fonts.clone()))
+            .app_data(Data::new(state.font_cache.clone()));
+
+        #[cfg(feature = "resources")]
+        let app = app.app_data(Data::new(state.styles.clone()));
+
+        let app = app.wrap(middleware::Condition::new(
+            cors_middleware.is_some(),
+            cors_middleware.unwrap_or_default(),
+        ));
+
+        #[cfg(feature = "metrics")]
+        let app = app.wrap(prometheus.clone());
+
+        #[cfg(feature = "tui")]
+        let app = app.wrap(middleware::Condition::new(
+            crate::tui::is_installed(),
+            middleware::from_fn(crate::tui::observe),
+        ));
+
+        app.wrap(middleware::Condition::new(request_spans, TracingLogger::default()))
+            .wrap(cache_control_middleware(cache_control.clone()))
+            .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
+            .configure(|c| router(c, &config))
+    };
+
+    #[cfg(feature = "lambda")]
+    if is_running_on_lambda() {
+        let server = run_actix_on_lambda(factory).map_err(ServerStartError::Lambda);
+        return Ok((Box::pin(server), "(aws lambda)".into()));
+    }
+
+    let server = HttpServer::new(factory)
+        .bind(listen_addresses.clone())
+        .map_err(|e| ServerStartError::Binding(e, listen_addresses.clone()))?;
+
+    let listen_addresses = server.addrs().first().map_or(listen_addresses, ToString::to_string);
+
+    let server = server
+        .keep_alive(keep_alive)
+        .shutdown_timeout(shutdown_timeout)
+        .workers(worker_processes)
+        .run();
+
+    #[cfg(windows)]
+    tokio::spawn(stop_gracefully_on_ctrl_break(server.handle()));
+
+    Ok((Box::pin(server.err_into()), listen_addresses))
+}
+
+/// Stop the server gracefully on Ctrl+Break, the Windows counterpart of `SIGTERM`.
+/// actix only listens for Ctrl+C there, which it handles like `SIGINT` with a forced shutdown.
+#[cfg(windows)]
+async fn stop_gracefully_on_ctrl_break(server: actix_web::dev::ServerHandle) {
+    match tokio::signal::windows::ctrl_break() {
+        Ok(mut ctrl_break) => {
+            if ctrl_break.recv().await.is_some() {
+                tracing::info!("Ctrl+Break received; starting graceful shutdown");
+                server.stop(true).await;
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "Ctrl+Break will not stop martin gracefully"),
+    }
+}
+
+#[cfg(all(test, any(feature = "resources", feature = "ogcapi")))]
+mod tests {
+    use actix_web::test::TestRequest;
+
+    use super::*;
+
+    fn cfg(base_path: Option<&str>, route_prefix: Option<&str>) -> SrvConfig {
+        SrvConfig {
+            base_path: base_path.map(str::to_owned),
+            route_prefix: route_prefix.map(str::to_owned),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn path_prefix_empty_when_nothing_configured() {
+        let req = TestRequest::default().to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, None)), "");
+    }
+
+    #[test]
+    fn path_prefix_uses_base_path_first() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/header"))
+            .to_http_request();
+        assert_eq!(
+            path_prefix(&req, &cfg(Some("/from_base"), Some("/from_route"))),
+            "/from_base"
+        );
+    }
+
+    #[test]
+    fn path_prefix_falls_back_to_route_prefix() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/header"))
+            .to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, Some("/from_route"))), "/from_route");
+    }
+
+    #[test]
+    fn path_prefix_falls_back_to_forwarded_prefix_header() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/from_header"))
+            .to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, None)), "/from_header");
+    }
+
+    #[test]
+    fn path_prefix_strips_trailing_slash_from_header() {
+        let req = TestRequest::default()
+            .insert_header(("X-Forwarded-Prefix", "/from_header/"))
+            .to_http_request();
+        assert_eq!(path_prefix(&req, &cfg(None, None)), "/from_header");
+    }
+}

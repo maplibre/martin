@@ -1,0 +1,522 @@
+mod error;
+mod per_tile;
+mod primitives;
+mod rule;
+mod setting;
+mod value;
+mod zoom;
+
+use std::num::{NonZeroU8, NonZeroU32};
+
+use indexmap::IndexMap;
+use serde::{Deserialize, Deserializer, Serialize};
+
+pub use crate::config::file::tiling::error::TilingConfigError;
+pub use crate::config::file::tiling::per_tile::{
+    ByZoomRange, GridRank, Limit, MergeLines, MergeMulti, MergePolygons, MultiGeometry, Op, PerTile, RuleThinning,
+    Thinning, ThinningMethod,
+};
+pub use crate::config::file::tiling::primitives::{Expr, Finite, Literal, NonEmpty, checked_map_with};
+pub use crate::config::file::tiling::rule::{Rule, RuleSettings, Rules};
+pub use crate::config::file::tiling::setting::{PerFeature, Pixels, ZoomSetting};
+pub use crate::config::file::tiling::value::{
+    Attributes, Columns, IdPolicy, PropertySelector, SortKey, Value, ValueSpec,
+};
+pub use crate::config::file::tiling::zoom::{Zoom, ZoomRange};
+use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Layers(IndexMap<String, Layer>);
+
+impl TryFrom<IndexMap<String, Layer>> for Layers {
+    type Error = TilingConfigError;
+
+    fn try_from(layers: IndexMap<String, Layer>) -> Result<Self, TilingConfigError> {
+        if layers.is_empty() {
+            return Err(TilingConfigError::NoLayers);
+        }
+        for (name, layer) in &layers {
+            layer.check(name)?;
+        }
+        Ok(Self(layers))
+    }
+}
+
+impl<'de> Deserialize<'de> for Layers {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        checked_map_with(deserializer, |layers: IndexMap<String, Layer>| Self::try_from(layers))
+    }
+}
+
+impl CollectUnrecognizedKeys for Layers {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        for (name, layer) in &self.0 {
+            let path = format!("{path}{name}.");
+            layer.unrecognized.collect_unrecognized(&path, out);
+            layer.rules.collect_unrecognized(&format!("{path}rules."), out);
+            layer.per_tile.collect_unrecognized(&path, out);
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct Prefetch(NonZeroU8);
+
+impl Prefetch {
+    /// The most tiles per side of a block, so one miss renders at most 256 tiles.
+    pub const MAX: u8 = 16;
+
+    #[must_use]
+    pub fn tiles_per_side(self) -> NonZeroU8 {
+        self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for Prefetch {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let side = u8::deserialize(deserializer)?;
+        NonZeroU8::new(side)
+            .filter(|side| side.get() <= Self::MAX)
+            .map(Self)
+            .ok_or_else(|| {
+                serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Unsigned(side.into()),
+                    &format!("from 1 to {} tiles per side", Self::MAX).as_str(),
+                )
+            })
+    }
+}
+
+impl CollectUnrecognizedKeys for Prefetch {
+    fn collect_unrecognized(&self, _path: &str, _out: &mut UnrecognizedKeys) {}
+}
+
+impl Layers {
+    pub fn names(&self) -> impl Iterator<Item = &str> {
+        self.0.keys().map(String::as_str)
+    }
+
+    /// The output layers its layers write into, each once, in the order they first appear.
+    pub fn output_names(&self) -> impl Iterator<Item = &str> {
+        let names: indexmap::IndexSet<&str> = self
+            .0
+            .iter()
+            .map(|(name, layer)| layer.layer.as_deref().unwrap_or(name))
+            .collect();
+        names.into_iter()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &Layer)> {
+        self.0.iter().map(|(name, layer)| (name.as_str(), layer))
+    }
+
+    #[must_use]
+    pub fn get(&self, name: &str) -> Option<&Layer> {
+        self.0.get(name)
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(from = "RawLayer", into = "RawLayer")]
+pub struct Layer {
+    /// The output layer it writes into, which other layers may share; the layer's own key when unset.
+    pub layer: Option<String>,
+    pub r#where: Option<Expr>,
+    /// One value, or a list whose first entry taking a feature's type draws it.
+    pub geometry: Option<NonEmpty<OutputGeometry>>,
+    pub minzoom: Option<ZoomSetting>,
+    pub maxzoom: Option<ZoomSetting>,
+    pub extent: Option<NonZeroU32>,
+    pub buffer: Option<u32>,
+    pub clip_geom: Option<bool>,
+    pub simplify: Option<Pixels>,
+    simplify_at_maxzoom: Option<Pixels>,
+    pub min_size: Option<Pixels>,
+    min_size_at_maxzoom: Option<Pixels>,
+    pub attributes: Attributes,
+    pub rules: Option<Rules>,
+    pub sort_by: Option<NonEmpty<SortKey>>,
+    pub id: IdPolicy,
+    pub per_tile: PerTile,
+    pub unrecognized: UnrecognizedValues,
+}
+
+/// A layer as written in YAML, where each per-tile operation is a key of the layer itself.
+#[serde_with::skip_serializing_none]
+#[derive(Serialize, Deserialize)]
+struct RawLayer {
+    layer: Option<String>,
+    r#where: Option<Expr>,
+    geometry: Option<NonEmpty<OutputGeometry>>,
+    minzoom: Option<ZoomSetting>,
+    maxzoom: Option<ZoomSetting>,
+    extent: Option<NonZeroU32>,
+    buffer: Option<u32>,
+    clip_geom: Option<bool>,
+    simplify: Option<Pixels>,
+    simplify_at_maxzoom: Option<Pixels>,
+    min_size: Option<Pixels>,
+    min_size_at_maxzoom: Option<Pixels>,
+    #[serde(default, skip_serializing_if = "Attributes::is_all_properties")]
+    attributes: Attributes,
+    rules: Option<Rules>,
+    sort_by: Option<NonEmpty<SortKey>>,
+    #[serde(default, skip_serializing_if = "IdPolicy::is_keep")]
+    id: IdPolicy,
+    merge_lines: Option<ByZoomRange<MergeLines>>,
+    merge_polygons: Option<ByZoomRange<MergePolygons>>,
+    thinning: Option<ByZoomRange<Thinning>>,
+    merge_multi: Option<ByZoomRange<MergeMulti>>,
+    limit: Option<ByZoomRange<Limit>>,
+    #[serde(flatten, skip_serializing)]
+    unrecognized: UnrecognizedValues,
+}
+
+impl From<RawLayer> for Layer {
+    fn from(raw: RawLayer) -> Self {
+        Self {
+            layer: raw.layer,
+            r#where: raw.r#where,
+            geometry: raw.geometry,
+            minzoom: raw.minzoom,
+            maxzoom: raw.maxzoom,
+            extent: raw.extent,
+            buffer: raw.buffer,
+            clip_geom: raw.clip_geom,
+            simplify: raw.simplify,
+            simplify_at_maxzoom: raw.simplify_at_maxzoom,
+            min_size: raw.min_size,
+            min_size_at_maxzoom: raw.min_size_at_maxzoom,
+            attributes: raw.attributes,
+            rules: raw.rules,
+            sort_by: raw.sort_by,
+            id: raw.id,
+            per_tile: PerTile {
+                merge_lines: raw.merge_lines,
+                merge_polygons: raw.merge_polygons,
+                thinning: raw.thinning,
+                merge_multi: raw.merge_multi,
+                limit: raw.limit,
+            },
+            unrecognized: raw.unrecognized,
+        }
+    }
+}
+
+impl From<Layer> for RawLayer {
+    fn from(layer: Layer) -> Self {
+        Self {
+            layer: layer.layer,
+            r#where: layer.r#where,
+            geometry: layer.geometry,
+            minzoom: layer.minzoom,
+            maxzoom: layer.maxzoom,
+            extent: layer.extent,
+            buffer: layer.buffer,
+            clip_geom: layer.clip_geom,
+            simplify: layer.simplify,
+            simplify_at_maxzoom: layer.simplify_at_maxzoom,
+            min_size: layer.min_size,
+            min_size_at_maxzoom: layer.min_size_at_maxzoom,
+            attributes: layer.attributes,
+            rules: layer.rules,
+            sort_by: layer.sort_by,
+            id: layer.id,
+            merge_lines: layer.per_tile.merge_lines,
+            merge_polygons: layer.per_tile.merge_polygons,
+            thinning: layer.per_tile.thinning,
+            merge_multi: layer.per_tile.merge_multi,
+            limit: layer.per_tile.limit,
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
+}
+
+impl Layer {
+    #[must_use]
+    pub fn simplify_at_maxzoom(&self) -> Option<Pixels> {
+        self.simplify_at_maxzoom.or(self.simplify)
+    }
+
+    #[must_use]
+    pub fn min_size_at_maxzoom(&self) -> Option<Pixels> {
+        self.min_size_at_maxzoom.or(self.min_size)
+    }
+
+    fn check(&self, name: &str) -> Result<(), TilingConfigError> {
+        let fixed = |setting: Option<&ZoomSetting>| setting.and_then(PerFeature::fixed).copied();
+        match (fixed(self.minzoom.as_ref()), fixed(self.maxzoom.as_ref())) {
+            (Some(min), Some(max)) if min > max => Err(TilingConfigError::LayerMinzoomAboveMaxzoom {
+                layer: name.to_owned(),
+                min: min.get(),
+                max: max.get(),
+            }),
+            _ => Ok(()),
+        }
+    }
+}
+
+/// The features a layer takes, and the geometry it gives them, named as Planetiler's custommap names them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutputGeometry {
+    /// Points, as they are.
+    Point,
+    /// Lines, as they are.
+    Line,
+    /// Polygons, as they are.
+    Polygon,
+    /// Polygons, as the point at their centroid.
+    PolygonCentroid,
+    /// Lines, as the point at their centroid.
+    LineCentroid,
+    /// Lines, as the point halfway along their longest part.
+    LineMidpoint,
+    /// Every feature, as the point at its centroid.
+    Centroid,
+    /// Polygons, as their centroid when convex and a point on their surface otherwise.
+    PolygonCentroidIfConvex,
+    /// Polygons, as a point on their surface.
+    PolygonPointOnSurface,
+    /// Lines, as a point on the line.
+    PointOnLine,
+    /// Every feature, as the point farthest inside it.
+    InnermostPoint,
+}
+
+impl OutputGeometry {
+    /// The value as the configuration writes it.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Point => "point",
+            Self::Line => "line",
+            Self::Polygon => "polygon",
+            Self::PolygonCentroid => "polygon_centroid",
+            Self::LineCentroid => "line_centroid",
+            Self::LineMidpoint => "line_midpoint",
+            Self::Centroid => "centroid",
+            Self::PolygonCentroidIfConvex => "polygon_centroid_if_convex",
+            Self::PolygonPointOnSurface => "polygon_point_on_surface",
+            Self::PointOnLine => "point_on_line",
+            Self::InnermostPoint => "innermost_point",
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+
+    use super::*;
+
+    pub(super) fn parse(yaml: &str) -> Layers {
+        serde_saphyr::from_str(yaml).expect("parses")
+    }
+
+    pub(super) fn rejection(yaml: &str) -> String {
+        let err = serde_saphyr::from_str::<Layers>(yaml)
+            .expect_err("must not parse")
+            .to_string();
+        err.lines().next().unwrap_or_default().to_owned()
+    }
+
+    #[test]
+    fn layers_keep_their_order() {
+        let layers = parse(indoc! {"
+            water: {}
+            roads: {}
+            buildings: {}
+        "});
+        assert_eq!(layers.names().collect::<Vec<_>>(), ["water", "roads", "buildings"]);
+    }
+
+    #[test]
+    fn layers_cannot_be_empty() {
+        insta::assert_snapshot!(rejection("{}"), @"`layers` needs at least one layer");
+    }
+
+    #[test]
+    fn layers_cannot_repeat_a_name() {
+        insta::assert_snapshot!(rejection("roads: {}\nroads: {}"), @"error: line 2 column 1: duplicate mapping key: roads, set DuplicateKeyPolicy in Options if acceptable");
+    }
+
+    #[test]
+    fn a_layer_shapes_its_output_geometry() {
+        let layers = parse(indoc! {"
+            roads: { geometry: line }
+            poi: { geometry: polygon_centroid_if_convex }
+            water: {}
+        "});
+        let geometries: Vec<_> = layers
+            .iter()
+            .map(|(name, l)| (name, l.geometry.as_ref().map(NonEmpty::as_slice)))
+            .collect();
+        assert_eq!(
+            geometries,
+            [
+                ("roads", Some([OutputGeometry::Line].as_slice())),
+                ("poi", Some([OutputGeometry::PolygonCentroidIfConvex].as_slice())),
+                ("water", None),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_layer_lists_several_geometries_in_order() {
+        let layers = parse("pois: { geometry: [point, polygon_point_on_surface] }");
+        let layer = layers.get("pois").expect("layer exists");
+        assert_eq!(
+            layer.geometry.as_ref().map(NonEmpty::as_slice),
+            Some([OutputGeometry::Point, OutputGeometry::PolygonPointOnSurface].as_slice())
+        );
+    }
+
+    #[test]
+    fn an_empty_geometry_list_is_rejected() {
+        insta::assert_snapshot!(rejection("pois: { geometry: [] }"), @"error: line 1 column 9: invalid length 0, expected at least one item");
+    }
+
+    #[test]
+    fn an_unknown_geometry_is_rejected() {
+        insta::assert_snapshot!(rejection("roads: { geometry: curve }"), @"error: line 1 column 10: unknown variant `curve`, expected one of point, line, polygon, polygon_centroid, line_centroid, line_midpoint, centroid, polygon_centroid_if_convex, polygon_point_on_surface, point_on_line, innermost_point");
+    }
+
+    #[test]
+    fn a_layer_overrides_the_tiling_of_its_source() {
+        let layers = parse("transportation: { extent: 512, buffer: 4, clip_geom: false }");
+        let layer = layers.get("transportation").expect("layer exists");
+        assert_eq!(layer.extent, NonZeroU32::new(512));
+        assert_eq!(layer.buffer, Some(4));
+        assert_eq!(layer.clip_geom, Some(false));
+    }
+
+    #[test]
+    fn a_minzoom_beyond_the_maximum_is_rejected() {
+        insta::assert_snapshot!(rejection("roads: { minzoom: 31 }"), @"error: line 1 column 10: invalid value: integer `31`, expected a zoom from 0 to 30");
+    }
+
+    #[test]
+    fn a_minzoom_above_the_maxzoom_is_rejected() {
+        insta::assert_snapshot!(rejection("roads: { minzoom: 12, maxzoom: 4 }"), @"layer `roads`: minzoom 12 is above maxzoom 4");
+    }
+
+    #[test]
+    fn a_zero_extent_is_rejected() {
+        insta::assert_snapshot!(rejection("roads: { extent: 0 }"), @"error: line 1 column 10: invalid value: integer `0`, expected a nonzero u32");
+    }
+
+    #[test]
+    fn a_layer_selects_features_with_an_expression() {
+        let layers = parse(indoc! {r#"
+            roads:
+              where: "highway in ['motorway', 'trunk'] && !(access in ['private', 'no'])"
+        "#});
+        assert_eq!(
+            layers.get("roads").expect("layer exists").r#where,
+            Some(Expr::new("highway in ['motorway', 'trunk'] && !(access in ['private', 'no'])").expect("valid CEL"))
+        );
+    }
+
+    #[test]
+    fn an_invalid_where_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { where: \"highway in ['motorway'\" }"),
+            @"error: line 1 column 17: `highway in ['motorway'` is not a valid CEL expression: Syntax error: mismatched input '<EOF>' expecting {']', ','}"
+        );
+    }
+
+    #[test]
+    fn sort_keys_are_parsed_in_order() {
+        let layers = parse(indoc! {r#"
+            building:
+              sort_by: [ "z_order", { expr: "int(height)", desc: true } ]
+        "#});
+        let keys = layers
+            .get("building")
+            .expect("layer exists")
+            .sort_by
+            .as_ref()
+            .expect("sort_by is set");
+        let expected = [
+            SortKey {
+                expr: Expr::new("z_order").expect("valid CEL"),
+                descending: false,
+            },
+            SortKey {
+                expr: Expr::new("int(height)").expect("valid CEL"),
+                descending: true,
+            },
+        ];
+        assert_eq!(keys.iter().cloned().collect::<Vec<_>>(), expected);
+    }
+
+    #[test]
+    fn an_id_is_kept_dropped_or_computed() {
+        let layers = parse(indoc! {"
+            omitted: {}
+            kept: { id: true }
+            dropped: { id: false }
+            computed: { id: 'osm_id * 10' }
+        "});
+        let ids: Vec<_> = layers.iter().map(|(name, l)| (name, l.id.clone())).collect();
+        assert_eq!(
+            ids,
+            [
+                ("omitted", IdPolicy::Keep),
+                ("kept", IdPolicy::Keep),
+                ("dropped", IdPolicy::Drop),
+                ("computed", IdPolicy::Expr(Expr::new("osm_id * 10").expect("valid CEL"))),
+            ]
+        );
+    }
+
+    #[test]
+    fn minzoom_cannot_change_with_the_zoom() {
+        insta::assert_snapshot!(
+            rejection("roads: { minzoom: { 0: 2, 10: 4 } }"),
+            @"error: line 1 column 19: invalid type: map, expected a number or an expression"
+        );
+    }
+
+    #[test]
+    fn a_negative_simplify_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { simplify: -1 }"),
+            @"error: line 1 column 10: invalid value: floating point `-1.0`, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn simplify_cannot_change_with_the_zoom() {
+        insta::assert_snapshot!(
+            rejection("roads: { simplify: { 0: 2, 11: 0 } }"),
+            @"error: line 1 column 20: invalid type: map, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn min_size_cannot_change_with_the_zoom() {
+        insta::assert_snapshot!(
+            rejection("roads: { min_size: { 0: 2, 11: 0 } }"),
+            @"error: line 1 column 20: invalid type: map, expected a finite number of pixels, 0 or more"
+        );
+    }
+
+    #[test]
+    fn a_number_id_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { id: 7 }"),
+            @"error: line 1 column 10: invalid type: integer `7`, expected `true`, `false` or an expression"
+        );
+    }
+
+    #[test]
+    fn an_empty_sort_by_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("roads: { sort_by: [] }"),
+            @"error: line 1 column 10: invalid length 0, expected at least one item"
+        );
+    }
+}

@@ -1,0 +1,368 @@
+use std::fmt;
+
+use indexmap::IndexMap;
+use serde::de::value::SeqAccessDeserializer;
+use serde::de::{self, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use crate::config::file::tiling::PerTile;
+use crate::config::file::tiling::error::TilingConfigError;
+use crate::config::file::tiling::per_tile::RuleThinning;
+use crate::config::file::tiling::primitives::{Expr, NonEmpty};
+use crate::config::file::tiling::setting::{Pixels, ZoomSetting, fixed_zoom_range};
+use crate::config::file::tiling::value::ValueSpec;
+use crate::config::file::{CollectUnrecognizedKeys, UnrecognizedKeys, UnrecognizedValues};
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Rules {
+    pub cases: NonEmpty<Rule>,
+    pub fallback: Option<RuleSettings>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Rule {
+    pub when: Expr,
+    pub settings: RuleSettings,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RuleSettings {
+    pub minzoom: Option<ZoomSetting>,
+    pub maxzoom: Option<ZoomSetting>,
+    pub simplify: Option<Pixels>,
+    pub min_size: Option<Pixels>,
+    pub attributes: IndexMap<String, ValueSpec>,
+    /// Replaces the layer's grid thinning for the features the rule takes.
+    pub thinning: Option<RuleThinning>,
+    pub unrecognized: UnrecognizedValues,
+}
+
+#[serde_with::skip_serializing_none]
+#[derive(Default, Serialize, Deserialize)]
+struct RawRule {
+    #[serde(rename = "where")]
+    when: Option<Expr>,
+    minzoom: Option<ZoomSetting>,
+    maxzoom: Option<ZoomSetting>,
+    simplify: Option<Pixels>,
+    min_size: Option<Pixels>,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    attributes: IndexMap<String, ValueSpec>,
+    #[serde(default, deserialize_with = "RuleThinning::deserialize_key")]
+    thinning: Option<RuleThinning>,
+    #[serde(flatten, skip_serializing)]
+    unrecognized: UnrecognizedValues,
+}
+
+impl RawRule {
+    fn split(self) -> Result<(Option<Expr>, RuleSettings), TilingConfigError> {
+        if let Some(key) = PerTile::KEYS
+            .into_iter()
+            .find(|key| self.unrecognized.contains_key(*key))
+        {
+            return Err(TilingConfigError::PerTileInRule { key });
+        }
+        fixed_zoom_range(self.minzoom.as_ref(), self.maxzoom.as_ref())?;
+        let settings = RuleSettings {
+            minzoom: self.minzoom,
+            maxzoom: self.maxzoom,
+            simplify: self.simplify,
+            min_size: self.min_size,
+            attributes: self.attributes,
+            thinning: self.thinning,
+            unrecognized: self.unrecognized,
+        };
+        Ok((self.when, settings))
+    }
+
+    fn join(when: Option<&Expr>, settings: &RuleSettings) -> Self {
+        Self {
+            when: when.cloned(),
+            minzoom: settings.minzoom.clone(),
+            maxzoom: settings.maxzoom.clone(),
+            simplify: settings.simplify,
+            min_size: settings.min_size,
+            attributes: settings.attributes.clone(),
+            thinning: settings.thinning.clone(),
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Rules {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct RulesVisitor;
+
+        impl<'de> Visitor<'de> for RulesVisitor {
+            type Value = Rules;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a list of rules, each with a `where`, except perhaps the last")
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, seq: A) -> Result<Rules, A::Error> {
+                let raw = Vec::<RawRule>::deserialize(SeqAccessDeserializer::new(seq))?;
+                let mut cases = Vec::with_capacity(raw.len());
+                let mut fallback = None;
+                for rule in raw {
+                    if fallback.is_some() {
+                        return Err(de::Error::custom(TilingConfigError::CatchAllNotLast));
+                    }
+                    match rule.split().map_err(de::Error::custom)? {
+                        (Some(when), settings) => cases.push(Rule { when, settings }),
+                        (None, settings) => fallback = Some(settings),
+                    }
+                }
+                let cases = NonEmpty::try_from_vec(cases)
+                    .ok_or_else(|| de::Error::custom(TilingConfigError::NoConditionalRule))?;
+                Ok(Rules { cases, fallback })
+            }
+        }
+
+        deserializer.deserialize_seq(RulesVisitor)
+    }
+}
+
+impl Serialize for Rules {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let cases = self.cases.iter().map(|r| RawRule::join(Some(&r.when), &r.settings));
+        let fallback = self.fallback.iter().map(|s| RawRule::join(None, s));
+        serializer.collect_seq(cases.chain(fallback))
+    }
+}
+
+impl CollectUnrecognizedKeys for Rules {
+    fn collect_unrecognized(&self, path: &str, out: &mut UnrecognizedKeys) {
+        let base = path.strip_suffix('.').unwrap_or(path);
+        let settings = self.cases.iter().map(|r| &r.settings).chain(&self.fallback);
+        for (index, settings) in settings.enumerate() {
+            settings
+                .unrecognized
+                .collect_unrecognized(&format!("{base}[{index}]."), out);
+            if let Some(RuleThinning::Grid(grid)) = &settings.thinning {
+                grid.collect_unrecognized(&format!("{base}[{index}].thinning"), out);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+
+    use super::{Rule, RuleSettings, Rules};
+    use crate::config::file::tiling::setting::{PerFeature, Pixels};
+    use crate::config::file::tiling::tests::{parse, rejection};
+    use crate::config::file::tiling::{Expr, Literal, NonEmpty, Value, Zoom};
+
+    fn fixed_zoom(z: u8) -> PerFeature<Zoom> {
+        PerFeature::Fixed(Zoom::new(z).expect("valid zoom"))
+    }
+
+    fn px(value: f64) -> Pixels {
+        Pixels::new(value).expect("valid pixels")
+    }
+
+    fn expr(source: &str) -> Expr {
+        Expr::new(source).expect("valid CEL")
+    }
+
+    #[test]
+    fn rules_pick_the_first_match_and_may_end_in_a_catch_all() {
+        let layers = parse(indoc! {"
+            poi:
+              rules:
+                - where: \"amenity in ['university', 'college']\"
+                  minzoom: 10
+                  min_size: 80
+                - where: \"railway in ['station', 'halt']\"
+                  minzoom: 12
+                  attributes: { class: { value: railway } }
+                - minzoom: 14
+        "});
+        let mut rules = layers
+            .get("poi")
+            .and_then(|layer| layer.rules.clone())
+            .expect("poi has rules");
+        let class = rules.cases.iter().nth(1).expect("two rules").settings.attributes["class"].clone();
+        assert_eq!(class.value, Value::Literal(Literal::String("railway".to_owned())));
+        rules.cases = NonEmpty::try_from_vec(
+            rules
+                .cases
+                .iter()
+                .cloned()
+                .map(|mut rule| {
+                    rule.settings.attributes.clear();
+                    rule
+                })
+                .collect(),
+        )
+        .expect("two rules");
+        let university = Rule {
+            when: expr("amenity in ['university', 'college']"),
+            settings: RuleSettings {
+                minzoom: Some(fixed_zoom(10)),
+                min_size: Some(px(80.0)),
+                ..RuleSettings::default()
+            },
+        };
+        let railway = Rule {
+            when: expr("railway in ['station', 'halt']"),
+            settings: RuleSettings {
+                minzoom: Some(fixed_zoom(12)),
+                ..RuleSettings::default()
+            },
+        };
+        let fallback = RuleSettings {
+            minzoom: Some(fixed_zoom(14)),
+            ..RuleSettings::default()
+        };
+        assert_eq!(
+            rules,
+            Rules {
+                cases: NonEmpty::try_from_vec(vec![university, railway]).unwrap(),
+                fallback: Some(fallback),
+            }
+        );
+    }
+
+    #[test]
+    fn an_empty_rules_list_is_rejected() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [] }"),
+            @"error: line 1 column 15: `rules` needs at least one rule with a `where`"
+        );
+    }
+
+    #[test]
+    fn rules_without_a_where_are_rejected() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { minzoom: 14 } ] }"),
+            @"error: line 1 column 15: `rules` needs at least one rule with a `where`"
+        );
+    }
+
+    #[test]
+    fn a_catch_all_rule_must_be_last() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { minzoom: 14 }, { where: \"amenity == 'cafe'\" } ] }"),
+            @"error: line 1 column 15: a rule without `where` takes every feature, so it must be the last rule"
+        );
+    }
+
+    #[test]
+    fn a_rule_can_replace_or_turn_off_the_grid_thinning() {
+        let layers = parse(indoc! {"
+            poi:
+              rules:
+                - where: \"kind == 'city'\"
+                  thinning: { method: grid, size: 128, limit: 1, maxzoom: 8 }
+                - where: \"kind == 'capital'\"
+                  thinning: null
+                - minzoom: 14
+        "});
+        let rules = layers
+            .get("poi")
+            .and_then(|layer| layer.rules.clone())
+            .expect("poi has rules");
+        let grids: Vec<_> = rules
+            .cases
+            .iter()
+            .map(|rule| &rule.settings)
+            .chain(&rules.fallback)
+            .map(|settings| settings.thinning.clone())
+            .collect();
+        insta::assert_debug_snapshot!(grids, @"
+        [
+            Some(
+                Grid(
+                    ByZoomRange(
+                        NonEmpty(
+                            [
+                                Thinning {
+                                    method: Grid {
+                                        size: Pixels(
+                                            Finite(
+                                                128.0,
+                                            ),
+                                        ),
+                                        limit: Some(
+                                            1,
+                                        ),
+                                        rank: None,
+                                    },
+                                    keys: None,
+                                    zooms: ..=z8,
+                                    unrecognized: UnrecognizedValues(
+                                        {},
+                                    ),
+                                },
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+            Some(
+                Off,
+            ),
+            None,
+        ]
+        ");
+    }
+
+    #[test]
+    fn a_rule_thinning_cannot_use_another_method() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"kind == 'city'\", thinning: { method: distance, distance: 8 } } ] }"),
+            @"error: line 1 column 54: a rule's `thinning` can only be a `method: grid` with a `limit` and without `keys` or `rank`; other methods, keys and ranks apply to the whole layer"
+        );
+    }
+
+    #[test]
+    fn a_rule_thinning_cannot_set_keys() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"kind == 'city'\", thinning: { method: grid, size: 64, limit: 1, keys: [name] } } ] }"),
+            @"error: line 1 column 54: a rule's `thinning` can only be a `method: grid` with a `limit` and without `keys` or `rank`; other methods, keys and ranks apply to the whole layer"
+        );
+    }
+
+    #[test]
+    fn a_rule_thinning_needs_a_limit() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"kind == 'city'\", thinning: { method: grid, size: 64, rank: rank } } ] }"),
+            @"error: line 1 column 54: a rule's `thinning` can only be a `method: grid` with a `limit` and without `keys` or `rank`; other methods, keys and ranks apply to the whole layer"
+        );
+    }
+
+    #[test]
+    fn a_rule_cannot_set_per_tile() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"amenity == 'cafe'\", limit: { count: 5 } } ] }"),
+            @"error: line 1 column 15: `limit` acts on a whole tile, so it is set on the layer, not in a rule"
+        );
+    }
+
+    #[test]
+    fn a_rule_where_must_be_valid_cel() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"amenity = 'cafe'\" } ] }"),
+            @"error: line 1 column 26: `amenity = 'cafe'` is not a valid CEL expression: Syntax error: token recognition error at: '= '"
+        );
+    }
+
+    #[test]
+    fn a_rule_minzoom_cannot_exceed_its_maxzoom() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"amenity == 'cafe'\", minzoom: 14, maxzoom: 12 } ] }"),
+            @"error: line 1 column 15: minzoom 14 is above maxzoom 12"
+        );
+    }
+
+    #[test]
+    fn rule_attributes_must_be_a_map() {
+        insta::assert_snapshot!(
+            rejection("poi: { rules: [ { where: \"amenity == 'cafe'\", attributes: [name] } ] }"),
+            @"error: line 1 column 59: expected mapping start"
+        );
+    }
+}

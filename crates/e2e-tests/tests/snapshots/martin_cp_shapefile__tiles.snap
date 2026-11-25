@@ -1,0 +1,8 @@
+---
+source: e2e-tests/tests/martin_cp_shapefile.rs
+expression: tile_listing(&output).await
+---
+0/0/0 718 bytes
+1/0/0 37 bytes
+1/0/1 38 bytes
+1/1/1 680 bytes

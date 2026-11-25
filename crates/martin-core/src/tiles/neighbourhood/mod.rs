@@ -1,0 +1,14 @@
+//! Assembles a 3x3 tile neighbourhood into one RGBA field.
+//! This is for a pass whose kernel reads past a tile's edge sees real neighbouring terrain to avoid seams.
+
+mod assemble;
+mod etag;
+mod window;
+
+#[cfg(feature = "processing")]
+pub(crate) use crate::tiles::neighbourhood::assemble::CHANNELS;
+pub use crate::tiles::neighbourhood::assemble::{
+    DEFAULT_TILE_SIZE, GRID_SIDE, NEIGHBOURHOOD_LEN, Neighbourhood, NeighbourhoodError, RgbaField,
+};
+pub use crate::tiles::neighbourhood::etag::{InputEtag, neighbourhood_etag};
+pub use crate::tiles::neighbourhood::window::AncestorWindow;
