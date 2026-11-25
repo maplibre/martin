@@ -5959,7 +5959,7 @@ dependencies = [
  "image",
  "insta",
  "itertools 0.15.0",
- "jiff 0.2.46",
+ "jiff 1.0.2",
  "jxl-oxide",
  "maplibre-native-ffi",
  "martin-core",

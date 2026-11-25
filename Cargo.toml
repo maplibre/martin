@@ -142,7 +142,7 @@ indicatif = "0.18.3"
 indoc = "2"
 insta = "1.46.3"
 itertools = "0.15"
-jiff = { version = "0.2.46", default-features = false, features = ["serde", "std"] }
+jiff = { version = "1.0.0", default-features = false, features = ["serde", "std"] }
 jpeg-decoder = "0.3.1"
 json-patch = "5"
 jxl-oxide = { version = "0.12.6", features = ["image"] }
