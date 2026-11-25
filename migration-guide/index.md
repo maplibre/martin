@@ -243,4 +243,4 @@ cargo install martin --locked --no-default-features --features postgres,resource
 - `CatalogSourceEntry` gained `tile_grid`, `PostgresSource::new` requires the source's `TileGrid`, and `CogError::TooManyImages` was removed.
 - `mbtiles::Mbtiles::insert_tiles` now requires tile data to implement `Sync`. The copier writes the normalized layout described above.
 
-See the [martin-core](<https://github.com/maplibre/martin/blob/main/martin-core/CHANGELOG.md>) and [mbtiles](<https://github.com/maplibre/martin/blob/main/mbtiles/CHANGELOG.md>) changelogs for crate releases.
+See the [martin-core](<https://github.com/maplibre/martin/blob/main/crates/martin-core/CHANGELOG.md>) and [mbtiles](<https://github.com/maplibre/martin/blob/main/crates/mbtiles/CHANGELOG.md>) changelogs for crate releases.
