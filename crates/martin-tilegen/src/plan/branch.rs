@@ -694,6 +694,7 @@ impl<'a> LayerPaths<'a, '_> {
             id: None,
             geometry: Geometry::Point(Coord { x: 0.0, y: 0.0 }),
             props,
+            relations: Vec::new(),
         };
         self.plan
             .with_view(self.table, &feature, None, |view| eval_part(expr, view))
@@ -879,7 +880,12 @@ impl<'a> LayerPaths<'a, '_> {
     /// the columns it reads.
     fn translate(&self, expr: &IdedExpr, polarity: Polarity) -> Result<Condition, TranslateError> {
         self.no_keys()?;
-        condition_of(expr, self.columns, polarity)
+        condition_of(
+            expr,
+            self.columns,
+            &self.plan.tables[self.table].relation_sets,
+            polarity,
+        )
     }
 
     /// `column == value` compared as `kind`, which no source can check while a `jsonb` column may replace the columns
@@ -974,7 +980,7 @@ fn compared_as(columns: &[ColumnDef], column: &str, value: &Literal) -> Option<R
     let read_as = columns.iter().find_map(|c| match c {
         ColumnDef::Value(name, read_as) if name == column => Some(*read_as),
         ColumnDef::Document(name) if name == column => Some(None),
-        ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) => None,
+        ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) | ColumnDef::Relations(_) => None,
     });
     match read_as {
         Some(Some(read_as)) => read_as.common(kind).map(Ok),

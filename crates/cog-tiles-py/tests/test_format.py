@@ -10,7 +10,7 @@ from PIL import Image
 
 import cog_tiles
 
-FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "cog"
+FIXTURES = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "cog"
 SYNTHETIC = FIXTURES / "synthetic"
 MOSAIC = FIXTURES / "mosaic"
 

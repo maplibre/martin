@@ -12,7 +12,7 @@ from PIL import Image
 
 import cog_tiles
 
-FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "cog"
+FIXTURES = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "cog"
 NAIP = FIXTURES / "tile_index" / "naip.gpkg"
 EXPECTED = FIXTURES / "tile_index" / "expected" / "14_2619_6334.png"
 
