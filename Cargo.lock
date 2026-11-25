@@ -6211,6 +6211,7 @@ dependencies = [
  "tracing-test",
  "walkdir",
  "xxhash-rust",
+ "zstd",
 ]
 
 [[package]]
