@@ -52,7 +52,6 @@ jobs:
       # or empty for PR debug builds to reduce CI build time.
       RELEASE_MODE: ${{ inputs.release_mode && '1' || '' }}
       LEGACY_CPU: ${{ inputs.legacy_cpu && '1' || '' }}
-      # Nightlies ship the unstable MLT v2 encoder so it can be tried out before it is stabilised.
       EXTRA_FEATURES: ${{ github.event_name == 'schedule' && 'unstable-mlt-v2' || '' }}
     services:
       postgres:

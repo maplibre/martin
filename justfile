@@ -21,7 +21,6 @@ full_features := stable_features + ',rendering'
 x86_cpu_flag := if env('LEGACY_CPU', '') != '' {''} else {'-C target-cpu=x86-64-v3'}
 # Benchmarks build for the host, so they must use the same CPU level as the release binaries to measure what users get
 bench_rustflags := if arch() == 'x86_64' {x86_cpu_flag} else {''}
-# Extra martin features for the release builds, e.g. EXTRA_FEATURES=unstable-mlt-v2 for the nightlies
 extra_features := if env('EXTRA_FEATURES', '') != '' {'--features ' + quote(env('EXTRA_FEATURES'))} else {''}
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.

@@ -43,7 +43,7 @@ permissions:
   contents: read
 
 env:
-  # Nightly binaries carry `unstable-mlt-v2` (see build-binary.yml), so their end-to-end tests must expect it.
+  # Nightly binaries accept `--format mlt2`.
   NIGHTLY_E2E_FEATURES: ${{ github.event_name == 'schedule' && 'test-mlt-v2' || '' }}
 
 jobs:

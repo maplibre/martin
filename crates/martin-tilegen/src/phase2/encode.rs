@@ -1181,7 +1181,7 @@ mod document_tests {
         ]);
 
         assert_eq!(layers.len(), 3);
-        // mlt-core narrows the integer leaves of each tile on its own, and a tile without ids has none to narrow.
+        // A tile without ids has nothing to narrow, so it keeps I64.
         for (layer, id) in layers.iter().zip([PropKind::U32, PropKind::I64, PropKind::U32]) {
             assert_eq!(layer.nested_names(), ["links"]);
             assert_eq!(layer.nested_kinds(), [link_kind(id)]);
