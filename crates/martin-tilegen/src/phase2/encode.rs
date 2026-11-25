@@ -1136,17 +1136,17 @@ mod document_tests {
         NestedValue::Leaf(value)
     }
 
-    fn link(id: i64, at: f64) -> NestedValue {
+    fn link(id: u32, at: f64) -> NestedValue {
         NestedValue::map([
             ("at", leaf(PropValue::F64(Some(at)))),
-            ("id", leaf(PropValue::I64(Some(id)))),
+            ("id", leaf(PropValue::U32(Some(id)))),
         ])
     }
 
-    fn link_kind() -> NestedKind {
+    fn link_kind(id: PropKind) -> NestedKind {
         NestedKind::list(NestedKind::map([
             ("at", NestedKind::Leaf(PropKind::F64)),
-            ("id", NestedKind::Leaf(PropKind::I64)),
+            ("id", NestedKind::Leaf(id)),
         ]))
     }
 
@@ -1159,7 +1159,7 @@ mod document_tests {
         ]]);
 
         assert_eq!(layers[0].nested_names(), ["links"]);
-        assert_eq!(layers[0].nested_kinds(), [link_kind()]);
+        assert_eq!(layers[0].nested_kinds(), [link_kind(PropKind::U32)]);
         assert_eq!(layers[0].property_names(), [] as [String; 0]);
         let values: Vec<_> = layers[0].features().iter().map(|f| f.nested().to_vec()).collect();
         assert_eq!(
@@ -1181,9 +1181,10 @@ mod document_tests {
         ]);
 
         assert_eq!(layers.len(), 3);
-        for layer in &layers {
+        // mlt-core narrows the integer leaves of each tile on its own, and a tile without ids has none to narrow.
+        for (layer, id) in layers.iter().zip([PropKind::U32, PropKind::I64, PropKind::U32]) {
             assert_eq!(layer.nested_names(), ["links"]);
-            assert_eq!(layer.nested_kinds(), [link_kind()]);
+            assert_eq!(layer.nested_kinds(), [link_kind(id)]);
         }
         assert_eq!(
             layers[2].features()[0].nested(),
