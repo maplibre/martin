@@ -216,6 +216,28 @@ jobs:
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,nextest', rendering: true, cache: true }
+      # Building the suite hits Maven Central, which answers shared runners with 429s,
+      # so the image is cached until its Dockerfile changes.
+      - name: Restore the conformance suite image
+        id: ets-image
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ogc-ets-maps.tar
+          key: ogc-ets-maps-${{ hashFiles('tests/ogc-ets-maps/**') }}
+      - name: Load the conformance suite image
+        if: steps.ets-image.outputs.cache-hit == 'true'
+        run: docker load --input "$RUNNER_TEMP/ogc-ets-maps.tar"
+      - name: Build the conformance suite image
+        if: steps.ets-image.outputs.cache-hit != 'true'
+        run: |
+          docker compose build ogc-ets-maps
+          docker save --output "$RUNNER_TEMP/ogc-ets-maps.tar" martin-ogc-ets-maps
+      - name: Save the conformance suite image
+        if: steps.ets-image.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ogc-ets-maps.tar
+          key: ${{ steps.ets-image.outputs.cache-primary-key }}
       - name: Run the OGC API - Maps conformance suite
         run: just test-ogc-maps
   lint-rust:
