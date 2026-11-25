@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/maplibre/martin/compare/martin-tilegen-v0.2.1...martin-tilegen-v0.3.0) - 2026-11-25
+
+### Added
+
+- OpenStreetMap PBF sources, with closed ways read as Planetiler reads them and relation membership through named relation sets ([#3954](https://github.com/maplibre/martin/pull/3954), [#3967](https://github.com/maplibre/martin/pull/3967), [#3977](https://github.com/maplibre/martin/pull/3977))
+- ESRI shapefile sources, rendered in one run with `osm` sources through `SourceChain` ([#3971](https://github.com/maplibre/martin/pull/3971), [#3972](https://github.com/maplibre/martin/pull/3972))
+- The Shortbread and OpenMapTiles configurations ([#3956](https://github.com/maplibre/martin/pull/3956), [#3978](https://github.com/maplibre/martin/pull/3978))
+- `layer` writes several layer definitions into one output layer ([#3973](https://github.com/maplibre/martin/pull/3973))
+- `geometry` as a list, `polygon_point_on_surface` and `polygon_centroid_if_convex` ([#3968](https://github.com/maplibre/martin/pull/3968), [#3969](https://github.com/maplibre/martin/pull/3969), [#3970](https://github.com/maplibre/martin/pull/3970))
+- `area(unit)`, `matches`, `regex.replace`, `min`, `isLatin` and `removeLatin` in layer expressions ([#3966](https://github.com/maplibre/martin/pull/3966), [#3974](https://github.com/maplibre/martin/pull/3974))
+- Grid thinning `rank` and `hidden` attributes ([#3975](https://github.com/maplibre/martin/pull/3975), [#3976](https://github.com/maplibre/martin/pull/3976))
+- `jsonb` documents as nested columns in MLT v2 tiles ([#4026](https://github.com/maplibre/martin/pull/4026), [#4027](https://github.com/maplibre/martin/pull/4027), [#4029](https://github.com/maplibre/martin/pull/4029), [#4030](https://github.com/maplibre/martin/pull/4030))
+
+### Fixed
+
+- One MLT column type per key in every tile of a layer, a warning for rounded integers, and encode errors naming their layer and tile ([#3982](https://github.com/maplibre/martin/pull/3982), [#3983](https://github.com/maplibre/martin/pull/3983))
+- Tables without `layers` follow `order_by`, and the table comment metadata and `compression` are kept ([#3942](https://github.com/maplibre/martin/pull/3942), [#3944](https://github.com/maplibre/martin/pull/3944))
+
 ## [0.2.1](https://github.com/maplibre/martin/compare/martin-tilegen-v0.2.0...martin-tilegen-v0.2.1) - 2026-11-11
 
 ### Added

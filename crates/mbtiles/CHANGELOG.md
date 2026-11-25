@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0](https://github.com/maplibre/martin/compare/mbtiles-v0.23.0...mbtiles-v0.24.0) - 2026-11-25
+
+### Added
+
+- `mbtiles diff --patch-type zstd-raw` and `zstd-gz` store each changed tile as zstd compressed against the old tile, as small as `bin-diff-*` patches for 175 to 570 times less CPU ([#4067](https://github.com/maplibre/martin/pull/4067))
+
+### Fixed
+
+- `mbtiles diff` and `mbtiles copy --apply-patch` are linear instead of quadratic on normalized and flat-with-hash files ([#4066](https://github.com/maplibre/martin/pull/4066))
+- An empty file hashed with `fnv1a-decimal` gets the right `agg_tiles_hash` ([#4068](https://github.com/maplibre/martin/pull/4068))
+
+### Performance
+
+- `agg_tiles_hash` is computed by reading tiles in key order instead of sorting every blob in SQLite: `mbtiles validate` on Germany went from 22 to 7 s ([#4068](https://github.com/maplibre/martin/pull/4068))
+
 ## [0.23.0](https://github.com/maplibre/martin/compare/mbtiles-v0.22.0...mbtiles-v0.23.0) - 2026-11-11
 
 ### Fixed
