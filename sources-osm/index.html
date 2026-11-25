@@ -2472,7 +2472,8 @@ The tile serving mode can only serve them after they are brought into a more sui
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>martin<span class="w"> </span>cp<span class="w"> </span>--mode<span class="w"> </span>bulk<span class="w"> </span>--config<span class="w"> </span>config.yaml<span class="w"> </span>--source<span class="w"> </span>berlin<span class="w"> </span>--output-file<span class="w"> </span>berlin.mbtiles
 </span></code></pre></div>
 <p>A run renders <code>osm</code> and <a href="../sources-shapefile/"><code>shapefile</code></a> sources together, or database sources, not both.
-<a href="../recipe-osm-basemap/">Building a basemap from OpenStreetMap</a> has one possible basemap schema.</p>
+<a href="../recipe-osm-basemap/">Building a basemap from OpenStreetMap</a> has one possible basemap schema, and
+<a href="../recipe-osm-openmaptiles/">Building OpenMapTiles from OpenStreetMap</a> another.</p>
 <h2 id="settings">Settings</h2>
 <table>
 <thead>
@@ -2591,7 +2592,8 @@ For a closed way, <code>line_centroid</code> is the centroid of the polygon it e
 A ring inside an odd number of others is a hole, whatever its role.
 A way or relation whose nodes are not in the file is left out, as is a relation with a member way that is not.</p>
 <p>Each key in <code>tags</code> is a string property, <code>null</code> where the object does not have the tag or its value is empty.
-<code>osm_type</code> is always one.
+<code>osm_type</code> and <code>osm_id</code> are always properties.
+<code>osm_id</code> is the object's OSM id as an integer, not the feature id, which is <code>osm_id * 10 + 1</code>, <code>2</code> or <code>3</code>.
 An expression reading a key not in <code>tags</code> fails the run. A tag such as <code>name:en</code> is read with
 <code>feature['name:en']</code>.</p>
 <h2 id="relation-membership">Relation membership</h2>

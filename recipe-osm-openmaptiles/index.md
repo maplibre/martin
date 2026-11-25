@@ -1,0 +1,2560 @@
+# Building OpenMapTiles from OpenStreetMap
+
+This recipe builds a basemap from an [OpenStreetMap](<https://www.openstreetmap.org/>) extract with the 16 layers of the [OpenMapTiles schema](<https://openmaptiles.org/schema/>). Styles made for OpenMapTiles, such as [OSM Bright](<https://github.com/openmaptiles/osm-bright-gl-style>) and [Positron](<https://github.com/openmaptiles/positron-gl-style>) can then draw this data.
+
+The configuration is a port of [Planetiler's OpenMapTiles profile](<https://github.com/openmaptiles/planetiler-openmaptiles>). It keeps Planetiler's zooms, minimum sizes, buffers, label grids, merges and draw orders. It reads only OpenStreetMap and the ocean polygons of the whole world. It leaves out what Planetiler takes from Natural Earth and Wikidata, see [How it differs](<#how-it-differs-from-planetilers-openmaptiles>).
+
+The configuration uses an `osm` section, described in [OpenStreetMap PBF Sources](<https://maplibre.org/martin/sources-osm/index.md>), a `shapefile` section, described in [Shapefile Sources](<https://maplibre.org/martin/sources-shapefile/index.md>), and the layer keys of [Table Source Layers](<https://maplibre.org/martin/sources-pg-layers/index.md>).
+
+## Build the tileset
+
+1. Download an extract, for example Berlin from [Geofabrik](<https://download.geofabrik.de/>), and the ocean polygons of the whole world from [osmdata.openstreetmap.de](<https://osmdata.openstreetmap.de/data/water-polygons.html>), about 900 MB:
+
+   ```bash
+   curl -LO https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf
+   curl -LO https://osmdata.openstreetmap.de/download/water-polygons-split-3857.zip
+   ```
+2. Save this as `openmaptiles.yaml`, next to both downloads:
+
+   > **openmaptiles.yaml**
+   >
+   > ```yaml
+   > shapefile:
+   >   sources:
+   >     ocean:
+   >       path: water-polygons-split-3857.zip
+   >       maxzoom: 14
+   >       layers:
+   >         ocean:
+   >           layer: water
+   >           geometry: polygon
+   >           buffer: 64
+   >           attributes:
+   >             class: { value: ocean }
+   >           merge_polygons:
+   >             - { maxzoom: 13, min_area: 1 }
+   >             - { minzoom: 14, min_area: 0.0625 }
+   > osm:
+   >   sources:
+   >     openmaptiles:
+   >       path: berlin-latest.osm.pbf
+   >       maxzoom: 14
+   >       tags:
+   >         - name
+   >         - int_name
+   >         - "name:af"
+   >         - "name:am"
+   >         - "name:ar"
+   >         - "name:az"
+   >         - "name:be"
+   >         - "name:bg"
+   >         - "name:bn"
+   >         - "name:br"
+   >         - "name:bs"
+   >         - "name:ca"
+   >         - "name:co"
+   >         - "name:cs"
+   >         - "name:cy"
+   >         - "name:da"
+   >         - "name:de"
+   >         - "name:el"
+   >         - "name:en"
+   >         - "name:eo"
+   >         - "name:es"
+   >         - "name:et"
+   >         - "name:eu"
+   >         - "name:fa"
+   >         - "name:fi"
+   >         - "name:fr"
+   >         - "name:fy"
+   >         - "name:ga"
+   >         - "name:gd"
+   >         - "name:he"
+   >         - "name:hi"
+   >         - "name:hr"
+   >         - "name:hu"
+   >         - "name:hy"
+   >         - "name:id"
+   >         - "name:is"
+   >         - "name:it"
+   >         - "name:ja"
+   >         - "name:ja_kana"
+   >         - "name:ja_rm"
+   >         - "name:ja-Latn"
+   >         - "name:ja-Hira"
+   >         - "name:ka"
+   >         - "name:kk"
+   >         - "name:kn"
+   >         - "name:ko"
+   >         - "name:ko-Latn"
+   >         - "name:ku"
+   >         - "name:la"
+   >         - "name:lb"
+   >         - "name:lt"
+   >         - "name:lv"
+   >         - "name:mk"
+   >         - "name:mt"
+   >         - "name:ml"
+   >         - "name:nl"
+   >         - "name:no"
+   >         - "name:oc"
+   >         - "name:pa"
+   >         - "name:pnb"
+   >         - "name:pl"
+   >         - "name:pt"
+   >         - "name:rm"
+   >         - "name:ro"
+   >         - "name:ru"
+   >         - "name:sk"
+   >         - "name:sl"
+   >         - "name:sq"
+   >         - "name:sr"
+   >         - "name:sr-Latn"
+   >         - "name:sv"
+   >         - "name:ta"
+   >         - "name:te"
+   >         - "name:th"
+   >         - "name:tok"
+   >         - "name:tr"
+   >         - "name:uk"
+   >         - "name:ur"
+   >         - "name:vi"
+   >         - "name:zh"
+   >         - "name:zh-Hant"
+   >         - "name:zh-Hans"
+   >         - "addr:block_number"
+   >         - "addr:housenumber"
+   >         - "addr:street"
+   >         - access
+   >         - admin_level
+   >         - aerialway
+   >         - aerodrome
+   >         - aerodrome_type
+   >         - aeroway
+   >         - amenity
+   >         - area
+   >         - "area:aeroway"
+   >         - barrier
+   >         - bicycle
+   >         - border_status
+   >         - boundary
+   >         - boundary_type
+   >         - brand
+   >         - bridge
+   >         - building
+   >         - "building:colour"
+   >         - "building:height"
+   >         - "building:levels"
+   >         - "building:material"
+   >         - "building:min_height"
+   >         - "building:min_level"
+   >         - "building:part"
+   >         - capital
+   >         - claimed_by
+   >         - construction
+   >         - "country_code_iso3166_1_alpha_2"
+   >         - covered
+   >         - disputed
+   >         - dispute
+   >         - disputed_by
+   >         - ele
+   >         - expressway
+   >         - foot
+   >         - ford
+   >         - funicular
+   >         - height
+   >         - highway
+   >         - historic
+   >         - horse
+   >         - iata
+   >         - icao
+   >         - indoor
+   >         - information
+   >         - intermittent
+   >         - "ISO3166-1"
+   >         - "ISO3166-1:alpha2"
+   >         - landuse
+   >         - layer
+   >         - leisure
+   >         - level
+   >         - levels
+   >         - location
+   >         - man_made
+   >         - maritime
+   >         - military
+   >         - min_height
+   >         - min_level
+   >         - "mtb:scale"
+   >         - natural
+   >         - network
+   >         - office
+   >         - oneway
+   >         - operator
+   >         - place
+   >         - population
+   >         - protect_class
+   >         - protected_area
+   >         - protection_title
+   >         - public_transport
+   >         - railway
+   >         - ramp
+   >         - rank
+   >         - ref
+   >         - religion
+   >         - route
+   >         - sac_scale
+   >         - service
+   >         - shop
+   >         - sport
+   >         - station
+   >         - surface
+   >         - toll
+   >         - tourism
+   >         - tracktype
+   >         - tunnel
+   >         - type
+   >         - usage
+   >         - water
+   >         - waterway
+   >         - wetland
+   >         - wikidata
+   >         - wikipedia
+   >         - zoo
+   >         - informal
+   >       relations:
+   >         admin:
+   >           where: >-
+   >             type == 'boundary' && boundary == 'administrative' && admin_level != null
+   >           tags: [admin_level, name, disputed, dispute, border_status, disputed_by, claimed_by]
+   >         route:
+   >           where: >-
+   >             type == 'route' && route in ['road', 'hiking'] && (network != null || feature['osmc:symbol'] !=
+   >             null || colour != null)
+   >           tags: [network, ref, name, colour, "ref:colour", "osmc:symbol"]
+   >         river:
+   >           where: "waterway == 'river' && name != null"
+   >           tags: [name, int_name, "name:en", "name:de"]
+   >       layers:
+   >         # water: the ocean comes from the shapefile source above, at every zoom
+   >         water_lakes_low:
+   >           layer: water
+   >           geometry: polygon
+   >           buffer: 64
+   >           simplify: 0.1
+   >           min_size: 1
+   >           minzoom: "area('km2') >= 20000 ? 0 : area('km2') >= 2000 ? 2 : area('km2') >= 25 ? 4 : 5"
+   >           maxzoom: "area('km2') >= 25 ? 5 : 0"
+   >           where: "natural == 'water' && (water == null || water in ['lake', 'reservoir', 'lagoon']) && covered != 'yes'"
+   >           attributes:
+   >             id: osm_id
+   >             intermittent: "intermittent != null && !(intermittent in ['0', 'false', 'no']) ? 1 : 0"
+   >             class: { value: lake }
+   >         water:
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 6
+   >           maxzoom: 11
+   >           simplify: 0.1
+   >           min_size: 2
+   >           where: &water_where >-
+   >             (landuse in ['reservoir', 'basin', 'salt_pond'] || leisure == 'swimming_pool' || natural in
+   >             ['water', 'spring'] || waterway == 'dock' || water in ['river', 'stream', 'canal', 'ditch',
+   >             'drain', 'pond', 'basin', 'wastewater']) && covered != 'yes' && natural != 'bay'
+   >           attributes: &water_attributes
+   >             id: osm_id
+   >             intermittent: "intermittent != null && !(intermittent in ['0', 'false', 'no']) ? 1 : 0"
+   >             brunnel:
+   >               expr: >-
+   >                 bridge != null && !(bridge in ['0', 'false', 'no']) ? 'bridge' : tunnel != null &&
+   >                 !(tunnel in ['0', 'false', 'no']) ? 'tunnel' : null
+   >               minzoom: 12
+   >             class: >-
+   >               waterway == 'dock' ? 'dock' : water in ['river', 'stream', 'canal', 'ditch', 'drain'] ?
+   >               'river' : water in ['pond', 'basin', 'wastewater', 'salt_pond'] ? 'pond' : leisure ==
+   >               'swimming_pool' ? 'swimming_pool' : 'lake'
+   >         water_z12:
+   >           layer: water
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 12
+   >           min_size_at_maxzoom: 0.0625
+   >           where: *water_where
+   >           attributes: *water_attributes
+   >         # waterway: river relation members at z6-8, ways from z9
+   >         waterway_relations:
+   >           layer: waterway
+   >           geometry: line
+   >           buffer: 1024
+   >           minzoom: 6
+   >           maxzoom: 8
+   >           simplify: 0.1
+   >           min_size: 0
+   >           where: "size(relations.river) > 0"
+   >           attributes:
+   >             class: { value: river }
+   >             name: "relations.river[0].name"
+   >             name_en: "coalesce(relations.river[0]['name:en'], relations.river[0].name)"
+   >             name_de: "coalesce(relations.river[0]['name:de'], relations.river[0].name, relations.river[0]['name:en'])"
+   >             "name:latin": >-
+   >               relations.river[0].name.isLatin() ? relations.river[0].name :
+   >               relations.river[0]['name:en'].isLatin() ? relations.river[0]['name:en'] :
+   >               relations.river[0].int_name.isLatin() ? relations.river[0].int_name :
+   >               relations.river[0]['name:de'].isLatin() ? relations.river[0]['name:de'] : null
+   >             "name:nonlatin": "relations.river[0].name.isLatin() ? null : relations.river[0].name.removeLatin()"
+   >             name_int: >-
+   >               coalesce(relations.river[0].int_name, relations.river[0]['name:en'],
+   >               relations.river[0].name.isLatin() ? relations.river[0].name :
+   >               relations.river[0]['name:de'].isLatin() ? relations.river[0]['name:de'] : null,
+   >               relations.river[0].name)
+   >             _relid: { expr: "relations.river[0].id", hidden: true }
+   >           merge_lines:
+   >             - { minzoom: 6, maxzoom: 8, min_length: 1, tolerance: 0.1, buffer: 4 }
+   >             - { minzoom: 9, maxzoom: 9, min_length: 26.17, tolerance: 0.1, buffer: 4 }
+   >             - { minzoom: 10, maxzoom: 10, min_length: 26.17, tolerance: 0.1, buffer: 4 }
+   >             - { minzoom: 11, maxzoom: 11, min_length: 13.08, tolerance: 0.1, buffer: 4 }
+   >         waterway:
+   >           geometry: line
+   >           buffer: 416
+   >           minzoom: 9
+   >           maxzoom: 11
+   >           simplify: 0.1
+   >           min_size: 0
+   >           where: "waterway == 'river' && name != null"
+   >           attributes: &waterway_attributes
+   >             <<: &names
+   >               name: name
+   >               name_en: "coalesce(feature['name:en'], name)"
+   >               name_de: "coalesce(feature['name:de'], name, feature['name:en'])"
+   >               "name:latin": &name_latin >-
+   >                 name.isLatin() ? name : feature['name:en'].isLatin() ? feature['name:en'] :
+   >                 int_name.isLatin() ? int_name : feature['name:de'].isLatin() ? feature['name:de'] :
+   >                 [feature['name:af'], feature['name:am'], feature['name:ar'], feature['name:az'],
+   >                 feature['name:be'], feature['name:bg'], feature['name:bn'], feature['name:br'],
+   >                 feature['name:bs'], feature['name:ca'], feature['name:co'], feature['name:cs'],
+   >                 feature['name:cy'], feature['name:da'], feature['name:el'], feature['name:eo'],
+   >                 feature['name:es'], feature['name:et'], feature['name:eu'], feature['name:fa'],
+   >                 feature['name:fi'], feature['name:fr'], feature['name:fy'], feature['name:ga'],
+   >                 feature['name:gd'], feature['name:he'], feature['name:hi'], feature['name:hr'],
+   >                 feature['name:hu'], feature['name:hy'], feature['name:id'], feature['name:is'],
+   >                 feature['name:it'], feature['name:ja'], feature['name:ja_kana'], feature['name:ja_rm'],
+   >                 feature['name:ja-Latn'], feature['name:ja-Hira'], feature['name:ka'],
+   >                 feature['name:kk'], feature['name:kn'], feature['name:ko'], feature['name:ko-Latn'],
+   >                 feature['name:ku'], feature['name:la'], feature['name:lb'], feature['name:lt'],
+   >                 feature['name:lv'], feature['name:mk'], feature['name:mt'], feature['name:ml'],
+   >                 feature['name:nl'], feature['name:no'], feature['name:oc'], feature['name:pa'],
+   >                 feature['name:pnb'], feature['name:pl'], feature['name:pt'], feature['name:rm'],
+   >                 feature['name:ro'], feature['name:ru'], feature['name:sk'], feature['name:sl'],
+   >                 feature['name:sq'], feature['name:sr'], feature['name:sr-Latn'], feature['name:sv'],
+   >                 feature['name:ta'], feature['name:te'], feature['name:th'], feature['name:tok'],
+   >                 feature['name:tr'], feature['name:uk'], feature['name:ur'], feature['name:vi'],
+   >                 feature['name:zh'], feature['name:zh-Hant'], feature['name:zh-Hans']].filter(n,
+   >                 n.isLatin()).min()
+   >               "name:nonlatin": "name.isLatin() ? null : name.removeLatin()"
+   >               name_int: &name_int >-
+   >                 coalesce(int_name, feature['name:en'], (name.isLatin() ? name :
+   >                 feature['name:en'].isLatin() ? feature['name:en'] : int_name.isLatin() ? int_name :
+   >                 feature['name:de'].isLatin() ? feature['name:de'] : [feature['name:af'],
+   >                 feature['name:am'], feature['name:ar'], feature['name:az'], feature['name:be'],
+   >                 feature['name:bg'], feature['name:bn'], feature['name:br'], feature['name:bs'],
+   >                 feature['name:ca'], feature['name:co'], feature['name:cs'], feature['name:cy'],
+   >                 feature['name:da'], feature['name:el'], feature['name:eo'], feature['name:es'],
+   >                 feature['name:et'], feature['name:eu'], feature['name:fa'], feature['name:fi'],
+   >                 feature['name:fr'], feature['name:fy'], feature['name:ga'], feature['name:gd'],
+   >                 feature['name:he'], feature['name:hi'], feature['name:hr'], feature['name:hu'],
+   >                 feature['name:hy'], feature['name:id'], feature['name:is'], feature['name:it'],
+   >                 feature['name:ja'], feature['name:ja_kana'], feature['name:ja_rm'],
+   >                 feature['name:ja-Latn'], feature['name:ja-Hira'], feature['name:ka'],
+   >                 feature['name:kk'], feature['name:kn'], feature['name:ko'], feature['name:ko-Latn'],
+   >                 feature['name:ku'], feature['name:la'], feature['name:lb'], feature['name:lt'],
+   >                 feature['name:lv'], feature['name:mk'], feature['name:mt'], feature['name:ml'],
+   >                 feature['name:nl'], feature['name:no'], feature['name:oc'], feature['name:pa'],
+   >                 feature['name:pnb'], feature['name:pl'], feature['name:pt'], feature['name:rm'],
+   >                 feature['name:ro'], feature['name:ru'], feature['name:sk'], feature['name:sl'],
+   >                 feature['name:sq'], feature['name:sr'], feature['name:sr-Latn'], feature['name:sv'],
+   >                 feature['name:ta'], feature['name:te'], feature['name:th'], feature['name:tok'],
+   >                 feature['name:tr'], feature['name:uk'], feature['name:ur'], feature['name:vi'],
+   >                 feature['name:zh'], feature['name:zh-Hant'], feature['name:zh-Hans']].filter(n,
+   >                 n.isLatin()).min()), name)
+   >               "name:*": "name:*"
+   >             class: waterway
+   >             brunnel:
+   >               expr: >-
+   >                 bridge != null && !(bridge in ['0', 'false', 'no']) ? 'bridge' : tunnel != null &&
+   >                 !(tunnel in ['0', 'false', 'no']) ? 'tunnel' : null
+   >               minzoom: 12
+   >             intermittent:
+   >               expr: "intermittent != null && !(intermittent in ['0', 'false', 'no']) ? 1 : 0"
+   >               minzoom: 12
+   >         waterway_z12:
+   >           layer: waterway
+   >           geometry: line
+   >           buffer: 64
+   >           min_size_at_maxzoom: 0.0625
+   >           minzoom: "waterway in ['river', 'canal'] ? 12 : 13"
+   >           where: "waterway in ['stream', 'river', 'canal', 'drain', 'ditch']"
+   >           attributes: *waterway_attributes
+   >         # landcover: OSM only, from z7; the zoom bands stand in for Planetiler's minimum size per zoom
+   >         landcover:
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 7
+   >           maxzoom: 9
+   >           simplify: 0.25
+   >           min_size: 2
+   >           where: &landcover_where >-
+   >             landuse in ['allotments', 'farm', 'farmland', 'orchard', 'flowerbed', 'plant_nursery',
+   >             'vineyard', 'grass', 'grassland', 'meadow', 'forest', 'village_green', 'recreation_ground'] ||
+   >             natural in ['wood', 'wetland', 'fell', 'grassland', 'heath', 'scrub', 'shrubbery', 'tundra',
+   >             'glacier', 'bare_rock', 'scree', 'beach', 'sand', 'dune'] || leisure in ['park', 'garden',
+   >             'golf_course'] || wetland in ['bog', 'swamp', 'wet_meadow', 'marsh', 'reedbed', 'saltern',
+   >             'tidalflat', 'saltmarsh', 'mangrove']
+   >           attributes: &landcover_attributes
+   >             class: >-
+   >               {'farmland': 'farmland', 'farm': 'farmland', 'orchard': 'farmland', 'vineyard': 'farmland',
+   >               'plant_nursery': 'farmland', 'glacier': 'ice', 'wood': 'wood', 'forest': 'wood',
+   >               'bare_rock': 'rock', 'scree': 'rock', 'fell': 'grass', 'flowerbed': 'grass', 'grassland':
+   >               'grass', 'heath': 'grass', 'scrub': 'grass', 'shrubbery': 'grass', 'tundra': 'grass',
+   >               'grass': 'grass', 'meadow': 'grass', 'allotments': 'grass', 'park': 'grass',
+   >               'village_green': 'grass', 'recreation_ground': 'grass', 'garden': 'grass', 'golf_course':
+   >               'grass', 'wetland': 'wetland', 'bog': 'wetland', 'swamp': 'wetland', 'wet_meadow':
+   >               'wetland', 'marsh': 'wetland', 'reedbed': 'wetland', 'saltern': 'wetland', 'tidalflat':
+   >               'wetland', 'saltmarsh': 'wetland', 'mangrove': 'wetland', 'beach': 'sand', 'sand': 'sand',
+   >               'dune': 'sand'}[landuse in ['allotments', 'farm', 'farmland', 'orchard', 'flowerbed',
+   >               'plant_nursery', 'vineyard', 'grass', 'grassland', 'meadow', 'forest', 'village_green',
+   >               'recreation_ground'] ? landuse : natural in ['wood', 'wetland', 'fell', 'grassland',
+   >               'heath', 'scrub', 'shrubbery', 'tundra', 'glacier', 'bare_rock', 'scree', 'beach', 'sand',
+   >               'dune'] ? natural : leisure in ['park', 'garden', 'golf_course'] ? leisure : wetland]
+   >             subclass: >-
+   >               landuse in ['allotments', 'farm', 'farmland', 'orchard', 'flowerbed', 'plant_nursery',
+   >               'vineyard', 'grass', 'grassland', 'meadow', 'forest', 'village_green', 'recreation_ground']
+   >               ? landuse : natural in ['wood', 'wetland', 'fell', 'grassland', 'heath', 'scrub',
+   >               'shrubbery', 'tundra', 'glacier', 'bare_rock', 'scree', 'beach', 'sand', 'dune'] ? natural :
+   >               leisure in ['park', 'garden', 'golf_course'] ? leisure : wetland
+   >             _unmerged:
+   >               expr: "landuse == 'forest' || natural == 'wood' ? null : osm_id * 10 + (osm_type == 'way' ? 2 : 3)"
+   >               hidden: true
+   >               minzoom: 8
+   >           merge_polygons: { minzoom: 7, maxzoom: 13, min_area: 4 }
+   >         landcover_z10:
+   >           layer: landcover
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 10
+   >           maxzoom: 10
+   >           simplify: 0.25
+   >           min_size: 4
+   >           where: *landcover_where
+   >           attributes: *landcover_attributes
+   >         landcover_z11:
+   >           layer: landcover
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 11
+   >           maxzoom: 13
+   >           simplify: 0.1
+   >           min_size: 8
+   >           where: *landcover_where
+   >           attributes: *landcover_attributes
+   >         landcover_z14:
+   >           layer: landcover
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 14
+   >           where: *landcover_where
+   >           attributes: *landcover_attributes
+   >         # landuse
+   >         landuse_residential:
+   >           layer: landuse
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 6
+   >           simplify: 0.25
+   >           simplify_at_maxzoom: 0.0625
+   >           min_size: 0.1
+   >           min_size_at_maxzoom: 0.0625
+   >           where: "landuse == 'residential'"
+   >           attributes:
+   >             class: { value: residential }
+   >           merge_polygons:
+   >             - { minzoom: 6, maxzoom: 6, min_area: 1, min_hole_area: 1, distance: 1 }
+   >             - { minzoom: 7, maxzoom: 7, min_area: 1, min_hole_area: 1, distance: 0.5 }
+   >             - { minzoom: 8, maxzoom: 8, min_area: 1, min_hole_area: 1, distance: 0.25 }
+   >             - { minzoom: 9, maxzoom: 12, min_area: 1, min_hole_area: 1, distance: 0.1 }
+   >           merge_multi: { minzoom: 13, geometry: [polygon], group_by: [class, _unmerged] }
+   >         landuse:
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 6
+   >           maxzoom: 6
+   >           simplify: 0.1
+   >           min_size: 1
+   >           where: &landuse_z6_where >-
+   >             (landuse in ['suburb', 'quarter', 'neighbourhood'] || landuse == null && amenity == null &&
+   >             leisure == null && tourism == null) && (amenity in ['bus_station', 'school', 'university',
+   >             'kindergarten', 'college', 'library', 'hospital', 'grave_yard'] || leisure in ['stadium',
+   >             'pitch', 'playground', 'track'] || tourism in ['theme_park', 'zoo'] || place in ['suburb',
+   >             'quarter', 'neighbourhood'] || waterway == 'dam')
+   >           attributes: &landuse_attributes
+   >             class: >-
+   >               coalesce(landuse, amenity, leisure, tourism, place, waterway) == 'grave_yard' ? 'cemetery' :
+   >               coalesce(landuse, amenity, leisure, tourism, place, waterway)
+   >             _unmerged: { expr: "osm_id * 10 + (osm_type == 'way' ? 2 : 3)", hidden: true }
+   >         landuse_z7:
+   >           layer: landuse
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 7
+   >           maxzoom: 7
+   >           simplify: 0.1
+   >           min_size: 2
+   >           where: *landuse_z6_where
+   >           attributes: *landuse_attributes
+   >         landuse_z8:
+   >           layer: landuse
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: >-
+   >             coalesce(landuse, amenity, leisure, tourism, place, waterway) in ['suburb', 'quarter',
+   >             'neighbourhood'] ? 8 : 9
+   >           maxzoom: 13
+   >           simplify: 0.1
+   >           min_size: 4
+   >           where: &landuse_where >-
+   >             landuse != 'residential' && (landuse in ['railway', 'cemetery', 'military', 'quarry',
+   >             'residential', 'commercial', 'industrial', 'garages', 'retail'] || amenity in ['bus_station',
+   >             'school', 'university', 'kindergarten', 'college', 'library', 'hospital', 'grave_yard'] ||
+   >             leisure in ['stadium', 'pitch', 'playground', 'track'] || tourism in ['theme_park', 'zoo'] ||
+   >             place in ['suburb', 'quarter', 'neighbourhood'] || waterway == 'dam')
+   >           attributes: *landuse_attributes
+   >         landuse_z14:
+   >           layer: landuse
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 14
+   >           where: *landuse_where
+   >           attributes: *landuse_attributes
+   >         # mountain_peak
+   >         mountain_peak:
+   >           geometry: point
+   >           buffer: 1600
+   >           where: "natural in ['peak', 'volcano', 'saddle'] && (name != null || ele != null)"
+   >           minzoom: >-
+   >             name == null && !((ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$')
+   >             ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >             ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|")
+   >             *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >             ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 :
+   >             null) != null && (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >             ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|")
+   >             *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >             ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 :
+   >             null) > -10000.0 && (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)?
+   >             *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >             ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|")
+   >             *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >             ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 :
+   >             null) < 10000.0) ? 14 : 7
+   >           maxzoom: >-
+   >             name == null && !((ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$')
+   >             ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >             ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|")
+   >             *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >             ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 :
+   >             null) != null && (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >             ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|")
+   >             *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >             ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 :
+   >             null) > -10000.0 && (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)?
+   >             *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >             ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|")
+   >             *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >             ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 :
+   >             null) < 10000.0) ? 0 : 14
+   >           attributes:
+   >             <<: *names
+   >             class: natural
+   >             ele: &ele >-
+   >               (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >               ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >               '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$')
+   >               ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >               ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) *
+   >               1852.0 : null) == null ? null : (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(m|meters?)? *$') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) :
+   >               ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(km|kilom)') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 1000.0 : ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >               double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(in|") *$') ?
+   >               double(regex.replace(ele, '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) :
+   >               ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 1609.344 : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) >= 0.0 ?
+   >               int((ele ==
+   >               null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >               double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(km|kilom)') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >               ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 0.3048 +
+   >               (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >               '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$',
+   >               '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >               double(regex.replace(ele,
+   >               '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) + 0.5) :
+   >               -int(0.5 -
+   >               (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >               ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >               '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$')
+   >               ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >               ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) *
+   >               1852.0 : null))
+   >             ele_ft: &ele_ft >-
+   >               (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >               ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >               '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$')
+   >               ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >               ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) *
+   >               1852.0 : null) == null ? null : (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(m|meters?)? *$') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) :
+   >               ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(km|kilom)') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 1000.0 : ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >               double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(in|") *$') ?
+   >               double(regex.replace(ele, '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) :
+   >               ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 1609.344 : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) >= 0.0 ?
+   >               int((ele ==
+   >               null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >               double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(km|kilom)') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >               ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 0.3048 +
+   >               (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >               '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$',
+   >               '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >               double(regex.replace(ele,
+   >               '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) * 3.2808399
+   >               + 0.5) :
+   >               -int(0.5 - (ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >               ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >               '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$')
+   >               ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >               ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) *
+   >               1852.0 : null) * 3.2808399)
+   >           sort_by:
+   >             - >-
+   >               natural in ['ridge', 'cliff', 'arete'] ? 3 - (wikipedia != null ? 1 : 0) - (name != null ? 1
+   >               : 0) : -(((ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >               double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(km|kilom)') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >               ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >               '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$')
+   >               ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >               ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) *
+   >               1852.0 : null) != null ? int((ele == null ? null : ele.matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >               *(m|meters?)?
+   >               *$') ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(km|kilom)') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 :
+   >               ele.matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >               '\\1')) * 0.3048 + (ele.matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ? double(regex.replace(ele,
+   >               '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$')
+   >               ? double(regex.replace(ele, '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 :
+   >               ele.matches('(?i)^
+   >               *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(ele, '^
+   >               *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) *
+   >               1852.0 : null)) : 0) + (wikipedia != null ? 10000 : 0) + (name != null ? 10000 : 0))
+   >           thinning: { maxzoom: 13, method: grid, size: 100, limit: 5, rank: rank }
+   >         mountain_peak_lines:
+   >           layer: mountain_peak
+   >           geometry: line
+   >           buffer: 1600
+   >           minzoom: 13
+   >           where: "natural in ['ridge', 'cliff', 'arete']"
+   >           attributes:
+   >             <<: *names
+   >             class: natural
+   >             rank: "3 - (wikipedia != null ? 1 : 0) - (name != null ? 1 : 0)"
+   >         # park: the outline and, for a named park, a label point
+   >         park:
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 4
+   >           min_size: 2
+   >           min_size_at_maxzoom: 0.0625
+   >           where: &park_where >-
+   >             leisure == 'nature_reserve' || boundary in ['national_park', 'protected_area',
+   >             'aboriginal_lands'] || historic in ['archaeological_site', 'battlefield', 'district']
+   >           attributes:
+   >             class:
+   >               expr: &park_class >-
+   >                 maritime != null && !(maritime in ['0', 'false', 'no']) ? 'marine' : boundary ==
+   >                 'national_park' ? 'national_park' : boundary == 'protected_area' ?
+   >                 coalesce(protected_area, protect_class in ['1a', '1b', '2', '3', '4', '5', '6'] ? {'1a':
+   >                 'conservation', '1b': 'wilderness_preserve', '2': 'national_park', '3': 'conservation',
+   >                 '4': 'wildlife_refuge', '5': 'conservation', '6': 'sustainable'}[protect_class] : null,
+   >                 protection_title, 'protected_area') : leisure == 'nature_reserve' ? 'nature_reserve' :
+   >                 leisure == 'recreation_ground' ? 'recreation_ground' : historic != null ? 'historic' :
+   >                 'nature_reserve'
+   >               minzoom: 5
+   >             name: { expr: name, minzoom: 5 }
+   >             name_en: { expr: "coalesce(feature['name:en'], name)", minzoom: 5 }
+   >             name_de: { expr: "coalesce(feature['name:de'], name, feature['name:en'])", minzoom: 5 }
+   >             "name:latin": { expr: *name_latin, minzoom: 5 }
+   >             "name:nonlatin": { expr: "name.isLatin() ? null : name.removeLatin()", minzoom: 5 }
+   >             name_int: { expr: *name_int, minzoom: 5 }
+   >           sort_by:
+   >             - >-
+   >               (maritime != null && !(maritime in ['0', 'false', 'no']) ? 'marine' : boundary ==
+   >               'national_park' ? 'national_park' : boundary == 'protected_area' ? coalesce(protected_area,
+   >               protect_class in ['1a', '1b', '2', '3', '4', '5', '6'] ? {'1a': 'conservation', '1b':
+   >               'wilderness_preserve', '2': 'national_park', '3': 'conservation', '4': 'wildlife_refuge',
+   >               '5': 'conservation', '6': 'sustainable'}[protect_class] : null, protection_title,
+   >               'protected_area') : leisure == 'nature_reserve' ? 'nature_reserve' : leisure ==
+   >               'recreation_ground' ? 'recreation_ground' : historic != null ? 'historic' :
+   >               'nature_reserve') == 'national_park' ? 0 : 1
+   >             - "wikipedia != null || wikidata != null ? 0 : 1"
+   >             - { expr: "area('z0 ti2')", desc: true }
+   >           thinning: { method: grid, size: 100, rank: rank }
+   >           merge_polygons: { maxzoom: 4 }
+   >         park_label:
+   >           layer: park
+   >           geometry: polygon_point_on_surface
+   >           buffer: 2047
+   >           minzoom: >-
+   >             area('z0 ti2') > 7.141189464846735e-07 ? 5 : area('z0 ti2') > 3.5705947324233675e-07 ? 6 :
+   >             area('z0 ti2') > 1.7852973662116838e-07 ? 7 : area('z0 ti2') > 8.926486831058419e-08 ? 8 :
+   >             area('z0 ti2') > 4.4632434155292094e-08 ? 9 : area('z0 ti2') > 2.2316217077646047e-08 ? 10 :
+   >             area('z0 ti2') > 1.1158108538823023e-08 ? 11 : area('z0 ti2') > 5.579054269411512e-09 ? 12 :
+   >             area('z0 ti2') > 2.789527134705756e-09 ? 13 : 14
+   >           where: >-
+   >             name != null && (leisure == 'nature_reserve' || boundary in ['national_park', 'protected_area',
+   >             'aboriginal_lands'] || historic in ['archaeological_site', 'battlefield', 'district'])
+   >           attributes:
+   >             <<: *names
+   >             class: *park_class
+   >         # boundary: the member ways of administrative boundary relations, from z0 as Planetiler's `--boundary-osm-only`
+   >         boundary:
+   >           geometry: line
+   >           buffer: 64
+   >           min_size: 0
+   >           min_size_at_maxzoom: 0
+   >           where: "size(relations.admin) > 0"
+   >           maxzoom: >-
+   >             relations.admin.filter(r, r.admin_level.matches('^ *[0-9]+([.][0-9]+)? *$') &&
+   >             double(r.admin_level) >= 1.5 && double(r.admin_level) < 10.5).size() == 0 ? 0 : 14
+   >           minzoom: >-
+   >             relations.admin.filter(r, r.admin_level.matches('^ *[0-9]+([.][0-9]+)? *$') &&
+   >             double(r.admin_level) >= 1.5 && double(r.admin_level) < 10.5).size() == 0 ? 14 :
+   >             relations.admin.filter(r, r.admin_level.matches('^ *[0-9]+([.][0-9]+)? *$') &&
+   >             double(r.admin_level) >= 1.5 && double(r.admin_level) < 10.5).map(r, int(double(r.admin_level) +
+   >             0.5)).min() == 2 ? ((maritime != null && !(maritime in ['0', 'false', 'no']) || natural ==
+   >             'coastline' || boundary_type == 'maritime') ? 4 : 0) : relations.admin.filter(r,
+   >             r.admin_level.matches('^ *[0-9]+([.][0-9]+)? *$') && double(r.admin_level) >= 1.5 &&
+   >             double(r.admin_level) < 10.5).map(r, int(double(r.admin_level) + 0.5)).min() <= 4 ? 1 :
+   >             relations.admin.filter(r, r.admin_level.matches('^ *[0-9]+([.][0-9]+)? *$') &&
+   >             double(r.admin_level) >= 1.5 && double(r.admin_level) < 10.5).map(r, int(double(r.admin_level) +
+   >             0.5)).min() <= 6 ? 9 : relations.admin.filter(r, r.admin_level.matches('^ *[0-9]+([.][0-9]+)?
+   >             *$') && double(r.admin_level) >= 1.5 && double(r.admin_level) < 10.5).map(r,
+   >             int(double(r.admin_level) + 0.5)).min() <= 8 ? 11 : 12
+   >           attributes:
+   >             admin_level: >-
+   >               relations.admin.filter(r, r.admin_level.matches('^ *[0-9]+([.][0-9]+)? *$') &&
+   >               double(r.admin_level) >= 1.5 && double(r.admin_level) < 10.5).map(r,
+   >               int(double(r.admin_level) + 0.5)).min()
+   >             disputed: >-
+   >               relations.admin.filter(r, r.admin_level.matches('^ *[0-9]+([.][0-9]+)? *$') &&
+   >               double(r.admin_level) >= 1.5 && double(r.admin_level) < 10.5).exists(r, r.disputed != null
+   >               && !(r.disputed in ['0', 'false', 'no']) || r.dispute != null && !(r.dispute in ['0',
+   >               'false', 'no']) || r.border_status == 'dispute' || r.disputed_by != null || r.claimed_by !=
+   >               null) || (disputed != null && !(disputed in ['0', 'false', 'no']) || dispute != null &&
+   >               !(dispute in ['0', 'false', 'no']) || border_status == 'dispute' || disputed_by != null ||
+   >               claimed_by != null) ? 1 : 0
+   >             maritime: >-
+   >               (maritime != null && !(maritime in ['0', 'false', 'no']) || natural == 'coastline' ||
+   >               boundary_type == 'maritime') ? 1 : 0
+   >             claimed_by: >-
+   >               coalesce(relations.admin.filter(r, r.admin_level.matches('^ *[0-9]+([.][0-9]+)? *$') &&
+   >               double(r.admin_level) >= 1.5 && double(r.admin_level) < 10.5).filter(r, (r.disputed != null
+   >               && !(r.disputed in ['0', 'false', 'no']) || r.dispute != null && !(r.dispute in ['0',
+   >               'false', 'no']) || r.border_status == 'dispute' || r.disputed_by != null || r.claimed_by !=
+   >               null) && r.claimed_by != null).map(r, r.claimed_by).min(), (disputed != null && !(disputed
+   >               in ['0', 'false', 'no']) || dispute != null && !(dispute in ['0', 'false', 'no']) ||
+   >               border_status == 'dispute' || disputed_by != null || claimed_by != null) ? claimed_by :
+   >               null)
+   >             disputed_name: >-
+   >               coalesce(relations.admin.filter(r, r.admin_level.matches('^ *[0-9]+([.][0-9]+)? *$') &&
+   >               double(r.admin_level) >= 1.5 && double(r.admin_level) < 10.5).filter(r, (r.disputed != null
+   >               && !(r.disputed in ['0', 'false', 'no']) || r.dispute != null && !(r.dispute in ['0',
+   >               'false', 'no']) || r.border_status == 'dispute' || r.disputed_by != null || r.claimed_by !=
+   >               null) && r.name != null).map(r, r.name).min(), (disputed != null && !(disputed in ['0',
+   >               'false', 'no']) || dispute != null && !(dispute in ['0', 'false', 'no']) || border_status ==
+   >               'dispute' || disputed_by != null || claimed_by != null) ? name : null) == null ? null :
+   >               regex.replace(coalesce(relations.admin.filter(r, r.admin_level.matches('^
+   >               *[0-9]+([.][0-9]+)? *$') && double(r.admin_level) >= 1.5 && double(r.admin_level) <
+   >               10.5).filter(r, (r.disputed != null && !(r.disputed in ['0', 'false', 'no']) || r.dispute !=
+   >               null && !(r.dispute in ['0', 'false', 'no']) || r.border_status == 'dispute' ||
+   >               r.disputed_by != null || r.claimed_by != null) && r.name != null).map(r, r.name).min(),
+   >               (disputed != null && !(disputed in ['0', 'false', 'no']) || dispute != null && !(dispute in
+   >               ['0', 'false', 'no']) || border_status == 'dispute' || disputed_by != null || claimed_by !=
+   >               null) ? name : null).replace(' at ', ''), '\\s+', '').replace('Extentof', '')
+   >           merge_lines:
+   >             - { maxzoom: 13, min_length: 0.0625, tolerance: 0.1, buffer: 4 }
+   >             - { minzoom: 14, min_length: 0.0625, tolerance: 0.0625, buffer: 4 }
+   >         boundary_aboriginal_lands:
+   >           layer: boundary
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 4
+   >           min_size: 4
+   >           min_size_at_maxzoom: 0.0625
+   >           where: "boundary == 'aboriginal_lands' && type == 'boundary'"
+   >           attributes:
+   >             <<: *names
+   >             class: boundary
+   >         # aeroway
+   >         aeroway:
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 10
+   >           min_size: 2
+   >           min_size_at_maxzoom: 0.0625
+   >           where: >-
+   >             aeroway in ['aerodrome', 'heliport', 'runway', 'helipad', 'taxiway', 'apron'] ||
+   >             feature['area:aeroway'] in ['aerodrome', 'heliport', 'runway', 'helipad', 'taxiway', 'apron']
+   >           attributes:
+   >             class: >-
+   >               aeroway in ['aerodrome', 'heliport', 'runway', 'helipad', 'taxiway', 'apron'] ? aeroway :
+   >               feature['area:aeroway']
+   >             ref: ref
+   >         aeroway_lines:
+   >           layer: aeroway
+   >           geometry: line
+   >           buffer: 64
+   >           minzoom: 10
+   >           where: "aeroway in ['runway', 'taxiway']"
+   >           attributes:
+   >             class: aeroway
+   >             ref: ref
+   >         aeroway_points:
+   >           layer: aeroway
+   >           geometry: point
+   >           buffer: 64
+   >           minzoom: 14
+   >           where: "aeroway == 'gate'"
+   >           attributes:
+   >             class: aeroway
+   >             ref: ref
+   >         # transportation
+   >         transportation:
+   >           geometry: line
+   >           buffer: 64
+   >           min_size: 0
+   >           min_size_at_maxzoom: 0.0625
+   >           where: >-
+   >             ((highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link',
+   >             'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential',
+   >             'living_street', 'road', 'pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway',
+   >             'corridor', 'service', 'track', 'raceway', 'busway', 'bus_guideway'] || highway ==
+   >             'construction' && (construction == null || construction in ['motorway', 'motorway_link',
+   >             'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary',
+   >             'tertiary_link', 'unclassified', 'residential', 'living_street', 'road', 'pedestrian', 'path',
+   >             'footway', 'cycleway', 'steps', 'bridleway', 'corridor', 'service', 'track', 'raceway'])) ||
+   >             public_transport == 'platform' || highway == null && man_made == 'pier') && !(area != null &&
+   >             !(area in ['0', 'false', 'no']))
+   >           minzoom: >-
+   >             max(man_made == 'pier' ? 13 : highway in ['residential', 'unclassified'] ? 12 : highway in
+   >             ['motorway', 'motorway_link'] || highway == 'construction' && construction in ['motorway',
+   >             'motorway_link'] ? (relations.route.map(r, r.network == null ? 9 : r.network == 'US:I' ? 0 :
+   >             r.network == 'US:US' ? 1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >             r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >             'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >             'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref in
+   >             ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >             'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network) >= 6
+   >             && r.network.substring(5, 6) == ':') ? 5 : 9).all(o, o == 9) || relations.route.map(r, r.network
+   >             == null ? 9 : r.network == 'US:I' ? 0 : r.network == 'US:US' ? 1 : size(r.network) == 5 &&
+   >             r.network.startsWith('US:') ? 2 : r.network.startsWith('CA:transcanada') ? 3 : r.network ==
+   >             'CA:QC:A' || r.network == 'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 &&
+   >             r.ref.startsWith('4') || r.ref == 'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' ||
+   >             r.network == 'CA:AB:primary' && r.ref in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in
+   >             ['3', '5', '99'] ? 4 : r.network == 'CA:ON:primary' || r.network.startsWith('CA:') &&
+   >             (size(r.network) == 5 || size(r.network) >= 6 && r.network.substring(5, 6) == ':') ? 5 :
+   >             9).exists(o, o in [0, 3, 4]) ? 4 : 5) : highway in ['trunk', 'trunk_link'] || highway ==
+   >             'construction' && construction in ['trunk', 'trunk_link'] ? (highway == 'trunk' &&
+   >             relations.route.map(r, r.network == null ? 9 : r.network == 'US:I' ? 0 : r.network == 'US:US' ?
+   >             1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >             r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >             'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >             'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref in
+   >             ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >             'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network) >= 6
+   >             && r.network.substring(5, 6) == ':') ? 5 : 9).exists(o, o in [0, 3, 4]) ? 4 : highway == 'trunk'
+   >             && relations.route.map(r, r.network == null ? 9 : r.network == 'US:I' ? 0 : r.network == 'US:US'
+   >             ? 1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >             r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >             'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >             'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref in
+   >             ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >             'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network) >= 6
+   >             && r.network.substring(5, 6) == ':') ? 5 : 9).exists(o, o in [0, 1, 3, 4]) ? 5 : 6) : highway in
+   >             ['primary', 'primary_link'] || highway == 'construction' && construction in ['primary',
+   >             'primary_link'] ? 7 : highway in ['secondary', 'secondary_link'] || highway == 'construction' &&
+   >             construction in ['secondary', 'secondary_link'] ? 9 : highway in ['tertiary', 'tertiary_link']
+   >             || highway == 'construction' && construction in ['tertiary', 'tertiary_link'] ? 11 : highway in
+   >             ['living_street', 'road'] || highway == 'construction' && (construction == null || construction
+   >             in ['unclassified', 'residential', 'living_street', 'road']) ? 13 : highway in ['pedestrian',
+   >             'path', 'footway', 'cycleway', 'steps', 'bridleway', 'corridor', 'track'] || public_transport ==
+   >             'platform' || highway == 'construction' && construction in ['pedestrian', 'path', 'footway',
+   >             'cycleway', 'steps', 'bridleway', 'corridor', 'track'] ? (coalesce(relations.route.map(r,
+   >             r.network in ['iwn', 'nwn', 'rwn'] ? 1 : r.network == 'lwn' || r['osmc:symbol'] != null ||
+   >             r.colour != null ? 2 : 3).min(), 3) == 1 ? 12 : name != null || coalesce(relations.route.map(r,
+   >             r.network in ['iwn', 'nwn', 'rwn'] ? 1 : r.network == 'lwn' || r['osmc:symbol'] != null ||
+   >             r.colour != null ? 2 : 3).min(), 3) <= 2 || sac_scale != null ? 13 : 14) : highway in
+   >             ['service'] || highway == 'construction' && construction in ['service'] ? (service in
+   >             ['parking_aisle', 'driveway'] ? 14 : 13) : highway in ['raceway'] || highway == 'construction'
+   >             && construction in ['raceway'] ? 12 : highway in ['busway', 'bus_guideway'] ? 11 : 14, highway
+   >             != null && highway.endsWith('_link') || construction != null && construction.endsWith('_link') ?
+   >             9 : 0)
+   >           attributes:
+   >             class: >-
+   >               highway in ['motorway', 'motorway_link'] ? 'motorway' : highway in ['trunk', 'trunk_link'] ?
+   >               'trunk' : highway in ['primary', 'primary_link'] ? 'primary' : highway in ['secondary',
+   >               'secondary_link'] ? 'secondary' : highway in ['tertiary', 'tertiary_link'] ? 'tertiary' :
+   >               highway in ['unclassified', 'residential', 'living_street', 'road'] ? 'minor' : highway in
+   >               ['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway', 'corridor'] ||
+   >               public_transport == 'platform' ? 'path' : highway == 'service' ? 'service' : highway ==
+   >               'track' ? 'track' : highway == 'raceway' ? 'raceway' : highway == 'busway' ? 'busway' :
+   >               highway == 'bus_guideway' ? 'bus_guideway' : highway == 'shipway' ? 'ferry' : highway ==
+   >               'construction' ? (construction in ['motorway', 'motorway_link'] ? 'motorway_construction' :
+   >               construction in ['trunk', 'trunk_link'] ? 'trunk_construction' : construction in ['primary',
+   >               'primary_link'] ? 'primary_construction' : construction in ['secondary', 'secondary_link'] ?
+   >               'secondary_construction' : construction in ['tertiary', 'tertiary_link'] ?
+   >               'tertiary_construction' : construction == null || construction in ['unclassified',
+   >               'residential', 'living_street', 'road'] ? 'minor_construction' : construction in
+   >               ['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway', 'corridor'] ||
+   >               public_transport == 'platform' ? 'path_construction' : construction == 'service' ?
+   >               'service_construction' : construction == 'track' ? 'track_construction' : construction ==
+   >               'raceway' ? 'raceway_construction' : null) : highway == null && public_transport == null &&
+   >               man_made in ['bridge', 'pier'] ? man_made : null
+   >             subclass: >-
+   >               (highway in ['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway', 'corridor']
+   >               || public_transport == 'platform') && !(highway in ['motorway', 'motorway_link', 'trunk',
+   >               'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary',
+   >               'tertiary_link', 'unclassified', 'residential', 'living_street', 'road']) ?
+   >               coalesce(public_transport, highway) : null
+   >             network: >-
+   >               size(relations.route) == 0 ? null : ['us-interstate', 'us-highway', 'us-state',
+   >               'ca-transcanada', 'ca-provincial-arterial', 'ca-provincial', null, null, null,
+   >               null][relations.route.map(r, r.network == null ? 9 : r.network == 'US:I' ? 0 : r.network ==
+   >               'US:US' ? 1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >               r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >               'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >               'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref
+   >               in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >               'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network)
+   >               >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9).min()]
+   >             brunnel:
+   >               expr: &brunnel >-
+   >                 bridge != null && !(bridge in ['0', 'false', 'no']) ? 'bridge' : tunnel != null &&
+   >                 !(tunnel in ['0', 'false', 'no']) ? 'tunnel' : ford != null && !(ford in ['0', 'false',
+   >                 'no']) ? 'ford' : null
+   >               minzoom: 12
+   >             expressway:
+   >               expr: >-
+   >                 expressway != null && !(expressway in ['0', 'false', 'no']) && highway != 'motorway' &&
+   >                 !(ramp != null && !(ramp in ['0', 'false', 'no'])) && !(highway != null &&
+   >                 highway.endsWith('_link')) ? 1 : null
+   >               minzoom: 8
+   >             layer:
+   >               expr: &layer >-
+   >                 layer != null && layer.matches('^-?[0-9]+$') && int(layer) != 0 ? int(layer) : null
+   >               minzoom: 12
+   >             bicycle: { expr: bicycle, minzoom: 9 }
+   >             foot: { expr: foot, minzoom: 9 }
+   >             horse: { expr: horse, minzoom: 9 }
+   >             mtb_scale: { expr: "feature['mtb:scale']", minzoom: 9 }
+   >             official:
+   >               expr: >-
+   >                 highway in ['path', 'footway', 'cycleway', 'bridleway'] ? (informal == 'yes' ? 0 :
+   >                 informal == 'no' || operator != null ? 1 : null) : null
+   >               minzoom: 9
+   >             access: { expr: "access in ['private', 'no'] ? 'no' : null", minzoom: 9 }
+   >             toll: { expr: "toll != null && !(toll in ['0', 'false', 'no']) ? 1 : null", minzoom: 9 }
+   >             ramp: { expr: "ramp != null && !(ramp in ['0', 'false', 'no']) ? 1 : null", minzoom: 12 }
+   >             service:
+   >               expr: &service >-
+   >                 service in ['spur', 'yard', 'siding', 'crossover', 'driveway', 'alley', 'parking_aisle']
+   >                 ? service : null
+   >               minzoom: 12
+   >             oneway: { expr: "oneway in ['1', 'yes', 'true'] ? 1 : oneway == '-1' ? -1 : null", minzoom: 12 }
+   >             surface:
+   >               expr: >-
+   >                 coalesce(surface, tracktype) in ['paved', 'asphalt', 'cobblestone', 'concrete',
+   >                 'concrete:lanes', 'concrete:plates', 'metal', 'paving_stones', 'sett',
+   >                 'unhewn_cobblestone', 'wood', 'grade1'] ? 'paved' : coalesce(surface, tracktype) in
+   >                 ['unpaved', 'compacted', 'dirt', 'earth', 'fine_gravel', 'grass', 'grass_paver',
+   >                 'gravel', 'gravel_turf', 'ground', 'ice', 'mud', 'pebblestone', 'salt', 'sand', 'snow',
+   >                 'woodchips', 'rock', 'clay', 'laterite'] ? 'unpaved' : null
+   >               minzoom: 12
+   >             level: &level >-
+   >               highway in ['footway', 'steps'] && level != null && level.matches('^-?[0-9]+') ?
+   >               int(regex.replace(level, '^(-?[0-9]+).*$', '\\1')) : null
+   >             indoor: "highway in ['footway', 'steps'] && indoor != null && !(indoor in ['0', 'false', 'no']) ? 1 : null"
+   >             _oneway: { expr: "oneway in ['1', 'yes', 'true', '-1'] ? osm_id : null", minzoom: 12, hidden: true }
+   >           rules:
+   >             - where: "highway != null && highway.endsWith('_link')"
+   >               attributes:
+   >                 ramp: 1
+   >           sort_by:
+   >             - &z_order >-
+   >               (layer != null && layer.matches('^-?[0-9]+$') ? int(layer) : 0) * 10 + (highway in ['road',
+   >               'unclassified', 'residential', 'tertiary_link', 'secondary_link', 'primary_link',
+   >               'trunk_link', 'motorway_link'] ? 3 : highway == 'tertiary' ? 4 : highway == 'secondary' ? 5
+   >               : highway == 'primary' ? 6 : highway == 'trunk' ? 8 : highway == 'motorway' ? 9 : railway !=
+   >               null ? 7 : 0) + (tunnel != null && !(tunnel in ['0', 'false', 'no']) ? -10 : 0) + (bridge !=
+   >               null && !(bridge in ['0', 'false', 'no']) ? 10 : 0)
+   >           merge_lines:
+   >             - { maxzoom: 5, min_length: 0.1022, tolerance: 0.1, buffer: 4 }
+   >             - { minzoom: 6, maxzoom: 7, min_length: 0.0409, tolerance: 0.1, buffer: 4 }
+   >             - { minzoom: 8, maxzoom: 13, tolerance: 0.1, buffer: 4 }
+   >             - { minzoom: 14, tolerance: 0.0625, buffer: 4 }
+   >         transportation_railway:
+   >           layer: transportation
+   >           geometry: line
+   >           buffer: 64
+   >           min_size: 0
+   >           min_size_at_maxzoom: 0.0625
+   >           where: >-
+   >             railway in ['rail', 'narrow_gauge', 'preserved', 'funicular', 'subway', 'light_rail', 'monorail', 'tram']
+   >           minzoom: >-
+   >             service != null ? 14 : railway == 'rail' ? (usage == 'main' ? 8 : 10) : railway ==
+   >             'narrow_gauge' ? 10 : railway == 'light_rail' ? 11 : 14
+   >           attributes:
+   >             class: "railway in ['rail', 'narrow_gauge', 'preserved', 'funicular'] ? 'rail' : 'transit'"
+   >             subclass: railway
+   >             service: *service
+   >             ramp: "ramp != null && !(ramp in ['0', 'false', 'no']) ? 1 : null"
+   >             brunnel: { expr: *brunnel, minzoom: 10 }
+   >             layer: { expr: *layer, minzoom: 9 }
+   >         transportation_aerialway:
+   >           layer: transportation
+   >           geometry: line
+   >           buffer: 64
+   >           minzoom: 12
+   >           min_size: 0
+   >           min_size_at_maxzoom: 0.0625
+   >           where: >-
+   >             aerialway in ['chair_lift', 'drag_lift', 'platter', 't-bar', 'gondola', 'cable_car', 'j-bar', 'mixed_lift']
+   >           attributes:
+   >             class: { value: aerialway }
+   >             subclass: aerialway
+   >             service: *service
+   >             oneway: "oneway in ['1', 'yes', 'true'] ? 1 : oneway == '-1' ? -1 : null"
+   >             ramp: "ramp != null && !(ramp in ['0', 'false', 'no']) ? 1 : null"
+   >             brunnel: *brunnel
+   >             layer: *layer
+   >             _oneway: { expr: "oneway in ['1', 'yes', 'true', '-1'] ? osm_id : null", hidden: true }
+   >         transportation_ferry:
+   >           layer: transportation
+   >           geometry: line
+   >           buffer: 64
+   >           minzoom: 4
+   >           maxzoom: 10
+   >           simplify: 0.1
+   >           min_size: 32
+   >           where: &ferry_where "route == 'ferry'"
+   >           attributes: &ferry_attributes
+   >             class: route
+   >             service: *service
+   >             ramp: "ramp != null && !(ramp in ['0', 'false', 'no']) ? 1 : null"
+   >             brunnel: *brunnel
+   >             layer: *layer
+   >         transportation_ferry_z11:
+   >           layer: transportation
+   >           geometry: line
+   >           buffer: 64
+   >           minzoom: 11
+   >           min_size: 0
+   >           min_size_at_maxzoom: 0.0625
+   >           where: *ferry_where
+   >           attributes: *ferry_attributes
+   >         transportation_area:
+   >           layer: transportation
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: 13
+   >           where: >-
+   >             (highway in ['path', 'cycleway', 'bridleway', 'footway', 'corridor', 'pedestrian', 'steps'] ||
+   >             public_transport == 'platform' || man_made in ['bridge', 'pier']) && (man_made in ['bridge',
+   >             'pier'] || (osm_type == 'relation' || area == 'yes') && !(layer != null &&
+   >             layer.startsWith('-')))
+   >           attributes:
+   >             class: >-
+   >               highway in ['motorway', 'motorway_link'] ? 'motorway' : highway in ['trunk', 'trunk_link'] ?
+   >               'trunk' : highway in ['primary', 'primary_link'] ? 'primary' : highway in ['secondary',
+   >               'secondary_link'] ? 'secondary' : highway in ['tertiary', 'tertiary_link'] ? 'tertiary' :
+   >               highway in ['unclassified', 'residential', 'living_street', 'road'] ? 'minor' : highway in
+   >               ['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway', 'corridor'] ||
+   >               public_transport == 'platform' ? 'path' : highway == 'service' ? 'service' : highway ==
+   >               'track' ? 'track' : highway == 'raceway' ? 'raceway' : highway == 'busway' ? 'busway' :
+   >               highway == 'bus_guideway' ? 'bus_guideway' : highway == 'shipway' ? 'ferry' : highway ==
+   >               'construction' ? 'minor_construction' : highway == null && public_transport == null &&
+   >               man_made in ['bridge', 'pier'] ? man_made : null
+   >             subclass: >-
+   >               (highway in ['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway', 'corridor']
+   >               || public_transport == 'platform') ? coalesce(public_transport, highway) : null
+   >             brunnel: "man_made == 'bridge' ? 'bridge' : null"
+   >             layer: *layer
+   >         # building
+   >         building:
+   >           geometry: polygon
+   >           buffer: 64
+   >           minzoom: >-
+   >             ((coalesce(height, feature['building:height']) == null ? null : coalesce(height,
+   >             feature['building:height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(ft|')") ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|")
+   >             *$') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+))
+   >             *(in|") *$',
+   >             '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *mi *$') ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 : coalesce(height,
+   >             feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 1852.0 : null) != null ? (coalesce(height, feature['building:height']) == null ? null :
+   >             coalesce(height, feature['building:height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$')
+   >             ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(ft|')") ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|")
+   >             *$') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+))
+   >             *(in|") *$',
+   >             '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *mi *$') ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 : coalesce(height,
+   >             feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 1852.0 : null) : (levels != null && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ?
+   >             double(levels) : feature['building:levels'] != null && feature['building:levels'].matches('^
+   >             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:levels']) : null) != null ? (levels != null
+   >             && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(levels) : feature['building:levels'] !=
+   >             null && feature['building:levels'].matches('^ *[0-9]+([.][0-9]+)? *$') ?
+   >             double(feature['building:levels']) : null) * 3.66 : 5.0) > 3659.0 || ((coalesce(min_height,
+   >             feature['building:min_height']) == null ? null : coalesce(min_height,
+   >             feature['building:min_height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+   >             feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) * 0.3048 + (coalesce(min_height,
+   >             feature['building:min_height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(in|") *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']),
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+   >             feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) * 1609.344 : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
+   >             feature['building:min_height']), '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) !=
+   >             null ?
+   >             (coalesce(min_height, feature['building:min_height']) == null ? null : coalesce(min_height,
+   >             feature['building:min_height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+   >             feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) * 0.3048 + (coalesce(min_height,
+   >             feature['building:min_height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(in|") *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']),
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+   >             feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) * 1609.344 : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
+   >             feature['building:min_height']), '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) :
+   >             (min_level !=
+   >             null && min_level.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(min_level) :
+   >             feature['building:min_level'] != null && feature['building:min_level'].matches('^
+   >             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:min_level']) : null) != null ? (min_level !=
+   >             null && min_level.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(min_level) :
+   >             feature['building:min_level'] != null && feature['building:min_level'].matches('^
+   >             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:min_level']) : null) * 3.66 : 0.0) >= 3660.0
+   >             ? 14 : 13
+   >           maxzoom: >-
+   >             ((coalesce(height, feature['building:height']) == null ? null : coalesce(height,
+   >             feature['building:height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(ft|')") ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|")
+   >             *$') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+))
+   >             *(in|") *$',
+   >             '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *mi *$') ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 : coalesce(height,
+   >             feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 1852.0 : null) != null ? (coalesce(height, feature['building:height']) == null ? null :
+   >             coalesce(height, feature['building:height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$')
+   >             ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 1000.0 : coalesce(height, feature['building:height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(ft|')") ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|")
+   >             *$') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+))
+   >             *(in|") *$',
+   >             '\\1')) * 0.0254 : 0.0) : coalesce(height, feature['building:height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *mi *$') ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 : coalesce(height,
+   >             feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >             double(regex.replace(coalesce(height, feature['building:height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1'))
+   >             * 1852.0 : null) : (levels != null && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ?
+   >             double(levels) : feature['building:levels'] != null && feature['building:levels'].matches('^
+   >             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:levels']) : null) != null ? (levels != null
+   >             && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(levels) : feature['building:levels'] !=
+   >             null && feature['building:levels'].matches('^ *[0-9]+([.][0-9]+)? *$') ?
+   >             double(feature['building:levels']) : null) * 3.66 : 5.0) > 3659.0 || ((coalesce(min_height,
+   >             feature['building:min_height']) == null ? null : coalesce(min_height,
+   >             feature['building:min_height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+   >             feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) * 0.3048 + (coalesce(min_height,
+   >             feature['building:min_height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(in|") *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']),
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+   >             feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) * 1609.344 : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
+   >             feature['building:min_height']), '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) !=
+   >             null ?
+   >             (coalesce(min_height, feature['building:min_height']) == null ? null : coalesce(min_height,
+   >             feature['building:min_height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(km|kilom)') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+   >             feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) * 0.3048 + (coalesce(min_height,
+   >             feature['building:min_height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >             *(in|") *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']),
+   >             '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+   >             feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >             double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >             *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >             '\\1')) * 1609.344 : coalesce(min_height, feature['building:min_height']).matches('(?i)^
+   >             *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(min_height,
+   >             feature['building:min_height']), '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) :
+   >             (min_level !=
+   >             null && min_level.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(min_level) :
+   >             feature['building:min_level'] != null && feature['building:min_level'].matches('^
+   >             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:min_level']) : null) != null ? (min_level !=
+   >             null && min_level.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(min_level) :
+   >             feature['building:min_level'] != null && feature['building:min_level'].matches('^
+   >             *[0-9]+([.][0-9]+)? *$') ? double(feature['building:min_level']) : null) * 3.66 : 0.0) >= 3660.0
+   >             ? 0 : 14
+   >           simplify: 0.25
+   >           simplify_at_maxzoom: 0.0625
+   >           min_size: 0.1
+   >           min_size_at_maxzoom: 0.0625
+   >           where: >-
+   >             (feature['building:part'] != null || building != null || aeroway in ['terminal', 'hangar'] ||
+   >             location == 'underground') && !(building in ['no', 'none', 'No']) && !(feature['building:part']
+   >             in ['no', 'none', 'No']) && man_made != 'bridge' && location != 'underground'
+   >           attributes:
+   >             render_height:
+   >               expr: &render_height >-
+   >                 (coalesce(height, feature['building:height']) == null ? null : coalesce(height,
+   >                 feature['building:height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >                 *(km|kilom)') ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(height,
+   >                 feature['building:height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >                 *(in|") *$') ? double(regex.replace(coalesce(height, feature['building:height']),
+   >                 '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
+   >                 feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) * 1609.344 : coalesce(height, feature['building:height']).matches('(?i)^
+   >                 *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(height,
+   >                 feature['building:height']), '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) !=
+   >                 null ?
+   >                 int((coalesce(height, feature['building:height']) == null ? null : coalesce(height,
+   >                 feature['building:height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >                 *(km|kilom)') ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(height,
+   >                 feature['building:height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >                 *(in|") *$') ? double(regex.replace(coalesce(height, feature['building:height']),
+   >                 '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
+   >                 feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) * 1609.344 : coalesce(height, feature['building:height']).matches('(?i)^
+   >                 *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(height,
+   >                 feature['building:height']), '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null)) +
+   >                 ((coalesce(height, feature['building:height']) == null ? null : coalesce(height,
+   >                 feature['building:height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >                 *(km|kilom)') ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(height,
+   >                 feature['building:height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >                 *(in|") *$') ? double(regex.replace(coalesce(height, feature['building:height']),
+   >                 '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
+   >                 feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) * 1609.344 : coalesce(height, feature['building:height']).matches('(?i)^
+   >                 *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(height,
+   >                 feature['building:height']), '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) >
+   >                 double(int((coalesce(height, feature['building:height']) == null ? null :
+   >                 coalesce(height, feature['building:height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)?
+   >                 *$') ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) : coalesce(height, feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >                 *(km|kilom)') ? double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(height,
+   >                 feature['building:height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) * 0.3048 + (coalesce(height, feature['building:height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >                 *(in|") *$') ? double(regex.replace(coalesce(height, feature['building:height']),
+   >                 '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(height,
+   >                 feature['building:height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >                 double(regex.replace(coalesce(height, feature['building:height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$',
+   >                 '\\1')) * 1609.344 : coalesce(height, feature['building:height']).matches('(?i)^
+   >                 *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ? double(regex.replace(coalesce(height,
+   >                 feature['building:height']), '^ *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null))) ? 1
+   >                 : 0) :
+   >                 (levels != null && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(levels) :
+   >                 feature['building:levels'] != null && feature['building:levels'].matches('^
+   >                 *[0-9]+([.][0-9]+)? *$') ? double(feature['building:levels']) : null) != null ?
+   >                 int((levels != null && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(levels) :
+   >                 feature['building:levels'] != null && feature['building:levels'].matches('^
+   >                 *[0-9]+([.][0-9]+)? *$') ? double(feature['building:levels']) : null) * 3.66) + ((levels
+   >                 != null && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(levels) :
+   >                 feature['building:levels'] != null && feature['building:levels'].matches('^
+   >                 *[0-9]+([.][0-9]+)? *$') ? double(feature['building:levels']) : null) * 3.66 >
+   >                 double(int((levels != null && levels.matches('^ *[0-9]+([.][0-9]+)? *$') ?
+   >                 double(levels) : feature['building:levels'] != null &&
+   >                 feature['building:levels'].matches('^ *[0-9]+([.][0-9]+)? *$') ?
+   >                 double(feature['building:levels']) : null) * 3.66)) ? 1 : 0) : 5
+   >               minzoom: 14
+   >             render_min_height:
+   >               expr: >-
+   >                 (coalesce(min_height, feature['building:min_height']) == null ? null :
+   >                 coalesce(min_height, feature['building:min_height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)
+   >                 *(m|meters?)?
+   >                 *$') ? double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : coalesce(min_height,
+   >                 feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(km|kilom)') ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+   >                 feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 0.3048 + (coalesce(min_height,
+   >                 feature['building:min_height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']),
+   >                 '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+   >                 feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 : coalesce(min_height,
+   >                 feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null) != null ? int((coalesce(min_height,
+   >                 feature['building:min_height']) == null ? null : coalesce(min_height,
+   >                 feature['building:min_height']).matches('^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(m|meters?)? *$') ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) : coalesce(min_height,
+   >                 feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(km|kilom)') ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1000.0 : coalesce(min_height,
+   >                 feature['building:min_height']).matches("(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(ft|')") ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 0.3048 + (coalesce(min_height,
+   >                 feature['building:min_height']).matches('(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(in|") *$') ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']),
+   >                 '^.*?((?:[0-9]+[.]?[0-9]*|[.][0-9]+)) *(in|") *$', '\\1')) * 0.0254 : 0.0) : coalesce(min_height,
+   >                 feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *mi *$') ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1609.344 : coalesce(min_height,
+   >                 feature['building:min_height']).matches('(?i)^ *-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+) *(nmi|nautical)') ?
+   >                 double(regex.replace(coalesce(min_height, feature['building:min_height']), '^
+   >                 *(-?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)).*$', '\\1')) * 1852.0 : null)) : (min_level != null &&
+   >                 min_level.matches('^
+   >                 *[0-9]+([.][0-9]+)? *$') ? double(min_level) : feature['building:min_level'] != null &&
+   >                 feature['building:min_level'].matches('^ *[0-9]+([.][0-9]+)? *$') ?
+   >                 double(feature['building:min_level']) : null) != null ? int((min_level != null &&
+   >                 min_level.matches('^ *[0-9]+([.][0-9]+)? *$') ? double(min_level) :
+   >                 feature['building:min_level'] != null && feature['building:min_level'].matches('^
+   >                 *[0-9]+([.][0-9]+)? *$') ? double(feature['building:min_level']) : null) * 3.66) : 0
+   >               minzoom: 14
+   >             colour:
+   >               expr: >-
+   >                 feature['building:colour'] != null ? feature['building:colour'].lowerAscii() :
+   >                 feature['building:material'] in ['cement_block', 'brick', 'plaster', 'wood', 'concrete',
+   >                 'metal', 'stone', 'mud', 'steel', 'glass', 'traditional', 'masonry', 'Brick', 'tin',
+   >                 'timber_framing', 'sandstone', 'clay'] ? {'cement_block': '#6a7880', 'brick': '#bd8161',
+   >                 'plaster': '#dadbdb', 'wood': '#d48741', 'concrete': '#d3c2b0', 'metal': '#b7b1a6',
+   >                 'stone': '#b4a995', 'mud': '#9d8b75', 'steel': '#b7b1a6', 'glass': '#5a81a0',
+   >                 'traditional': '#bd8161', 'masonry': '#bd8161', 'Brick': '#bd8161', 'tin': '#b7b1a6',
+   >                 'timber_framing': '#b3b0a9', 'sandstone': '#b4a995', 'clay':
+   >                 '#9d8b75'}[feature['building:material']] : null
+   >               minzoom: 14
+   >           sort_by: [*render_height]
+   >           merge_polygons: { minzoom: 13, maxzoom: 13, min_area: 4, min_hole_area: 4, distance: 1 }
+   >           merge_multi: { minzoom: 14, geometry: [polygon], group_by: [render_height, render_min_height, colour] }
+   >         # water_name: lake and sea labels are points (no lake centerlines)
+   >         water_name:
+   >           geometry: point
+   >           buffer: 2047
+   >           where: "(place in ['ocean', 'sea'] || natural in ['bay', 'strait']) && name != null"
+   >           minzoom: >-
+   >             place == 'ocean' ? 0 : rank != null && rank.matches('^[0-9]+$') ? int(rank) : natural == 'bay' ? 13 : 8
+   >           attributes:
+   >             <<: *names
+   >             class: "coalesce(natural, place)"
+   >             intermittent: &intermittent "intermittent != null && !(intermittent in ['0', 'false', 'no']) ? 1 : 0"
+   >         water_name_polygons:
+   >           layer: water_name
+   >           geometry: polygon_point_on_surface
+   >           buffer: 2047
+   >           where: >-
+   >             name != null && leisure != 'swimming_pool' && ((landuse in ['reservoir', 'basin', 'salt_pond']
+   >             || leisure == 'swimming_pool' || natural in ['water', 'bay', 'spring'] || waterway == 'dock' ||
+   >             water in ['river', 'stream', 'canal', 'ditch', 'drain', 'pond', 'basin', 'wastewater']) &&
+   >             covered != 'yes')
+   >           minzoom: >-
+   >             max(place in ['sea', 'ocean'] ? 0 : 3, area('z0 ti2') >= 0.00390625 ? 3 : area('z0 ti2') >=
+   >             0.0009765625 ? 4 : area('z0 ti2') >= 0.000244140625 ? 5 : area('z0 ti2') >= 6.103515625e-05 ? 6
+   >             : area('z0 ti2') >= 1.52587890625e-05 ? 7 : area('z0 ti2') >= 3.814697265625e-06 ? 8 : area('z0
+   >             ti2') >= 9.5367431640625e-07 ? 9 : area('z0 ti2') >= 2.384185791015625e-07 ? 10 : area('z0 ti2')
+   >             >= 5.960464477539063e-08 ? 11 : area('z0 ti2') >= 1.4901161193847656e-08 ? 12 : area('z0 ti2')
+   >             >= 3.725290298461914e-09 ? 13 : 14)
+   >           attributes:
+   >             <<: *names
+   >             class: "natural == 'bay' ? 'bay' : place == 'sea' ? 'sea' : 'lake'"
+   >             intermittent: *intermittent
+   >         # transportation_name
+   >         transportation_name:
+   >           geometry: line
+   >           buffer: 416
+   >           min_size: 0
+   >           min_size_at_maxzoom: 0.0625
+   >           where: >-
+   >             (highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link',
+   >             'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential',
+   >             'living_street', 'road', 'pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway',
+   >             'corridor', 'service', 'track', 'raceway', 'busway', 'bus_guideway'] || highway ==
+   >             'construction' && (construction == null || construction in ['motorway', 'motorway_link',
+   >             'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary',
+   >             'tertiary_link', 'unclassified', 'residential', 'living_street', 'road', 'pedestrian', 'path',
+   >             'footway', 'cycleway', 'steps', 'bridleway', 'corridor', 'service', 'track', 'raceway'])) &&
+   >             !(area != null && !(area in ['0', 'false', 'no'])) && (name != null || ref != null ||
+   >             size(relations.route) > 0)
+   >           minzoom: >-
+   >             name == null && ref == null && !relations.route.exists(r, r.ref != null && (r.network == null ?
+   >             9 : r.network == 'US:I' ? 0 : r.network == 'US:US' ? 1 : size(r.network) == 5 &&
+   >             r.network.startsWith('US:') ? 2 : r.network.startsWith('CA:transcanada') ? 3 : r.network ==
+   >             'CA:QC:A' || r.network == 'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 &&
+   >             r.ref.startsWith('4') || r.ref == 'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' ||
+   >             r.network == 'CA:AB:primary' && r.ref in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in
+   >             ['3', '5', '99'] ? 4 : r.network == 'CA:ON:primary' || r.network.startsWith('CA:') &&
+   >             (size(r.network) == 5 || size(r.network) >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9) < 9)
+   >             ? 14 : max(highway in ['motorway', 'motorway_link'] || highway == 'construction' && construction
+   >             in ['motorway', 'motorway_link'] ? 6 : highway in ['trunk', 'trunk_link'] || highway ==
+   >             'construction' && construction in ['trunk', 'trunk_link'] ? 8 : highway.endsWith('_link') ? 13 :
+   >             12, max(man_made == 'pier' ? 13 : highway in ['residential', 'unclassified'] ? 12 : highway in
+   >             ['motorway', 'motorway_link'] || highway == 'construction' && construction in ['motorway',
+   >             'motorway_link'] ? (relations.route.map(r, r.network == null ? 9 : r.network == 'US:I' ? 0 :
+   >             r.network == 'US:US' ? 1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >             r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >             'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >             'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref in
+   >             ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >             'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network) >= 6
+   >             && r.network.substring(5, 6) == ':') ? 5 : 9).all(o, o == 9) || relations.route.map(r, r.network
+   >             == null ? 9 : r.network == 'US:I' ? 0 : r.network == 'US:US' ? 1 : size(r.network) == 5 &&
+   >             r.network.startsWith('US:') ? 2 : r.network.startsWith('CA:transcanada') ? 3 : r.network ==
+   >             'CA:QC:A' || r.network == 'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 &&
+   >             r.ref.startsWith('4') || r.ref == 'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' ||
+   >             r.network == 'CA:AB:primary' && r.ref in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in
+   >             ['3', '5', '99'] ? 4 : r.network == 'CA:ON:primary' || r.network.startsWith('CA:') &&
+   >             (size(r.network) == 5 || size(r.network) >= 6 && r.network.substring(5, 6) == ':') ? 5 :
+   >             9).exists(o, o in [0, 3, 4]) ? 4 : 5) : highway in ['trunk', 'trunk_link'] || highway ==
+   >             'construction' && construction in ['trunk', 'trunk_link'] ? (highway == 'trunk' &&
+   >             relations.route.map(r, r.network == null ? 9 : r.network == 'US:I' ? 0 : r.network == 'US:US' ?
+   >             1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >             r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >             'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >             'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref in
+   >             ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >             'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network) >= 6
+   >             && r.network.substring(5, 6) == ':') ? 5 : 9).exists(o, o in [0, 3, 4]) ? 4 : highway == 'trunk'
+   >             && relations.route.map(r, r.network == null ? 9 : r.network == 'US:I' ? 0 : r.network == 'US:US'
+   >             ? 1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >             r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >             'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >             'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref in
+   >             ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >             'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network) >= 6
+   >             && r.network.substring(5, 6) == ':') ? 5 : 9).exists(o, o in [0, 1, 3, 4]) ? 5 : 6) : highway in
+   >             ['primary', 'primary_link'] || highway == 'construction' && construction in ['primary',
+   >             'primary_link'] ? 7 : highway in ['secondary', 'secondary_link'] || highway == 'construction' &&
+   >             construction in ['secondary', 'secondary_link'] ? 9 : highway in ['tertiary', 'tertiary_link']
+   >             || highway == 'construction' && construction in ['tertiary', 'tertiary_link'] ? 11 : highway in
+   >             ['living_street', 'road'] || highway == 'construction' && (construction == null || construction
+   >             in ['unclassified', 'residential', 'living_street', 'road']) ? 13 : highway in ['pedestrian',
+   >             'path', 'footway', 'cycleway', 'steps', 'bridleway', 'corridor', 'track'] || public_transport ==
+   >             'platform' || highway == 'construction' && construction in ['pedestrian', 'path', 'footway',
+   >             'cycleway', 'steps', 'bridleway', 'corridor', 'track'] ? (coalesce(relations.route.map(r,
+   >             r.network in ['iwn', 'nwn', 'rwn'] ? 1 : r.network == 'lwn' || r['osmc:symbol'] != null ||
+   >             r.colour != null ? 2 : 3).min(), 3) == 1 ? 12 : name != null || coalesce(relations.route.map(r,
+   >             r.network in ['iwn', 'nwn', 'rwn'] ? 1 : r.network == 'lwn' || r['osmc:symbol'] != null ||
+   >             r.colour != null ? 2 : 3).min(), 3) <= 2 || sac_scale != null ? 13 : 14) : highway in
+   >             ['service'] || highway == 'construction' && construction in ['service'] ? (service in
+   >             ['parking_aisle', 'driveway'] ? 14 : 13) : highway in ['raceway'] || highway == 'construction'
+   >             && construction in ['raceway'] ? 12 : highway in ['busway', 'bus_guideway'] ? 11 : 14, highway
+   >             != null && highway.endsWith('_link') || construction != null && construction.endsWith('_link') ?
+   >             9 : 0))
+   >           maxzoom: >-
+   >             name == null && ref == null && !relations.route.exists(r, r.ref != null && (r.network == null ?
+   >             9 : r.network == 'US:I' ? 0 : r.network == 'US:US' ? 1 : size(r.network) == 5 &&
+   >             r.network.startsWith('US:') ? 2 : r.network.startsWith('CA:transcanada') ? 3 : r.network ==
+   >             'CA:QC:A' || r.network == 'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 &&
+   >             r.ref.startsWith('4') || r.ref == 'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' ||
+   >             r.network == 'CA:AB:primary' && r.ref in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in
+   >             ['3', '5', '99'] ? 4 : r.network == 'CA:ON:primary' || r.network.startsWith('CA:') &&
+   >             (size(r.network) == 5 || size(r.network) >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9) < 9)
+   >             ? 0 : 14
+   >           attributes:
+   >             <<: *names
+   >             ref: &tn_ref >-
+   >               relations.route.exists(r, r.ref != null && (r.network == null ? 9 : r.network == 'US:I' ? 0
+   >               : r.network == 'US:US' ? 1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >               r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >               'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >               'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref
+   >               in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >               'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network)
+   >               >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9) < 9) ? relations.route.filter(r, r.ref !=
+   >               null && (r.network == null ? 9 : r.network == 'US:I' ? 0 : r.network == 'US:US' ? 1 :
+   >               size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >               r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >               'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >               'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref
+   >               in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >               'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network)
+   >               >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9) < 9).map(r, string(r.network == null ? 9
+   >               : r.network == 'US:I' ? 0 : r.network == 'US:US' ? 1 : size(r.network) == 5 &&
+   >               r.network.startsWith('US:') ? 2 : r.network.startsWith('CA:transcanada') ? 3 : r.network ==
+   >               'CA:QC:A' || r.network == 'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 &&
+   >               r.ref.startsWith('4') || r.ref == 'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' ||
+   >               r.network == 'CA:AB:primary' && r.ref in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in
+   >               ['3', '5', '99'] ? 4 : r.network == 'CA:ON:primary' || r.network.startsWith('CA:') &&
+   >               (size(r.network) == 5 || size(r.network) >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9)
+   >               + r.ref).min().substring(1) : ref
+   >             ref_length: >-
+   >               relations.route.exists(r, r.ref != null && (r.network == null ? 9 : r.network == 'US:I' ? 0
+   >               : r.network == 'US:US' ? 1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >               r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >               'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >               'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref
+   >               in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >               'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network)
+   >               >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9) < 9) ? size(relations.route.filter(r,
+   >               r.ref != null && (r.network == null ? 9 : r.network == 'US:I' ? 0 : r.network == 'US:US' ? 1
+   >               : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >               r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >               'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >               'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref
+   >               in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >               'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network)
+   >               >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9) < 9).map(r, string(r.network == null ? 9
+   >               : r.network == 'US:I' ? 0 : r.network == 'US:US' ? 1 : size(r.network) == 5 &&
+   >               r.network.startsWith('US:') ? 2 : r.network.startsWith('CA:transcanada') ? 3 : r.network ==
+   >               'CA:QC:A' || r.network == 'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 &&
+   >               r.ref.startsWith('4') || r.ref == 'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' ||
+   >               r.network == 'CA:AB:primary' && r.ref in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in
+   >               ['3', '5', '99'] ? 4 : r.network == 'CA:ON:primary' || r.network.startsWith('CA:') &&
+   >               (size(r.network) == 5 || size(r.network) >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9)
+   >               + r.ref).min()) - 1 : ref != null ? size(ref) : null
+   >             network: >-
+   >               coalesce(size(relations.route) == 0 ? null : ['us-interstate', 'us-highway', 'us-state',
+   >               'ca-transcanada', 'ca-provincial-arterial', 'ca-provincial', null, null, null,
+   >               null][relations.route.map(r, r.network == null ? 9 : r.network == 'US:I' ? 0 : r.network ==
+   >               'US:US' ? 1 : size(r.network) == 5 && r.network.startsWith('US:') ? 2 :
+   >               r.network.startsWith('CA:transcanada') ? 3 : r.network == 'CA:QC:A' || r.network ==
+   >               'CA:ON:primary' && r.ref != null && (size(r.ref) == 3 && r.ref.startsWith('4') || r.ref ==
+   >               'QEW') || r.network == 'CA:MB:PTH' && r.ref == '75' || r.network == 'CA:AB:primary' && r.ref
+   >               in ['2', '3', '4'] || r.network == 'CA:BC' && r.ref in ['3', '5', '99'] ? 4 : r.network ==
+   >               'CA:ON:primary' || r.network.startsWith('CA:') && (size(r.network) == 5 || size(r.network)
+   >               >= 6 && r.network.substring(5, 6) == ':') ? 5 : 9).min()], ref != null ? 'road' : null)
+   >             class: >-
+   >               highway in ['motorway', 'motorway_link'] ? 'motorway' : highway in ['trunk', 'trunk_link'] ?
+   >               'trunk' : highway in ['primary', 'primary_link'] ? 'primary' : highway in ['secondary',
+   >               'secondary_link'] ? 'secondary' : highway in ['tertiary', 'tertiary_link'] ? 'tertiary' :
+   >               highway in ['unclassified', 'residential', 'living_street', 'road'] ? 'minor' : highway in
+   >               ['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway', 'corridor'] ? 'path' :
+   >               highway == 'service' ? 'service' : highway == 'track' ? 'track' : highway == 'raceway' ?
+   >               'raceway' : highway == 'busway' ? 'busway' : highway == 'bus_guideway' ? 'bus_guideway' :
+   >               highway == 'shipway' ? 'ferry' : highway == 'construction' ? (construction in ['motorway',
+   >               'motorway_link'] ? 'motorway_construction' : construction in ['trunk', 'trunk_link'] ?
+   >               'trunk_construction' : construction in ['primary', 'primary_link'] ? 'primary_construction'
+   >               : construction in ['secondary', 'secondary_link'] ? 'secondary_construction' : construction
+   >               in ['tertiary', 'tertiary_link'] ? 'tertiary_construction' : construction == null ||
+   >               construction in ['unclassified', 'residential', 'living_street', 'road'] ?
+   >               'minor_construction' : construction in ['pedestrian', 'path', 'footway', 'cycleway',
+   >               'steps', 'bridleway', 'corridor'] ? 'path_construction' : construction == 'service' ?
+   >               'service_construction' : construction == 'track' ? 'track_construction' : construction ==
+   >               'raceway' ? 'raceway_construction' : null) : null
+   >             subclass: >-
+   >               highway in ['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway', 'corridor'] ?
+   >               highway : null
+   >             route_1_network: "size(relations.route) >= 1 ? relations.route[0].network : null"
+   >             route_1_ref: "size(relations.route) >= 1 ? relations.route[0].ref : null"
+   >             route_1_name: "size(relations.route) >= 1 ? relations.route[0].name : null"
+   >             route_1_colour: >-
+   >               size(relations.route) >= 1 ? coalesce(relations.route[0].colour, relations.route[0]['ref:colour']) : null
+   >             route_2_network: "size(relations.route) >= 2 ? relations.route[1].network : null"
+   >             route_2_ref: "size(relations.route) >= 2 ? relations.route[1].ref : null"
+   >             route_2_name: "size(relations.route) >= 2 ? relations.route[1].name : null"
+   >             route_2_colour: >-
+   >               size(relations.route) >= 2 ? coalesce(relations.route[1].colour, relations.route[1]['ref:colour']) : null
+   >             route_3_network: "size(relations.route) >= 3 ? relations.route[2].network : null"
+   >             route_3_ref: "size(relations.route) >= 3 ? relations.route[2].ref : null"
+   >             route_3_name: "size(relations.route) >= 3 ? relations.route[2].name : null"
+   >             route_3_colour: >-
+   >               size(relations.route) >= 3 ? coalesce(relations.route[2].colour, relations.route[2]['ref:colour']) : null
+   >             route_4_network: "size(relations.route) >= 4 ? relations.route[3].network : null"
+   >             route_4_ref: "size(relations.route) >= 4 ? relations.route[3].ref : null"
+   >             route_4_name: "size(relations.route) >= 4 ? relations.route[3].name : null"
+   >             route_4_colour: >-
+   >               size(relations.route) >= 4 ? coalesce(relations.route[3].colour, relations.route[3]['ref:colour']) : null
+   >             route_5_network: "size(relations.route) >= 5 ? relations.route[4].network : null"
+   >             route_5_ref: "size(relations.route) >= 5 ? relations.route[4].ref : null"
+   >             route_5_name: "size(relations.route) >= 5 ? relations.route[4].name : null"
+   >             route_5_colour: >-
+   >               size(relations.route) >= 5 ? coalesce(relations.route[4].colour, relations.route[4]['ref:colour']) : null
+   >             route_6_network: "size(relations.route) >= 6 ? relations.route[5].network : null"
+   >             route_6_ref: "size(relations.route) >= 6 ? relations.route[5].ref : null"
+   >             route_6_name: "size(relations.route) >= 6 ? relations.route[5].name : null"
+   >             route_6_colour: >-
+   >               size(relations.route) >= 6 ? coalesce(relations.route[5].colour, relations.route[5]['ref:colour']) : null
+   >             layer:
+   >               expr: >-
+   >                 highway in ['footway', 'steps'] ? (layer != null && layer.matches('^-?[0-9]+$') &&
+   >                 int(layer) != 0 ? int(layer) : null) : null
+   >               minzoom: 12
+   >             level: { expr: *level, minzoom: 12 }
+   >             indoor:
+   >               expr: >-
+   >                 highway in ['footway', 'steps'] && indoor != null && !(indoor in ['0', 'false', 'no']) ? 1 : null
+   >               minzoom: 12
+   >           sort_by: [*z_order]
+   >           merge_lines:
+   >             - { maxzoom: 6, min_length: 8.18, tolerance: 0.1, buffer: 8.18 }
+   >             - { minzoom: 7, maxzoom: 7, min_length: 16.35, tolerance: 0.1, buffer: 16.35 }
+   >             - { minzoom: 8, maxzoom: 8, min_length: 22.89, tolerance: 0.1, buffer: 22.89 }
+   >             - { minzoom: 9, maxzoom: 11, min_length: 26.17, tolerance: 0.1, buffer: 26 }
+   >             - { minzoom: 12, maxzoom: 13, min_length: 60, tolerance: 0.1, buffer: 8 }
+   >             - { minzoom: 14, tolerance: 0.0625, buffer: 8 }
+   >         transportation_name_aerialway:
+   >           layer: transportation_name
+   >           geometry: line
+   >           buffer: 128
+   >           minzoom: 12
+   >           min_size: 0
+   >           min_size_at_maxzoom: 0.0625
+   >           where: >-
+   >             name != null && aerialway in ['chair_lift', 'drag_lift', 'platter', 't-bar', 'gondola',
+   >             'cable_car', 'j-bar', 'mixed_lift']
+   >           attributes:
+   >             <<: *names
+   >             class: { value: aerialway }
+   >             subclass: aerialway
+   >         transportation_name_ferry:
+   >           layer: transportation_name
+   >           geometry: line
+   >           buffer: 128
+   >           minzoom: 12
+   >           min_size: 0
+   >           min_size_at_maxzoom: 0.0625
+   >           where: "name != null && route == 'ferry'"
+   >           attributes:
+   >             <<: *names
+   >             class: route
+   >         transportation_name_junction:
+   >           layer: transportation_name
+   >           geometry: point
+   >           buffer: 128
+   >           minzoom: 10
+   >           where: "highway == 'motorway_junction'"
+   >           attributes:
+   >             <<: *names
+   >             ref: ref
+   >             ref_length: "ref != null ? size(ref) : null"
+   >             class: { value: motorway }
+   >             subclass: { value: junction }
+   >             layer: *layer
+   >         # place: country ranks by ISO code from Natural Earth, city ranks from population
+   >         place_continent:
+   >           layer: place
+   >           geometry: point
+   >           buffer: 2047
+   >           maxzoom: 3
+   >           where: "place == 'continent' && name != null"
+   >           attributes:
+   >             <<: *names
+   >             class: { value: continent }
+   >             rank: 1
+   >           sort_by:
+   >             - "place in ['continent', 'country'] ? 0 : place in ['state', 'province'] ? 1 : 2"
+   >             - >-
+   >               {'city': 0, 'town': 1, 'village': 2, 'hamlet': 3, 'suburb': 4, 'quarter': 5,
+   >               'neighbourhood': 6, 'isolated_dwelling': 7, 'unknown': 8}[place in ['city', 'town',
+   >               'village', 'hamlet', 'suburb', 'quarter', 'neighbourhood', 'isolated_dwelling'] ? place :
+   >               'unknown']
+   >             - expr: >-
+   >                 (population != null && regex.replace(population, '[ ,]', '').matches('^[0-9]+$') ?
+   >                 int(regex.replace(population, '[ ,]', '')) : 0)
+   >               desc: true
+   >             - "name != null ? size(name) : 0"
+   >           thinning:
+   >             - { maxzoom: 12, method: grid, size: 128, rank: rank, rank_offset: 10 }
+   >             - { minzoom: 13, method: grid, size: 256, rank: rank, rank_offset: 10 }
+   >         place_country:
+   >           layer: place
+   >           geometry: point
+   >           buffer: 2047
+   >           minzoom: "5"
+   >           where: >-
+   >             place == 'country' && name != null && (country_code_iso3166_1_alpha_2 != null ||
+   >             feature['ISO3166-1:alpha2'] != null || feature['ISO3166-1'] != null)
+   >           attributes:
+   >             <<: *names
+   >             iso_a2: "coalesce(country_code_iso3166_1_alpha_2, feature['ISO3166-1:alpha2'], feature['ISO3166-1'])"
+   >             class: { value: country }
+   >             rank: 6
+   >           rules:
+   >             - where: >-
+   >                 coalesce(country_code_iso3166_1_alpha_2, feature['ISO3166-1:alpha2'], feature['ISO3166-1']) in
+   >                 ['AR', 'AU', 'BE', 'BR', 'CA', 'CD', 'CL', 'CN', 'CO', 'DE', 'EG', 'ES', 'ET', 'FR', 'GB', 'ID',
+   >                 'IN', 'IR', 'IT', 'JP', 'KE', 'KR', 'MX', 'NG', 'NZ', 'PE', 'PG', 'PH', 'PK', 'PT', 'RU', 'SA',
+   >                 'TR', 'US', 'VN', 'ZA']
+   >               minzoom: 0
+   >               attributes: { rank: 1 }
+   >             - where: >-
+   >                 coalesce(country_code_iso3166_1_alpha_2, feature['ISO3166-1:alpha2'], feature['ISO3166-1']) in
+   >                 ['AE', 'AF', 'AO', 'AQ', 'AT', 'BD', 'BF', 'BG', 'BO', 'BW', 'BY', 'CF', 'CG', 'CH', 'CI', 'CM',
+   >                 'CN-TW', 'CU', 'DK', 'DZ', 'EC', 'ER', 'FI', 'GA', 'GH', 'GL', 'GN', 'GQ', 'GR', 'GT', 'GY', 'HK',
+   >                 'IE', 'IL', 'IQ', 'IS', 'JO', 'KG', 'KH', 'KP', 'KZ', 'LA', 'LK', 'LR', 'LY', 'MA', 'MG', 'ML',
+   >                 'MM', 'MN', 'MO', 'MR', 'MY', 'MZ', 'NA', 'NC', 'NE', 'NO', 'NP', 'OM', 'PA', 'PL', 'PY', 'RO',
+   >                 'RW', 'SB', 'SD', 'SE', 'SL', 'SN', 'SR', 'SS', 'SY', 'SZ', 'TD', 'TH', 'TJ', 'TM', 'TN', 'TZ',
+   >                 'UA', 'UG', 'UY', 'UZ', 'VE', 'YE', 'ZM', 'ZW']
+   >               minzoom: 1
+   >               attributes: { rank: 2 }
+   >             - where: >-
+   >                 coalesce(country_code_iso3166_1_alpha_2, feature['ISO3166-1:alpha2'], feature['ISO3166-1']) in
+   >                 ['AD', 'AL', 'AM', 'AZ', 'BA', 'BI', 'BJ', 'BN', 'BT', 'BZ', 'CR', 'CY', 'CZ', 'DJ', 'DO', 'EE',
+   >                 'FK', 'GE', 'GI', 'GM', 'GW', 'HN', 'HR', 'HT', 'HU', 'JM', 'KW', 'LB', 'LI', 'LS', 'LT', 'LU',
+   >                 'LV', 'MC', 'MD', 'ME', 'MK', 'MW', 'NI', 'NL', 'PR', 'PS', 'QA', 'RS', 'SI', 'SK', 'SM', 'SO',
+   >                 'SV', 'TG', 'TL', 'VA', 'VU', 'XK']
+   >               minzoom: 2
+   >               attributes: { rank: 3 }
+   >             - where: >-
+   >                 coalesce(country_code_iso3166_1_alpha_2, feature['ISO3166-1:alpha2'], feature['ISO3166-1']) in
+   >                 ['AW', 'BB', 'BS', 'CV', 'CW', 'EH', 'FJ', 'GS', 'KY', 'MU', 'PF', 'PM', 'TT', 'WS']
+   >               minzoom: 3
+   >               attributes: { rank: 4 }
+   >             - where: >-
+   >                 coalesce(country_code_iso3166_1_alpha_2, feature['ISO3166-1:alpha2'], feature['ISO3166-1']) in
+   >                 ['AG', 'AI', 'AS', 'AX', 'BH', 'CK', 'DM', 'GD', 'HM', 'IO', 'KI', 'KM', 'KN', 'LC', 'MF', 'MS',
+   >                 'MT', 'MV', 'NU', 'PN', 'SG', 'ST', 'SX', 'TF', 'TO', 'UM', 'VC', 'VG', 'VI', 'WF']
+   >               minzoom: 4
+   >               attributes: { rank: 5 }
+   >         place_state:
+   >           layer: place
+   >           geometry: point
+   >           buffer: 2047
+   >           minzoom: 2
+   >           where: "place in ['state', 'province'] && name != null"
+   >           attributes:
+   >             <<: *names
+   >             class: place
+   >             rank: 6
+   >         place_island:
+   >           layer: place
+   >           geometry: polygon_point_on_surface
+   >           buffer: 2047
+   >           where: "place == 'island' && name != null"
+   >           minzoom: "area('z0 ti2') > 2.490649227415853e-08 ? 8 : area('z0 ti2') > 9.33993460280945e-09 ? 9 : 10"
+   >           attributes:
+   >             <<: *names
+   >             class: { value: island }
+   >             rank: &area_rank >-
+   >               area('z0 ti2') <= 6.226623068539633e-10 ? 6 : area('z0 ti2') <= 9.33993460280945e-09 ? 5 :
+   >               area('z0 ti2') <= 2.490649227415853e-08 ? 4 : area('z0 ti2') <= 9.962596909663413e-08 ? 3 :
+   >               area('z0 ti2') <= 3.985038763865365e-07 ? 2 : 1
+   >         place_island_point:
+   >           layer: place
+   >           geometry: point
+   >           buffer: 2047
+   >           minzoom: 12
+   >           where: "place == 'island' && name != null"
+   >           attributes:
+   >             <<: *names
+   >             class: { value: island }
+   >             rank: 7
+   >         place_boundary:
+   >           layer: place
+   >           geometry: polygon_point_on_surface
+   >           buffer: 2047
+   >           where: "boundary == 'aboriginal_lands' && type == 'boundary'"
+   >           minzoom: >-
+   >             area('z0 ti2') > 3.985038763865365e-07 ? 6 : area('z0 ti2') > 9.962596909663413e-08 ? 7 :
+   >             area('z0 ti2') > 2.490649227415853e-08 ? 8 : area('z0 ti2') > 9.33993460280945e-09 ? 9 : 10
+   >           attributes:
+   >             <<: *names
+   >             class: boundary
+   >             rank: *area_rank
+   >         place:
+   >           geometry: point
+   >           buffer: 2047
+   >           where: >-
+   >             place in ['city', 'town', 'village', 'hamlet', 'borough', 'suburb', 'quarter', 'neighbourhood',
+   >             'isolated_dwelling'] && name != null
+   >           minzoom: >-
+   >             place in ['city', 'town'] ? 7 : place == 'village' ? 8 : place in ['hamlet', 'suburb'] ? 11 : 14
+   >           attributes:
+   >             <<: *names
+   >             class: place
+   >             capital: "capital in ['yes', '2'] ? 2 : capital in ['3', '4', '5', '6'] ? int(capital) : null"
+   >           rules:
+   >             - where: >-
+   >                 place in ['city', 'town', 'village'] && (population != null && regex.replace(population,
+   >                 '[ ,]', '').matches('^[0-9]+$') ? int(regex.replace(population, '[ ,]', '')) : 0) >=
+   >                 8000000
+   >               minzoom: 2
+   >               attributes: { rank: 1 }
+   >             - where: >-
+   >                 place in ['city', 'town', 'village'] && ((population != null &&
+   >                 regex.replace(population, '[ ,]', '').matches('^[0-9]+$') ?
+   >                 int(regex.replace(population, '[ ,]', '')) : 0) >= 3000000 || capital in ['yes', '2'] &&
+   >                 (population != null && regex.replace(population, '[ ,]', '').matches('^[0-9]+$') ?
+   >                 int(regex.replace(population, '[ ,]', '')) : 0) >= 1000000)
+   >               minzoom: 3
+   >               attributes: { rank: 2 }
+   >             - where: >-
+   >                 place in ['city', 'town', 'village'] && ((population != null &&
+   >                 regex.replace(population, '[ ,]', '').matches('^[0-9]+$') ?
+   >                 int(regex.replace(population, '[ ,]', '')) : 0) >= 1000000 || capital in ['yes', '2'])
+   >               minzoom: 3
+   >               attributes: { rank: 3 }
+   >             - where: >-
+   >                 place in ['city', 'town', 'village'] && (population != null && regex.replace(population,
+   >                 '[ ,]', '').matches('^[0-9]+$') ? int(regex.replace(population, '[ ,]', '')) : 0) >=
+   >                 500000
+   >               minzoom: 3
+   >               attributes: { rank: 4 }
+   >             - where: >-
+   >                 place in ['city', 'town', 'village'] && (population != null && regex.replace(population,
+   >                 '[ ,]', '').matches('^[0-9]+$') ? int(regex.replace(population, '[ ,]', '')) : 0) >=
+   >                 250000
+   >               minzoom: 4
+   >               attributes: { rank: 5 }
+   >             - where: >-
+   >                 place in ['city', 'town', 'village'] && (population != null && regex.replace(population,
+   >                 '[ ,]', '').matches('^[0-9]+$') ? int(regex.replace(population, '[ ,]', '')) : 0) >=
+   >                 100000
+   >               minzoom: 5
+   >               attributes: { rank: 6 }
+   >             - where: >-
+   >                 place in ['city', 'town', 'village'] && (population != null && regex.replace(population,
+   >                 '[ ,]', '').matches('^[0-9]+$') ? int(regex.replace(population, '[ ,]', '')) : 0) >=
+   >                 50000
+   >               minzoom: 6
+   >               attributes: { rank: 7 }
+   >             - thinning:
+   >                 - { maxzoom: 8, method: grid, size: 128, limit: 4 }
+   >                 - { minzoom: 9, maxzoom: 9, method: grid, size: 128, limit: 8 }
+   >                 - { minzoom: 10, maxzoom: 10, method: grid, size: 128, limit: 12 }
+   >                 - { minzoom: 11, maxzoom: 12, method: grid, size: 128, limit: 14 }
+   >         # housenumber
+   >         housenumber:
+   >           geometry: [polygon_centroid_if_convex, point]
+   >           buffer: 128
+   >           minzoom: 14
+   >           where: "feature['addr:housenumber'] != null"
+   >           attributes:
+   >             housenumber: &housenumber >-
+   >               feature['addr:housenumber'].contains(';') &&
+   >               size(feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')) > 0 ?
+   >               (feature['addr:housenumber'].matches('[^0-9;]') ?
+   >               feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')[0] + '\u2013' +
+   >               feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s !=
+   >               '')[size(feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')) - 1] :
+   >               string(feature['addr:housenumber'].split(';').filter(s, s != '').map(s, int(s)).min()) + '\u2013'
+   >               + string(feature['addr:housenumber'].split(';').filter(s, s != '').map(s, int(s)).max())) :
+   >               feature['addr:housenumber']
+   >             _partition:
+   >               expr: >-
+   >                 coalesce(feature['addr:street'], '') + coalesce(feature['addr:block_number'], '') +
+   >                 (feature['addr:housenumber'].contains(';') &&
+   >                 size(feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')) > 0 ?
+   >                 (feature['addr:housenumber'].matches('[^0-9;]') ?
+   >                 feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')[0] + '\u2013' +
+   >                 feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s !=
+   >                 '')[size(feature['addr:housenumber'].split(';').map(s, s.trim()).filter(s, s != '')) -
+   >                 1] : string(feature['addr:housenumber'].split(';').filter(s, s != '').map(s,
+   >                 int(s)).min()) + '\u2013' + string(feature['addr:housenumber'].split(';').filter(s, s !=
+   >                 '').map(s, int(s)).max())) : feature['addr:housenumber'])
+   >               hidden: true
+   >           sort_by: ["name != null"]
+   >           thinning: { method: tile, keys: [_partition] }
+   >           merge_multi: { geometry: [point], group_by: [housenumber] }
+   >         # poi: the first key of Planetiler's mapping that matches decides class and subclass
+   >         poi:
+   >           geometry: [point, polygon_centroid_if_convex]
+   >           buffer: 1024
+   >           minzoom: "14"
+   >           where: >-
+   >             aerialway == 'station' || amenity in ['arts_centre', 'atm', 'bank', 'bar', 'bbq',
+   >             'bicycle_parking', 'bicycle_rental', 'biergarten', 'bus_station', 'cafe', 'charging_station',
+   >             'cinema', 'clinic', 'college', 'community_centre', 'courthouse', 'dentist', 'doctors',
+   >             'drinking_water', 'fast_food', 'ferry_terminal', 'fire_station', 'food_court', 'fuel',
+   >             'grave_yard', 'hospital', 'ice_cream', 'kindergarten', 'library', 'marketplace',
+   >             'motorcycle_parking', 'nightclub', 'nursing_home', 'parking', 'pharmacy', 'place_of_worship',
+   >             'police', 'parcel_locker', 'post_box', 'post_office', 'prison', 'pub', 'public_building',
+   >             'recycling', 'restaurant', 'school', 'shelter', 'swimming_pool', 'taxi', 'telephone', 'theatre',
+   >             'toilets', 'townhall', 'university', 'veterinary', 'waste_basket'] || barrier in ['bollard',
+   >             'border_control', 'cycle_barrier', 'gate', 'lift_gate', 'sally_port', 'stile', 'toll_booth'] ||
+   >             building == 'dormitory' || highway == 'bus_stop' || historic in ['monument', 'castle', 'ruins']
+   >             || landuse in ['basin', 'brownfield', 'cemetery', 'reservoir', 'winter_sports'] || leisure in
+   >             ['dog_park', 'escape_game', 'garden', 'golf_course', 'ice_rink', 'hackerspace', 'marina',
+   >             'miniature_golf', 'park', 'pitch', 'playground', 'sports_centre', 'stadium', 'swimming_area',
+   >             'swimming_pool', 'water_park'] || office in ['accountant', 'advertising_agency', 'architect',
+   >             'association', 'bail_bond_agent', 'charity', 'company', 'construction_company', 'consulting',
+   >             'cooperative', 'courier', 'coworking', 'diplomatic', 'educational_institution',
+   >             'employment_agency', 'energy_supplier', 'engineer', 'estate_agent', 'financial',
+   >             'financial_advisor', 'forestry', 'foundation', 'geodesist', 'government', 'graphic_design',
+   >             'guide', 'harbour_master', 'health_insurance', 'insurance', 'interior_design', 'it', 'lawyer',
+   >             'logistics', 'marketing', 'moving_company', 'newspaper', 'ngo', 'notary', 'physician',
+   >             'political_party', 'private_investigator', 'property_management', 'publisher', 'quango',
+   >             'religion', 'research', 'security', 'surveyor', 'tax_advisor', 'taxi', 'telecommunication',
+   >             'therapist', 'translator', 'travel_agent', 'tutoring', 'union', 'university', 'water_utility',
+   >             'web_design', 'wedding_planner'] || railway in ['halt', 'station', 'subway_entrance',
+   >             'train_station_entrance', 'tram_stop'] || shop in ['accessories', 'alcohol', 'antiques', 'art',
+   >             'bag', 'bakery', 'beauty', 'bed', 'beverages', 'bicycle', 'books', 'boutique', 'butcher',
+   >             'camera', 'car', 'car_repair', 'car_parts', 'carpet', 'charity', 'chemist', 'chocolate',
+   >             'clothes', 'coffee', 'computer', 'confectionery', 'convenience', 'copyshop', 'cosmetics',
+   >             'deli', 'delicatessen', 'department_store', 'doityourself', 'dry_cleaning', 'electronics',
+   >             'erotic', 'fabric', 'florist', 'frozen_food', 'furniture', 'garden_centre', 'general', 'gift',
+   >             'greengrocer', 'hairdresser', 'hardware', 'hearing_aids', 'hifi', 'ice_cream',
+   >             'interior_decoration', 'jewelry', 'kiosk', 'lamps', 'laundry', 'locksmith', 'mall', 'massage',
+   >             'mobile_phone', 'motorcycle', 'music', 'musical_instrument', 'newsagent', 'optician', 'outdoor',
+   >             'paint', 'perfume', 'perfumery', 'pet', 'photo', 'second_hand', 'shoes', 'sports', 'stationery',
+   >             'supermarket', 'tailor', 'tattoo', 'ticket', 'tobacco', 'toys', 'travel_agency', 'video',
+   >             'video_games', 'watches', 'weapons', 'wholesale', 'wine'] || sport in ['american_football',
+   >             'archery', 'athletics', 'australian_football', 'badminton', 'baseball', 'basketball',
+   >             'beachvolleyball', 'billiards', 'bmx', 'boules', 'bowls', 'boxing', 'canadian_football',
+   >             'canoe', 'chess', 'climbing', 'climbing_adventure', 'cricket', 'cricket_nets', 'croquet',
+   >             'curling', 'cycling', 'disc_golf', 'diving', 'dog_racing', 'equestrian', 'fatsal',
+   >             'field_hockey', 'free_flying', 'gaelic_games', 'golf', 'gymnastics', 'handball', 'hockey',
+   >             'horse_racing', 'horseshoes', 'ice_hockey', 'ice_stock', 'judo', 'karting', 'korfball',
+   >             'long_jump', 'model_aerodrome', 'motocross', 'motor', 'multi', 'netball', 'orienteering',
+   >             'paddle_tennis', 'paintball', 'paragliding', 'pelota', 'racquet', 'rc_car', 'rowing', 'rugby',
+   >             'rugby_league', 'rugby_union', 'running', 'sailing', 'scuba_diving', 'shooting',
+   >             'shooting_range', 'skateboard', 'skating', 'skiing', 'soccer', 'surfing', 'swimming',
+   >             'table_soccer', 'table_tennis', 'team_handball', 'tennis', 'toboggan', 'volleyball',
+   >             'water_ski', 'yoga'] || zoo in ['enclosure', 'petting_zoo', 'aviary', 'wildlife_park', 'birds',
+   >             'safari_park', 'butterfly', 'falconry', 'reptile', 'terrarium'] || tourism in ['alpine_hut',
+   >             'aquarium', 'artwork', 'attraction', 'bed_and_breakfast', 'camp_site', 'caravan_site', 'chalet',
+   >             'gallery', 'guest_house', 'hostel', 'hotel', 'information', 'motel', 'museum', 'picnic_site',
+   >             'theme_park', 'viewpoint', 'zoo'] || waterway == 'dock'
+   >           attributes:
+   >             <<: *names
+   >             layer: *layer
+   >             level: >-
+   >               level != null && level.matches('^-?[0-9]+') ? int(regex.replace(level, '^(-?[0-9]+).*$', '\\1')) : null
+   >             indoor: "indoor != null && !(indoor in ['0', 'false', 'no']) ? 1 : null"
+   >           rules:
+   >             - where: >-
+   >                 aerialway == 'station'
+   >               attributes:
+   >                 class: { value: aerialway }
+   >                 subclass: >-
+   >                   station == 'subway' ? 'subway' : funicular == 'yes' ? 'halt' : aerialway
+   >             - where: >-
+   >                 amenity in ['arts_centre', 'atm', 'bank', 'bar', 'bbq', 'bicycle_parking',
+   >                 'bicycle_rental', 'biergarten', 'bus_station', 'cafe', 'charging_station', 'cinema',
+   >                 'clinic', 'college', 'community_centre', 'courthouse', 'dentist', 'doctors',
+   >                 'drinking_water', 'fast_food', 'ferry_terminal', 'fire_station', 'food_court', 'fuel',
+   >                 'grave_yard', 'hospital', 'ice_cream', 'kindergarten', 'library', 'marketplace',
+   >                 'motorcycle_parking', 'nightclub', 'nursing_home', 'parking', 'pharmacy',
+   >                 'place_of_worship', 'police', 'parcel_locker', 'post_box', 'post_office', 'prison',
+   >                 'pub', 'public_building', 'recycling', 'restaurant', 'school', 'shelter',
+   >                 'swimming_pool', 'taxi', 'telephone', 'theatre', 'toilets', 'townhall', 'university',
+   >                 'veterinary', 'waste_basket']
+   >               minzoom: >-
+   >                 amenity in ['university', 'college'] ? (area('z0 ti2') >= 9.313225746154785e-08 ? 10 :
+   >                 area('z0 ti2') >= 2.3283064365386963e-08 ? 11 : area('z0 ti2') >= 5.820766091346741e-09
+   >                 ? 12 : area('z0 ti2') >= 1.4551915228366852e-09 ? 13 : 14) : amenity == 'ferry_terminal'
+   >                 ? 12 : 14
+   >               attributes:
+   >                 class: >-
+   >                   amenity == 'arts_centre' ? 'art_gallery' : amenity == 'bbq' ? 'park' : amenity in
+   >                   ['biergarten', 'pub'] ? 'beer' : amenity == 'bus_station' ? 'bus' : amenity ==
+   >                   'charging_station' ? 'fuel' : amenity in ['clinic', 'nursing_home'] ? 'hospital' :
+   >                   amenity in ['community_centre', 'courthouse', 'public_building', 'townhall'] ?
+   >                   'town_hall' : amenity == 'food_court' ? 'fast_food' : amenity == 'grave_yard' ?
+   >                   'cemetery' : amenity == 'kindergarten' ? 'school' : amenity == 'marketplace' ?
+   >                   'grocery' : amenity == 'nightclub' ? 'bar' : amenity in ['parcel_locker',
+   >                   'post_box', 'post_office'] ? 'post' : amenity == 'taxi' ? 'office' : amenity ==
+   >                   'university' ? 'college' : amenity
+   >                 subclass: >-
+   >                   amenity == 'place_of_worship' ? religion : amenity
+   >                 name: >-
+   >                   name != null ? name : amenity == 'atm' ? coalesce(operator, network) : amenity in
+   >                   ['charging_station', 'parcel_locker'] ? (coalesce(brand, operator) == null ? ref :
+   >                   ref == null ? coalesce(brand, operator) : coalesce(brand, operator) + ' ' + ref) :
+   >                   null
+   >                 name_en: >-
+   >                   coalesce(feature['name:en'], name != null ? name : amenity == 'atm' ?
+   >                   coalesce(operator, network) : amenity in ['charging_station', 'parcel_locker'] ?
+   >                   (coalesce(brand, operator) == null ? ref : ref == null ? coalesce(brand, operator) :
+   >                   coalesce(brand, operator) + ' ' + ref) : null)
+   >                 name_de: >-
+   >                   coalesce(feature['name:de'], name, feature['name:en'], name != null ? name : amenity
+   >                   == 'atm' ? coalesce(operator, network) : amenity in ['charging_station',
+   >                   'parcel_locker'] ? (coalesce(brand, operator) == null ? ref : ref == null ?
+   >                   coalesce(brand, operator) : coalesce(brand, operator) + ' ' + ref) : null)
+   >                 name:latin: >-
+   >                   name != null ? (name.isLatin() ? name : feature['name:en'].isLatin() ?
+   >                   feature['name:en'] : int_name.isLatin() ? int_name : feature['name:de'].isLatin() ?
+   >                   feature['name:de'] : [feature['name:af'], feature['name:am'], feature['name:ar'],
+   >                   feature['name:az'], feature['name:be'], feature['name:bg'], feature['name:bn'],
+   >                   feature['name:br'], feature['name:bs'], feature['name:ca'], feature['name:co'],
+   >                   feature['name:cs'], feature['name:cy'], feature['name:da'], feature['name:el'],
+   >                   feature['name:eo'], feature['name:es'], feature['name:et'], feature['name:eu'],
+   >                   feature['name:fa'], feature['name:fi'], feature['name:fr'], feature['name:fy'],
+   >                   feature['name:ga'], feature['name:gd'], feature['name:he'], feature['name:hi'],
+   >                   feature['name:hr'], feature['name:hu'], feature['name:hy'], feature['name:id'],
+   >                   feature['name:is'], feature['name:it'], feature['name:ja'], feature['name:ja_kana'],
+   >                   feature['name:ja_rm'], feature['name:ja-Latn'], feature['name:ja-Hira'],
+   >                   feature['name:ka'], feature['name:kk'], feature['name:kn'], feature['name:ko'],
+   >                   feature['name:ko-Latn'], feature['name:ku'], feature['name:la'], feature['name:lb'],
+   >                   feature['name:lt'], feature['name:lv'], feature['name:mk'], feature['name:mt'],
+   >                   feature['name:ml'], feature['name:nl'], feature['name:no'], feature['name:oc'],
+   >                   feature['name:pa'], feature['name:pnb'], feature['name:pl'], feature['name:pt'],
+   >                   feature['name:rm'], feature['name:ro'], feature['name:ru'], feature['name:sk'],
+   >                   feature['name:sl'], feature['name:sq'], feature['name:sr'], feature['name:sr-Latn'],
+   >                   feature['name:sv'], feature['name:ta'], feature['name:te'], feature['name:th'],
+   >                   feature['name:tok'], feature['name:tr'], feature['name:uk'], feature['name:ur'],
+   >                   feature['name:vi'], feature['name:zh'], feature['name:zh-Hant'],
+   >                   feature['name:zh-Hans']].filter(n, n.isLatin()).min()) :
+   >                   coalesce(feature['name:en'], name != null ? name : amenity == 'atm' ?
+   >                   coalesce(operator, network) : amenity in ['charging_station', 'parcel_locker'] ?
+   >                   (coalesce(brand, operator) == null ? ref : ref == null ? coalesce(brand, operator) :
+   >                   coalesce(brand, operator) + ' ' + ref) : null)
+   >                 name_int: >-
+   >                   coalesce(int_name, feature['name:en'], name != null ? (name.isLatin() ? name :
+   >                   feature['name:en'].isLatin() ? feature['name:en'] : int_name.isLatin() ? int_name :
+   >                   feature['name:de'].isLatin() ? feature['name:de'] : [feature['name:af'],
+   >                   feature['name:am'], feature['name:ar'], feature['name:az'], feature['name:be'],
+   >                   feature['name:bg'], feature['name:bn'], feature['name:br'], feature['name:bs'],
+   >                   feature['name:ca'], feature['name:co'], feature['name:cs'], feature['name:cy'],
+   >                   feature['name:da'], feature['name:el'], feature['name:eo'], feature['name:es'],
+   >                   feature['name:et'], feature['name:eu'], feature['name:fa'], feature['name:fi'],
+   >                   feature['name:fr'], feature['name:fy'], feature['name:ga'], feature['name:gd'],
+   >                   feature['name:he'], feature['name:hi'], feature['name:hr'], feature['name:hu'],
+   >                   feature['name:hy'], feature['name:id'], feature['name:is'], feature['name:it'],
+   >                   feature['name:ja'], feature['name:ja_kana'], feature['name:ja_rm'],
+   >                   feature['name:ja-Latn'], feature['name:ja-Hira'], feature['name:ka'],
+   >                   feature['name:kk'], feature['name:kn'], feature['name:ko'], feature['name:ko-Latn'],
+   >                   feature['name:ku'], feature['name:la'], feature['name:lb'], feature['name:lt'],
+   >                   feature['name:lv'], feature['name:mk'], feature['name:mt'], feature['name:ml'],
+   >                   feature['name:nl'], feature['name:no'], feature['name:oc'], feature['name:pa'],
+   >                   feature['name:pnb'], feature['name:pl'], feature['name:pt'], feature['name:rm'],
+   >                   feature['name:ro'], feature['name:ru'], feature['name:sk'], feature['name:sl'],
+   >                   feature['name:sq'], feature['name:sr'], feature['name:sr-Latn'], feature['name:sv'],
+   >                   feature['name:ta'], feature['name:te'], feature['name:th'], feature['name:tok'],
+   >                   feature['name:tr'], feature['name:uk'], feature['name:ur'], feature['name:vi'],
+   >                   feature['name:zh'], feature['name:zh-Hant'], feature['name:zh-Hans']].filter(n,
+   >                   n.isLatin()).min()) : null, name != null ? name : amenity == 'atm' ?
+   >                   coalesce(operator, network) : amenity in ['charging_station', 'parcel_locker'] ?
+   >                   (coalesce(brand, operator) == null ? ref : ref == null ? coalesce(brand, operator) :
+   >                   coalesce(brand, operator) + ' ' + ref) : null)
+   >             - where: >-
+   >                 barrier in ['bollard', 'border_control', 'cycle_barrier', 'gate', 'lift_gate',
+   >                 'sally_port', 'stile', 'toll_booth']
+   >               attributes:
+   >                 class: >-
+   >                   barrier
+   >                 subclass: >-
+   >                   barrier
+   >             - where: >-
+   >                 building == 'dormitory'
+   >               attributes:
+   >                 class: { value: lodging }
+   >                 subclass: >-
+   >                   building
+   >             - where: >-
+   >                 highway == 'bus_stop'
+   >               attributes:
+   >                 class: { value: bus }
+   >                 subclass: >-
+   >                   highway
+   >             - where: >-
+   >                 historic in ['monument', 'castle', 'ruins']
+   >               attributes:
+   >                 class: >-
+   >                   historic == 'ruins' ? 'castle' : historic
+   >                 subclass: >-
+   >                   historic
+   >             - where: >-
+   >                 landuse in ['basin', 'brownfield', 'cemetery', 'reservoir', 'winter_sports']
+   >               attributes:
+   >                 class: >-
+   >                   landuse
+   >                 subclass: >-
+   >                   landuse
+   >             - where: >-
+   >                 leisure in ['dog_park', 'escape_game', 'garden', 'golf_course', 'ice_rink',
+   >                 'hackerspace', 'marina', 'miniature_golf', 'park', 'pitch', 'playground',
+   >                 'sports_centre', 'stadium', 'swimming_area', 'swimming_pool', 'water_park']
+   >               attributes:
+   >                 class: >-
+   >                   leisure in ['golf_course', 'miniature_golf'] ? 'golf' : leisure == 'marina' ?
+   >                   'harbor' : leisure == 'swimming_area' ? 'swimming' : leisure
+   >                 subclass: >-
+   >                   leisure == 'pitch' ? sport : leisure
+   >             - where: >-
+   >                 office in ['accountant', 'advertising_agency', 'architect', 'association',
+   >                 'bail_bond_agent', 'charity', 'company', 'construction_company', 'consulting',
+   >                 'cooperative', 'courier', 'coworking', 'diplomatic', 'educational_institution',
+   >                 'employment_agency', 'energy_supplier', 'engineer', 'estate_agent', 'financial',
+   >                 'financial_advisor', 'forestry', 'foundation', 'geodesist', 'government',
+   >                 'graphic_design', 'guide', 'harbour_master', 'health_insurance', 'insurance',
+   >                 'interior_design', 'it', 'lawyer', 'logistics', 'marketing', 'moving_company',
+   >                 'newspaper', 'ngo', 'notary', 'physician', 'political_party', 'private_investigator',
+   >                 'property_management', 'publisher', 'quango', 'religion', 'research', 'security',
+   >                 'surveyor', 'tax_advisor', 'taxi', 'telecommunication', 'therapist', 'translator',
+   >                 'travel_agent', 'tutoring', 'union', 'university', 'water_utility', 'web_design',
+   >                 'wedding_planner']
+   >               minzoom: >-
+   >                 office == 'university' ? (area('z0 ti2') >= 9.313225746154785e-08 ? 10 : area('z0 ti2')
+   >                 >= 2.3283064365386963e-08 ? 11 : area('z0 ti2') >= 5.820766091346741e-09 ? 12 : area('z0
+   >                 ti2') >= 1.4551915228366852e-09 ? 13 : 14) : 14
+   >               attributes:
+   >                 class: >-
+   >                   office == 'charity' ? 'shop' : 'office'
+   >                 subclass: >-
+   >                   office
+   >             - where: >-
+   >                 railway in ['halt', 'station', 'subway_entrance', 'train_station_entrance', 'tram_stop']
+   >               minzoom: >-
+   >                 railway in ['station', 'halt'] ? 12 : 14
+   >               attributes:
+   >                 class: >-
+   >                   railway in ['subway_entrance', 'train_station_entrance'] ? 'entrance' : 'railway'
+   >                 subclass: >-
+   >                   railway == 'station' && station == 'subway' ? 'subway' : railway == 'station' &&
+   >                   funicular == 'yes' ? 'halt' : railway
+   >             - where: >-
+   >                 shop in ['accessories', 'alcohol', 'antiques', 'art', 'bag', 'bakery', 'beauty', 'bed',
+   >                 'beverages', 'bicycle', 'books', 'boutique', 'butcher', 'camera', 'car', 'car_repair',
+   >                 'car_parts', 'carpet', 'charity', 'chemist', 'chocolate', 'clothes', 'coffee',
+   >                 'computer', 'confectionery', 'convenience', 'copyshop', 'cosmetics', 'deli',
+   >                 'delicatessen', 'department_store', 'doityourself', 'dry_cleaning', 'electronics',
+   >                 'erotic', 'fabric', 'florist', 'frozen_food', 'furniture', 'garden_centre', 'general',
+   >                 'gift', 'greengrocer', 'hairdresser', 'hardware', 'hearing_aids', 'hifi', 'ice_cream',
+   >                 'interior_decoration', 'jewelry', 'kiosk', 'lamps', 'laundry', 'locksmith', 'mall',
+   >                 'massage', 'mobile_phone', 'motorcycle', 'music', 'musical_instrument', 'newsagent',
+   >                 'optician', 'outdoor', 'paint', 'perfume', 'perfumery', 'pet', 'photo', 'second_hand',
+   >                 'shoes', 'sports', 'stationery', 'supermarket', 'tailor', 'tattoo', 'ticket', 'tobacco',
+   >                 'toys', 'travel_agency', 'video', 'video_games', 'watches', 'weapons', 'wholesale',
+   >                 'wine']
+   >               attributes:
+   >                 class: >-
+   >                   shop in ['accessories', 'antiques', 'beauty', 'bed', 'boutique', 'camera', 'carpet',
+   >                   'charity', 'chemist', 'chocolate', 'coffee', 'computer', 'confectionery',
+   >                   'convenience', 'copyshop', 'cosmetics', 'doityourself', 'electronics', 'erotic',
+   >                   'fabric', 'florist', 'frozen_food', 'furniture', 'garden_centre', 'general', 'gift',
+   >                   'hardware', 'hearing_aids', 'hifi', 'interior_decoration', 'jewelry', 'kiosk',
+   >                   'lamps', 'locksmith', 'mall', 'massage', 'mobile_phone', 'motorcycle', 'newsagent',
+   >                   'optician', 'outdoor', 'paint', 'perfume', 'perfumery', 'pet', 'photo',
+   >                   'second_hand', 'shoes', 'sports', 'stationery', 'tailor', 'tattoo', 'ticket',
+   >                   'tobacco', 'toys', 'travel_agency', 'video', 'video_games', 'watches', 'weapons',
+   >                   'wholesale'] ? 'shop' : shop in ['alcohol', 'beverages', 'wine'] ? 'alcohol_shop' :
+   >                   shop == 'art' ? 'art_gallery' : shop in ['bag', 'clothes'] ? 'clothing_store' : shop
+   >                   == 'books' ? 'library' : shop in ['car_repair', 'car_parts'] ? 'car' : shop in
+   >                   ['deli', 'delicatessen', 'department_store', 'greengrocer', 'supermarket'] ?
+   >                   'grocery' : shop == 'dry_cleaning' ? 'laundry' : shop == 'musical_instrument' ?
+   >                   'music' : shop
+   >                 subclass: >-
+   >                   shop
+   >             - where: >-
+   >                 sport in ['american_football', 'archery', 'athletics', 'australian_football',
+   >                 'badminton', 'baseball', 'basketball', 'beachvolleyball', 'billiards', 'bmx', 'boules',
+   >                 'bowls', 'boxing', 'canadian_football', 'canoe', 'chess', 'climbing',
+   >                 'climbing_adventure', 'cricket', 'cricket_nets', 'croquet', 'curling', 'cycling',
+   >                 'disc_golf', 'diving', 'dog_racing', 'equestrian', 'fatsal', 'field_hockey',
+   >                 'free_flying', 'gaelic_games', 'golf', 'gymnastics', 'handball', 'hockey',
+   >                 'horse_racing', 'horseshoes', 'ice_hockey', 'ice_stock', 'judo', 'karting', 'korfball',
+   >                 'long_jump', 'model_aerodrome', 'motocross', 'motor', 'multi', 'netball',
+   >                 'orienteering', 'paddle_tennis', 'paintball', 'paragliding', 'pelota', 'racquet',
+   >                 'rc_car', 'rowing', 'rugby', 'rugby_league', 'rugby_union', 'running', 'sailing',
+   >                 'scuba_diving', 'shooting', 'shooting_range', 'skateboard', 'skating', 'skiing',
+   >                 'soccer', 'surfing', 'swimming', 'table_soccer', 'table_tennis', 'team_handball',
+   >                 'tennis', 'toboggan', 'volleyball', 'water_ski', 'yoga']
+   >               attributes:
+   >                 class: >-
+   >                   sport in ['american_football', 'soccer'] ? 'stadium' : sport
+   >                 subclass: >-
+   >                   sport
+   >             - where: >-
+   >                 zoo in ['enclosure', 'petting_zoo', 'aviary', 'wildlife_park', 'birds', 'safari_park',
+   >                 'butterfly', 'falconry', 'reptile', 'terrarium']
+   >               attributes:
+   >                 class: >-
+   >                   zoo == 'enclosure' ? 'enclosure' : 'zoo'
+   >                 subclass: >-
+   >                   zoo
+   >             - where: >-
+   >                 tourism in ['alpine_hut', 'aquarium', 'artwork', 'attraction', 'bed_and_breakfast',
+   >                 'camp_site', 'caravan_site', 'chalet', 'gallery', 'guest_house', 'hostel', 'hotel',
+   >                 'information', 'motel', 'museum', 'picnic_site', 'theme_park', 'viewpoint', 'zoo']
+   >               attributes:
+   >                 class: >-
+   >                   tourism in ['alpine_hut', 'bed_and_breakfast', 'chalet', 'guest_house', 'hostel',
+   >                   'hotel', 'motel'] ? 'lodging' : tourism in ['artwork', 'gallery'] ? 'art_gallery' :
+   >                   tourism in ['camp_site', 'caravan_site'] ? 'campsite' : tourism == 'viewpoint' ?
+   >                   'attraction' : tourism
+   >                 subclass: >-
+   >                   tourism == 'information' ? information : tourism
+   >             - where: >-
+   >                 waterway == 'dock'
+   >               attributes:
+   >                 class: { value: harbor }
+   >                 subclass: >-
+   >                   waterway
+   >           sort_by:
+   >             - >-
+   >               (amenity in ['hospital', 'nursing_home', 'clinic'] ? 20 : railway in ['station', 'halt',
+   >               'tram_stop'] ? 40 : amenity == 'bus_station' || highway == 'bus_stop' ? 50 : tourism in
+   >               ['attraction', 'viewpoint'] ? 70 : leisure == 'marina' || waterway == 'dock' ? 75 : amenity
+   >               in ['university', 'college'] ? 80 : amenity in ['school', 'kindergarten'] ? 85 : leisure ==
+   >               'stadium' || sport in ['american_football', 'soccer'] ? 90 : tourism == 'zoo' || zoo != null
+   >               ? 95 : amenity in ['townhall', 'public_building', 'courthouse', 'community_centre'] ? 100 :
+   >               tourism in ['camp_site', 'caravan_site'] ? 110 : amenity == 'grave_yard' || landuse ==
+   >               'cemetery' ? 115 : leisure == 'park' || amenity == 'bbq' ? 120 : amenity == 'library' ||
+   >               shop == 'books' ? 130 : amenity == 'police' ? 135 : amenity in ['post_box', 'post_office',
+   >               'parcel_locker'] ? 140 : leisure in ['golf_course', 'miniature_golf'] ? 150 : shop in
+   >               ['deli', 'delicatessen', 'department_store', 'greengrocer', 'supermarket'] || amenity ==
+   >               'marketplace' ? 500 : amenity in ['fast_food', 'food_court'] ? 600 : shop in ['bag',
+   >               'clothes'] ? 700 : amenity in ['bar', 'nightclub'] ? 800 : shop in ['accessories',
+   >               'antiques', 'beauty', 'bed', 'boutique', 'camera', 'carpet', 'charity', 'chemist',
+   >               'chocolate', 'coffee', 'computer', 'confectionery', 'convenience', 'copyshop', 'cosmetics',
+   >               'doityourself', 'electronics', 'erotic', 'fabric', 'florist', 'frozen_food', 'furniture',
+   >               'garden_centre', 'general', 'gift', 'hardware', 'hearing_aids', 'hifi',
+   >               'interior_decoration', 'jewelry', 'kiosk', 'lamps', 'locksmith', 'mall', 'massage',
+   >               'mobile_phone', 'motorcycle', 'newsagent', 'optician', 'outdoor', 'paint', 'perfume',
+   >               'perfumery', 'pet', 'photo', 'second_hand', 'shoes', 'sports', 'stationery', 'tailor',
+   >               'tattoo', 'ticket', 'tobacco', 'toys', 'travel_agency', 'video', 'video_games', 'watches',
+   >               'weapons', 'wholesale'] ? 400 : 1000) + (name == null ? 2000 : 0)
+   >           thinning: { method: grid, size: 64, rank: rank }
+   >         # aerodrome_label
+   >         aerodrome_label:
+   >           geometry: [point, polygon_centroid]
+   >           buffer: 1024
+   >           where: "aeroway == 'aerodrome'"
+   >           minzoom: >-
+   >             iata != null && (aerodrome == 'international' || aerodrome_type == 'international' ?
+   >             'international' : aerodrome == 'public' || aerodrome_type != null &&
+   >             aerodrome_type.contains('public') || aerodrome_type == 'civil' ? 'public' : aerodrome ==
+   >             'regional' || aerodrome_type == 'regional' ? 'regional' : aerodrome == 'military' ||
+   >             aerodrome_type != null && aerodrome_type.contains('military') || military == 'airfield' ?
+   >             'military' : aerodrome == 'private' || aerodrome_type == 'private' ? 'private' : 'other') ==
+   >             'international' ? 8 : 10
+   >           attributes:
+   >             <<: *names
+   >             ele: *ele
+   >             ele_ft: *ele_ft
+   >             iata: iata
+   >             icao: icao
+   >             class: >-
+   >               aerodrome == 'international' || aerodrome_type == 'international' ? 'international' :
+   >               aerodrome == 'public' || aerodrome_type != null && aerodrome_type.contains('public') ||
+   >               aerodrome_type == 'civil' ? 'public' : aerodrome == 'regional' || aerodrome_type ==
+   >               'regional' ? 'regional' : aerodrome == 'military' || aerodrome_type != null &&
+   >               aerodrome_type.contains('military') || military == 'airfield' ? 'military' : aerodrome ==
+   >               'private' || aerodrome_type == 'private' ? 'private' : 'other'
+   > ```
+3. Generate the tileset of the extract's area. The ocean polygons cover the whole world, so without `--bbox` the tileset does too:
+
+   ```bash
+   martin cp --mode bulk --config openmaptiles.yaml --output-file berlin.mbtiles --format mvt --max-zoom 14 \
+     --bbox 13.08,52.33,13.77,52.68
+   ```
+4. Serve it, and point the `openmaptiles` source of a style at `http://localhost:3000/berlin`:
+
+   ```bash
+   martin berlin.mbtiles
+   ```
+
+A Berlin run, next to Planetiler on the same extract:
+
+| Run | PBF | Features | Tiles | Size | Time | Memory |
+| --- | --- | --- | --- | --- | --- | --- |
+| Martin, Berlin, 2026-11-11 | 100 MB | 1,724,829 | 912 | 45.4 MB | 1m 8s | 8.4 GB |
+| Planetiler 0.10.2, the same extract | 100 MB | \- | 942 | 41.8 MB | 1m 19s | 5.0 GB |
+
+Measured on 24 threads, with the extract and the ocean polygons in the page cache. Martin unpacks the ocean polygons in 6 s and keeps whole tiles of the `--bbox`. Planetiler's time includes 23 s of Natural Earth and lake centerline downloads and 15 s reading the ocean polygons, and it covers the extract's own bounds.
+
+## How closely it matches Planetiler
+
+Martin's tests render the inputs of Planetiler's OpenMapTiles layer tests, and 231 of its 341 examples match. The other 110 come from the differences in [How it differs](<#how-it-differs-from-planetilers-openmaptiles>), or from tests that check something other than the rendered tile:
+
+| Examples | Why they do not match |
+| ---: | --- |
+| 33 | Natural Earth and lake centerline inputs, which are not read |
+| 16 | Country borders with `adm0_l`/`adm0_r`, which Planetiler draws after reading the file, outside the tested code |
+| 16 | Natural Earth ranks of countries, states, cities and seas |
+| 11 | `rank` from the label grid, which Planetiler's tests leave out and Martin's tiles have |
+| 8 | GB and IE road networks |
+| 5 | Feature lengths: short trunks at z5, `brunnel` by size |
+| 5 | Ocean polygons and large lakes below z6, and inputs the tests' whole-world polygons were shrunk to 1° for |
+| 4 | `route_N` order and duplicates |
+| 4 | Wikidata translations, translated names of river relations |
+| 4 | `--boundary-osm-only` zooms, `hide_3d`, `customary_ft` |
+| 3 | A minimum size dropping a feature below the zoom Planetiler declares, an attribute asked below the feature's zoom |
+| 1 | A closed `man_made=pier` way drawn as a line too |
+
+## How it differs from Planetiler's OpenMapTiles
+
+The configuration reads OpenStreetMap and the ocean polygons only. Planetiler also reads Natural Earth, the lake centerlines and Wikidata, and runs code that `martin cp` has no equivalent for yet:
+
+| Layer | Planetiler | This configuration |
+| --- | --- | --- |
+| all | Wikidata translations and transliterated `name:latin` | Only the `name:xx` tags of the 81 OpenMapTiles languages |
+| `water` | Natural Earth ocean and lakes at z0-5, ocean polygons from z6 | Ocean polygons from z0; OpenStreetMap lakes of 25 km² and more at z4-5 (2000 km² from z2, 20000 km² from z0) |
+| `water` | A Natural Earth lake's `id` is the OpenStreetMap lake it overlaps most | Large lakes keep their own `id` at z0-5 |
+| `waterway` | Natural Earth rivers at z3-5; river relation members at z6-8 only when the whole river is long enough | No rivers below z6; at z6-8 every member of a named `waterway=river` relation, merged and kept from 1 px |
+| `waterway` | Relation names in all languages, members with role `main_stream` or none | Relation `name`, `name_en`, `name_de`, `name:latin`, `name:nonlatin`, `name_int`; any role |
+| `landcover` | Natural Earth glaciers and ice shelves at z0-6 | From z7 only |
+| `landcover` | Merges wood and forest of fewer than 300 vertices at z8-13 | Merges all wood and forest at z8-13, as there is no vertex count |
+| `landuse` | Natural Earth urban areas at z4-5 | From z6 only |
+| `mountain_peak` | `customary_ft` inside the United States; no `rank` at z14 beyond the grid | No `customary_ft`; `rank` from the z0-13 grid only |
+| `boundary` | Natural Earth lines at z0-4, OpenStreetMap from z4-5 | OpenStreetMap from z0, as Planetiler's `--boundary-osm-only` |
+| `boundary` | `adm0_l` and `adm0_r` from the country polygons left and right of each border | No `adm0_l` and `adm0_r` |
+| `boundary` | Borders joined across ways by a line merger before tiling | Joined per tile by `merge_lines` |
+| `place` | Country, state and city ranks from Natural Earth polygons and points nearby | Country ranks from Natural Earth by ISO code (`openmaptiles_ranks.py`), every state and province with rank 6, city ranks from `population` and `capital` |
+| `transportation` | `network` and z4-5 roads from GB and IE `ref` patterns inside Natural Earth country polygons | US and Canadian networks from route relations only |
+| `transportation` | Trunk segments shorter than 500 m at z5, as `motorway` up to z5 | Trunk from z6 unless a route relation upgrades it |
+| `transportation` | `brunnel` and `layer` from z4 and z9 on segments longer than 4 px | `brunnel` and `layer` from z12 |
+| `transportation` | Closed `man_made=pier` ways are only polygons | Also drawn as `pier` lines |
+| `transportation_name` | `route_N` sorted by network type, network and `ref`, without duplicates | `route_1` to `route_6` in relation id order, duplicates kept |
+| `transportation_name` | `motorway_junction` class from the highest road through the node | `class` is always `motorway` |
+| `transportation_name` | z12-13 lines shorter than 6 px per letter of the name are dropped | z12-13 merged lines shorter than 60 px, a name of 10 letters, are dropped |
+| `building` | `hide_3d` from `type=building` relations | No `hide_3d` |
+| `water_name` | Lake centerlines as labels; Natural Earth ranks of seas | Points only; sea ranks from the `rank` tag |
+| `poi` | `agg_stop` picks one stop of each group sharing a `uic_ref` | No `agg_stop` |
+| point layers | `buffer` of 256 px | 127.9 px, the most an `extent` of 4096 allows |
+| point layers | Points from polygons dropped while the polygon is below a minimum size (university, lake label) | The same as a `minzoom` from the polygon's area |
+| `poi`, `place` | Draw order by class rank and Natural Earth rank | Class rank from the tags, without telling apart keys of one object |
+| `building` | Heights in any unit Planetiler parses | Meters, kilometers, feet and inches, miles and nautical miles |
+| all | `min_size` compares the square root of a polygon's area and a line's length | Compares the larger side of the bounding box, so more thin polygons and lines stay |
+| `landuse` | Residential areas closer than 0.2 px joined at z9-12 | Closer than 0.1 px, as larger distances could not make a valid union in Berlin |
+
+## Changing the configuration
+
+The configuration uses three patterns that you need to know before you change it.
+
+**Zoom bands.** Martin clamps a `minzoom` or `maxzoom` to its layer's zooms. Where Planetiler changes a feature's settings by zoom, the configuration splits the layer into one layer per zoom band. Each band has its own `min_size` and `buffer`, and all bands write into one output layer with [`layer`](<https://maplibre.org/martin/sources-pg-layers/index.md#combining-layers>).
+
+**Conditions as zooms.** A `where` that the PBF reader cannot check, such as one calling `area()` or a regular expression, makes Martin read every object in the file. The configuration puts such conditions into `minzoom` and `maxzoom` expressions instead. Martin leaves out a feature whose `minzoom` ends up above its `maxzoom`. In `water_lakes_low`, which draws large lakes up to z5, a lake below 25 km^2 gets a `minzoom` of 5 and a `maxzoom` of 0, so that layer leaves it out.
+
+**Selective merges.** Planetiler merges only some features of a layer, such as only wood and forest in `landcover`. The configuration gives every other feature a [hidden attribute](<https://maplibre.org/martin/sources-pg-layers/index.md#hidden-attributes>) `_unmerged` set to its feature id, `osm_id * 10` plus 2 for a way or 3 for a relation. A way and a relation can share an `osm_id`, but no two features share a feature id, so they never merge.

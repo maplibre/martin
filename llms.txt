@@ -77,6 +77,7 @@ patches and validates MBTiles archives.
 - [Setting up a basemap and overlaying data](<https://maplibre.org/martin/recipe-basemap-postgis/index.md>): Generating a basemap and overlaying points from PostGIS
 - [Serving NAIP imagery from S3 with a tile index](<https://maplibre.org/martin/recipe-cog-naip/index.md>): Serving NAIP aerial imagery from S3 with a tile index
 - [Building a basemap from OpenStreetMap](<https://maplibre.org/martin/recipe-osm-basemap/index.md>): Building a Shortbread basemap from an OpenStreetMap extract
+- [Building OpenMapTiles from OpenStreetMap](<https://maplibre.org/martin/recipe-osm-openmaptiles/index.md>): Building an OpenMapTiles basemap from an OpenStreetMap extract
 - [Using PostgreSQL with SSL Certificates](<https://maplibre.org/martin/pg-ssl-certificates/index.md>): Connecting to PostgreSQL with SSL certificates
 
 ## Tools
