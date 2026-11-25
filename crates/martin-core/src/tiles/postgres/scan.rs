@@ -254,7 +254,12 @@ fn feature(
             }
         }
     }
-    Ok(SourceFeature { id, geometry, props })
+    Ok(SourceFeature {
+        id,
+        geometry,
+        props,
+        relations: Vec::new(),
+    })
 }
 
 /// The batch's shared buffer that scanned geometries and text are copied into.

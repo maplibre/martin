@@ -479,7 +479,7 @@ fn read(plan: &Plan, table: &TestTable, key: RowKey, feature: &SourceFeature, pa
             ColumnDef::Value(name, _) | ColumnDef::Document(name) if plan.columns(0).contains(name) => {
                 Some((name.clone(), Value::Null))
             }
-            ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) => None,
+            ColumnDef::Value(..) | ColumnDef::Keys(_) | ColumnDef::Document(_) | ColumnDef::Relations(_) => None,
         })
         .collect();
     let keys = &plan.table_keys()[0];

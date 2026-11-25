@@ -227,7 +227,9 @@ impl Plan {
             learn_keys(&mut names, &feature.props, &self.keys.tables[table]);
         }
         let mut slots = PropSlots::default();
-        let view = slots.bind(&names.0, &feature.props);
+        let view = slots
+            .bind(&names.0, &feature.props)
+            .with_relations(&self.tables[table].relation_sets, &feature.relations);
         match geom.map(|geom| Areas::of(&feature.geometry, geom)) {
             Some(areas) => f(&view.with_areas(&areas)),
             None => f(&view),
@@ -392,9 +394,12 @@ impl Evaluator<'_> {
             learn_keys(&mut names[index], &feature.props, &plan.keys.tables[index]);
         }
         let areas = Areas::of(&feature.geometry, geom);
-        let view = planned
-            .evaluates
-            .then(|| slots.bind(&names[index].0, &feature.props).with_areas(&areas));
+        let view = planned.evaluates.then(|| {
+            slots
+                .bind(&names[index].0, &feature.props)
+                .with_areas(&areas)
+                .with_relations(&planned.relation_sets, &feature.relations)
+        });
         let view = view.as_ref();
         for layer_index in planned.layers.clone() {
             let layer = &plan.layers[layer_index];

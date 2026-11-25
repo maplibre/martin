@@ -78,7 +78,7 @@ jobs:
       - uses: rustsec/audit-check@858dc40f52ca2b8570b7a997c1c4e35c6fc9a432 # v2.0.0-3-g858dc40 (Node 24, unreleased)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0097,RUSTSEC-2025-0141,RUSTSEC-2026-0258,RUSTSEC-2023-0089,RUSTSEC-2026-0253,RUSTSEC-2025-0075,RUSTSEC-2025-0080,RUSTSEC-2025-0081,RUSTSEC-2025-0090,RUSTSEC-2025-0098,RUSTSEC-2025-0100,RUSTSEC-2026-0459,RUSTSEC-2026-0462,RUSTSEC-2026-0543,RUSTSEC-2026-0542,RUSTSEC-2026-0574,RUSTSEC-2026-0575,RUSTSEC-2026-0576,RUSTSEC-2026-0577,RUSTSEC-2026-0578,RUSTSEC-2026-0579,RUSTSEC-2026-0580,RUSTSEC-2026-0581,RUSTSEC-2026-0582
+          ignore: RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0097,RUSTSEC-2025-0141,RUSTSEC-2026-0258,RUSTSEC-2023-0089,RUSTSEC-2026-0253,RUSTSEC-2025-0075,RUSTSEC-2025-0080,RUSTSEC-2025-0081,RUSTSEC-2025-0090,RUSTSEC-2025-0098,RUSTSEC-2025-0100,RUSTSEC-2026-0459,RUSTSEC-2026-0462,RUSTSEC-2026-0543,RUSTSEC-2026-0542,RUSTSEC-2026-0574,RUSTSEC-2026-0575,RUSTSEC-2026-0576,RUSTSEC-2026-0577,RUSTSEC-2026-0578,RUSTSEC-2026-0579,RUSTSEC-2026-0580,RUSTSEC-2026-0581,RUSTSEC-2026-0582,RUSTSEC-2026-0594
           # RUSTSEC-2024-0436 = paste - no longer maintained
           # RUSTSEC-2025-0134 = rustls-pemfile is unmaintained, but only used in development dependencies
           # RUSTSEC-2025-0141 = bincode unmaintained, is done
@@ -92,6 +92,7 @@ jobs:
           # RUSTSEC-2026-0543 = chrono unmaintained, no vulnerability; used by martin-core's catalog timestamps and by arrow, object_store, schemars and tracing-subscriber
           # RUSTSEC-2026-0542 = humantime unmaintained, no vulnerability; parses config durations in martin-core, humantime-serde and object_store
           # RUSTSEC-2026-0574..0582 = heapless unsound APIs; 0.6/0.7 only in Cargo.lock via geo-types' optional rstar 0.9/0.10 features, never compiled; rstar 0.12 compiles 0.8 but only uses BinaryHeap, which none of them affect
+          # RUSTSEC-2026-0594 = cookie private-jar nonce reuse after fork; cookie@0.16.2 is pinned by actix-web 4 (no patched 0.16.x) and built without the `private` feature, so PrivateJar is not compiled
   dependency-review:
     runs-on: ubuntu-26.04
     timeout-minutes: 90

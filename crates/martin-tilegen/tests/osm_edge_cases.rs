@@ -13,7 +13,9 @@ use geo_types::MultiPolygon;
 use indoc::indoc;
 use martin_tilegen::LayerGrid;
 use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
-use martin_tilegen::plan::{GeometryType, LayerDef, TableDef};
+use martin_tilegen::plan::{
+    AttributesDef, ColumnDef, ComputedAttr, GeometryType, LayerDef, RelationSetDef, TableDef, ValueDef,
+};
 use martin_tilegen::source::{FeatureSource as _, Geometry};
 use wkt::ToWkt as _;
 
@@ -249,6 +251,46 @@ fn features(store: Store, optional_features: &[&str], opl: &str) -> String {
 
 fn read_error(store: Store, optional_features: &[&str], opl: &str) -> String {
     read(store, optional_features, opl).unwrap_err()
+}
+
+fn layer_features(def: TableDef, opl: &str) -> String {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(&path, &[], opl);
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let source = OsmSource::new(vec![(def, table)], 1).unwrap();
+    let mut evaluator = source.plan().evaluator();
+    let mut out = String::new();
+    for partition in 0..source.partitions() {
+        source
+            .read(partition, source.plan().table_keys(), &mut |batch| {
+                for feature in &batch.features {
+                    let geom = feature.geometry.feature_geom().unwrap();
+                    evaluator
+                        .evaluate(0, feature, geom, |evaluated| {
+                            let debug = format!("{evaluated:?}");
+                            let props = debug
+                                .split_once(", props: ")
+                                .unwrap()
+                                .1
+                                .split_once(", bands")
+                                .unwrap()
+                                .0;
+                            writeln!(out, "{} {props}", feature.id.unwrap()).unwrap();
+                            Ok(())
+                        })
+                        .unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
+    }
+    out
 }
 
 #[test]
@@ -1246,4 +1288,199 @@ fn layer_of_any_geometry_with_a_where_reads_no_outlines() {
             .unwrap();
     }
     insta::assert_snapshot!(out, @"102 POLYGON((0 0,1 0,1 1,0 1,0 0))");
+}
+
+#[test]
+fn a_way_in_two_admin_relations_sees_both_ordered_by_id() {
+    let def = TableDef {
+        columns: [
+            columns(&["name".to_owned()]),
+            vec![ColumnDef::Relations(vec![RelationSetDef {
+                name: "admin".to_owned(),
+                filter: "type == 'boundary' && boundary == 'administrative'".to_owned(),
+                tags: vec!["admin_level".to_owned(), "name".to_owned()],
+            }])],
+        ]
+        .concat(),
+        layers: vec![LayerDef {
+            geometry: vec![GeometryType::Line.into()],
+            attributes: AttributesDef::Computed {
+                attributes: vec![
+                    ComputedAttr {
+                        name: "admin".to_owned(),
+                        value: ValueDef::Expr(
+                            "relations.admin.map(r, string(r.id) + ' ' + r.role + ' ' + r.name).join(', ')".to_owned(),
+                        ),
+                        zooms: 0..=14,
+                    },
+                    ComputedAttr {
+                        name: "admin_level".to_owned(),
+                        value: ValueDef::Expr("relations.admin.map(r, int(r.admin_level)).min()".to_owned()),
+                        zooms: 0..=14,
+                    },
+                ],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("boundary", 0..=14, GRID)
+        }],
+    };
+    let opl = indoc! {"
+        n1 x0 y0
+        n2 x1 y0
+        ---
+        w10 Tname=border Nn1,n2
+        ---
+        r30 Ttype=boundary,boundary=administrative,admin_level=6,name=County Mw10@outer
+        r20 Ttype=boundary,boundary=administrative,admin_level=4,name=State Mw10@outer
+        r25 Ttype=route,route=hiking,name=Trail Mw10@
+    "};
+    insta::assert_snapshot!(layer_features(def, opl), @r#"102 {"admin": Str("20 outer State, 30 outer County"), "admin_level": I64(4)}"#);
+}
+
+#[test]
+fn an_untagged_member_way_becomes_a_feature() {
+    let def = TableDef {
+        columns: [
+            columns(&["name".to_owned()]),
+            vec![ColumnDef::Relations(vec![RelationSetDef {
+                name: "admin".to_owned(),
+                filter: "type == 'boundary'".to_owned(),
+                tags: vec!["admin_level".to_owned()],
+            }])],
+        ]
+        .concat(),
+        layers: vec![LayerDef {
+            geometry: vec![GeometryType::Line.into()],
+            filter: Some("size(relations.admin) > 0".to_owned()),
+            attributes: AttributesDef::Computed {
+                attributes: vec![
+                    ComputedAttr {
+                        name: "name".to_owned(),
+                        value: ValueDef::Expr("name".to_owned()),
+                        zooms: 0..=14,
+                    },
+                    ComputedAttr {
+                        name: "admin_level".to_owned(),
+                        value: ValueDef::Expr("relations.admin[0].admin_level".to_owned()),
+                        zooms: 0..=14,
+                    },
+                ],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("boundary", 0..=14, GRID)
+        }],
+    };
+    let opl = indoc! {"
+        n1 x0 y0
+        n2 x1 y0
+        n3 x1 y1
+        ---
+        w10 Nn1,n2
+        w11 Nn2,n3
+        ---
+        r20 Ttype=boundary,admin_level=2 Mw10@outer
+    "};
+    insta::assert_snapshot!(layer_features(def, opl), @r#"102 {"admin_level": Str("2")}"#);
+}
+
+#[test]
+fn a_way_in_no_relation_of_a_set_gets_an_empty_list() {
+    let def = TableDef {
+        columns: [
+            columns(&["name".to_owned()]),
+            vec![ColumnDef::Relations(vec![RelationSetDef {
+                name: "admin".to_owned(),
+                filter: "type == 'boundary'".to_owned(),
+                tags: vec!["admin_level".to_owned()],
+            }])],
+        ]
+        .concat(),
+        layers: vec![LayerDef {
+            geometry: vec![GeometryType::Line.into()],
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "admin".to_owned(),
+                    value: ValueDef::Expr("size(relations.admin)".to_owned()),
+                    zooms: 0..=14,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    };
+    let opl = indoc! {"
+        n1 x0 y0
+        n2 x1 y0
+        ---
+        w10 Tname=road Nn1,n2
+        ---
+        r20 Ttype=route,route=road Mw10@
+    "};
+    insta::assert_snapshot!(layer_features(def, opl), @r#"102 {"admin": I64(0)}"#);
+}
+
+#[test]
+fn a_member_with_two_roles_sees_the_relation_once_per_role() {
+    let def = TableDef {
+        columns: [
+            columns(&["name".to_owned()]),
+            vec![ColumnDef::Relations(vec![RelationSetDef {
+                name: "route".to_owned(),
+                filter: "type == 'route'".to_owned(),
+                tags: vec!["ref".to_owned()],
+            }])],
+        ]
+        .concat(),
+        layers: vec![LayerDef {
+            geometry: vec![GeometryType::Line.into()],
+            attributes: AttributesDef::Computed {
+                attributes: vec![ComputedAttr {
+                    name: "routes".to_owned(),
+                    value: ValueDef::Expr("relations.route.map(r, r.ref + ' ' + r.role).join(', ')".to_owned()),
+                    zooms: 0..=14,
+                }],
+                prefixes: vec![],
+            },
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    };
+    let opl = indoc! {"
+        n1 x0 y0
+        n2 x1 y0
+        ---
+        w10 Tname=road Nn1,n2
+        ---
+        r20 Ttype=route,ref=A1 Mw10@forward,w10@backward,w10@forward
+    "};
+    insta::assert_snapshot!(layer_features(def, opl), @r#"102 {"routes": Str("A1 backward, A1 forward")}"#);
+}
+
+#[test]
+fn an_unknown_relation_set_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("test.osm.pbf");
+    write_pbf(&path, &[], "n1 x0 y0");
+    let table = OsmTable {
+        path,
+        node_store: NodeStore::Memory,
+        bounds: None,
+        objects: Objects::Taken,
+    };
+    let def = TableDef {
+        columns: [
+            columns(&["name".to_owned()]),
+            vec![ColumnDef::Relations(vec![RelationSetDef {
+                name: "admin".to_owned(),
+                filter: "type == 'boundary'".to_owned(),
+                tags: vec![],
+            }])],
+        ]
+        .concat(),
+        layers: vec![LayerDef {
+            filter: Some("size(relations.route) > 0".to_owned()),
+            ..LayerDef::new("roads", 0..=14, GRID)
+        }],
+    };
+    let error = OsmSource::new(vec![(def, table)], 1).unwrap_err();
+    insta::assert_snapshot!(error, @"layer `roads`: `size(relations.route) > 0` reads unknown relation set `route`");
 }

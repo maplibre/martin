@@ -634,7 +634,7 @@ prepare-sqlite: fetch install-sqlx
                -e 's/CREATE (TABLE|VIEW) /CREATE \1 IF NOT EXISTS /' \
             "crates/mbtiles/sql/$f.sql" | sqlite3 -bail "$db"
     done
-    cd mbtiles
+    cd crates/mbtiles
     mkdir -p .sqlx
     cargo sqlx prepare --database-url "sqlite://$db" -- --lib --tests --benches --features transcode
     find .sqlx -name '*.json' -type f -exec sh -c \
@@ -728,9 +728,9 @@ sync-cog-py-stubs:
 
 # Build the cog-tiles Python bindings and run their tests
 test-cog-py:
-    cd cog-tiles-py && uv sync --group dev --no-install-project
-    cd cog-tiles-py && uv run --no-sync maturin develop
-    cd cog-tiles-py && uv run --no-sync pytest
+    cd crates/cog-tiles-py && uv sync --group dev --no-install-project
+    cd crates/cog-tiles-py && uv run --no-sync maturin develop
+    cd crates/cog-tiles-py && uv run --no-sync pytest
 
 # Run DuckDB/GeoParquet tests only, including the end-to-end ones
 test-duckdb: fetch (cargo-install 'cargo-nextest')

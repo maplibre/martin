@@ -26,6 +26,7 @@ fn a_chain_numbers_tables_and_partitions_one_source_after_another() {
                     id: Some(1),
                     geometry: Geometry::Point(Coord { x: 1.0, y: 1.0 }),
                     props: Vec::new(),
+                    relations: Vec::new(),
                 }],
             },
             FeatureBatch {
@@ -37,6 +38,7 @@ fn a_chain_numbers_tables_and_partitions_one_source_after_another() {
                     id: Some(2),
                     geometry: Geometry::Point(Coord { x: 2.0, y: 2.0 }),
                     props: Vec::new(),
+                    relations: Vec::new(),
                 }],
             },
         ],
@@ -51,6 +53,7 @@ fn a_chain_numbers_tables_and_partitions_one_source_after_another() {
                 id: Some(3),
                 geometry: Geometry::Point(Coord { x: 3.0, y: 3.0 }),
                 props: Vec::new(),
+                relations: Vec::new(),
             }],
         }],
     };
@@ -159,6 +162,7 @@ fn a_chain_reader_reads_each_source_through_that_sources_own_readers() {
                     id: Some(self.0),
                     geometry: Geometry::Point(Coord { x: 0.0, y: 0.0 }),
                     props: Vec::new(),
+                    relations: Vec::new(),
                 }],
             })
         }
@@ -301,6 +305,7 @@ fn a_chain_gives_each_source_the_keys_of_its_own_tables() {
                     id: Some(1),
                     geometry: Geometry::Point(Coord { x: 0.0, y: 0.0 }),
                     props: vec![(keys[0].intern("surface"), Prop::Bool(true))],
+                    relations: Vec::new(),
                 }],
             })
         }
@@ -415,6 +420,7 @@ fn a_chain_estimates_its_features_only_if_every_source_does() {
         id: Some(id),
         geometry: Geometry::Point(Coord { x: 0.0, y: 0.0 }),
         props: Vec::new(),
+        relations: Vec::new(),
     };
     let known = || MemorySource {
         batches: vec![FeatureBatch {
@@ -497,6 +503,7 @@ fn chained_sources_render_into_one_tileset() {
         id: Some(id),
         geometry: Geometry::Point(Coord { x, y: 10.0 }),
         props: Vec::new(),
+        relations: Vec::new(),
     };
     let chain = SourceChain::new(vec![
         (
@@ -605,6 +612,7 @@ fn chained_sources_write_layers_of_one_name_into_one_layer() {
         id: Some(id),
         geometry: Geometry::Point(Coord { x, y: 10.0 }),
         props: vec![(KeyId::new(0), Prop::Str(value.into()))],
+        relations: Vec::new(),
     };
     let chain = SourceChain::new(vec![
         (
