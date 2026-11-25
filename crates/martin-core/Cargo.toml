@@ -208,10 +208,6 @@ url.workspace = true
 wiremock.workspace = true
 
 [[example]]
-name = "render-bench"
-required-features = ["rendering"]
-
-[[example]]
 name = "render-tileserver"
 required-features = ["rendering"]
 
