@@ -1039,10 +1039,10 @@ fetch:
 docker-is-ready:
     docker compose run -T --rm db-is-ready
 
-# Start a specific test database, e.g. db or db-legacy
+# Start a specific test database, e.g. db or db-legacy; CI builds only missing images, as its runners start with no build cache
 [private]
 docker-up name:
-    docker compose up -d --build {{name}}
+    docker compose up -d {{ if ci_mode == '1' { '' } else { '--build' } }} {{name}}
 
 # Install SQLX cli if not already installed.
 [private]
