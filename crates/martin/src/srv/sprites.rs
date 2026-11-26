@@ -5,7 +5,7 @@ use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use martin_core::sprites::{OptSpriteCache, SpriteCacheKey, SpriteError, SpriteSources, normalize_sprite_ids};
+use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
@@ -60,17 +60,11 @@ pub async fn get_sprite_png(
 ) -> ActixResult<HttpResponse> {
     let is_sdf = false;
     let png = if let Some(cache) = cache.as_ref() {
-        // Key the cache by the sources the request resolves to, not by the alias,
-        // so invalidating a source also evicts entries reached through an alias.
+        let key = sprites
+            .cache_key(&path.source_ids, is_sdf, false)
+            .map_err(|e| map_sprite_compute_error(&e.into()))?;
         cache
-            .get_or_insert(
-                SpriteCacheKey::new(
-                    normalize_sprite_ids(&sprites.expand_sprite_ids(&path.source_ids)),
-                    is_sdf,
-                    false,
-                ),
-                async || get_sprite(&path.source_ids, &sprites, is_sdf).await,
-            )
+            .get_or_insert(key, async || get_sprite(&path.source_ids, &sprites, is_sdf).await)
             .await
             .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
@@ -133,15 +127,11 @@ pub async fn get_sprite_sdf_png(
 ) -> ActixResult<HttpResponse> {
     let is_sdf = true;
     let png = if let Some(cache) = cache.as_ref() {
+        let key = sprites
+            .cache_key(&path.source_ids, is_sdf, false)
+            .map_err(|e| map_sprite_compute_error(&e.into()))?;
         cache
-            .get_or_insert(
-                SpriteCacheKey::new(
-                    normalize_sprite_ids(&sprites.expand_sprite_ids(&path.source_ids)),
-                    is_sdf,
-                    false,
-                ),
-                async || get_sprite(&path.source_ids, &sprites, is_sdf).await,
-            )
+            .get_or_insert(key, async || get_sprite(&path.source_ids, &sprites, is_sdf).await)
             .await
             .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
@@ -205,15 +195,11 @@ pub async fn get_sprite_json(
 ) -> ActixResult<HttpResponse> {
     let is_sdf = false;
     let json = if let Some(cache) = cache.as_ref() {
+        let key = sprites
+            .cache_key(&path.source_ids, is_sdf, true)
+            .map_err(|e| map_sprite_compute_error(&e.into()))?;
         cache
-            .get_or_insert(
-                SpriteCacheKey::new(
-                    normalize_sprite_ids(&sprites.expand_sprite_ids(&path.source_ids)),
-                    is_sdf,
-                    true,
-                ),
-                async || get_index(&path.source_ids, &sprites, is_sdf).await,
-            )
+            .get_or_insert(key, async || get_index(&path.source_ids, &sprites, is_sdf).await)
             .await
             .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
@@ -277,15 +263,11 @@ pub async fn get_sprite_sdf_json(
 ) -> ActixResult<HttpResponse> {
     let is_sdf = true;
     let json = if let Some(cache) = cache.as_ref() {
+        let key = sprites
+            .cache_key(&path.source_ids, is_sdf, true)
+            .map_err(|e| map_sprite_compute_error(&e.into()))?;
         cache
-            .get_or_insert(
-                SpriteCacheKey::new(
-                    normalize_sprite_ids(&sprites.expand_sprite_ids(&path.source_ids)),
-                    is_sdf,
-                    true,
-                ),
-                async || get_index(&path.source_ids, &sprites, is_sdf).await,
-            )
+            .get_or_insert(key, async || get_index(&path.source_ids, &sprites, is_sdf).await)
             .await
             .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {

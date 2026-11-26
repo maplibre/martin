@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use strum::VariantNames as _;
 use tracing::{debug, info, instrument, warn};
 
-use crate::walk_files;
+use crate::{SourceId, walk_files};
 
 /// Maximum Unicode codepoint supported.
 ///
@@ -63,12 +63,6 @@ const MAX_FONT_IDS_PER_REQUEST: usize = 128;
 fn split_and_dedup_ids(ids: &str) -> Vec<&str> {
     let mut seen = HashSet::new();
     ids.split(',').filter(|id| seen.insert(*id)).collect()
-}
-
-/// Normalizes a font id list so equivalent fontstacks share one cache entry.
-#[must_use]
-pub fn normalize_font_ids(ids: &str) -> String {
-    split_and_dedup_ids(ids).join(",")
 }
 
 mod error;
@@ -240,17 +234,50 @@ impl FontSources {
         expanded
     }
 
-    /// Expands every alias in a comma-separated font id list into its member fonts,
-    /// preserving order and deduplicating.
+    /// The cache key of a glyph range request, with aliases expanded to their member fonts.
     ///
-    /// Callers that need the fonts a request actually resolves to use this,
-    /// e.g. to build cache keys that can be invalidated per font.
-    #[must_use]
-    pub fn expand_font_ids(&self, ids: &str) -> String {
-        if self.aliases.is_empty() {
-            return ids.to_owned();
+    /// Resolves names through the registered fonts and never interns one, so request input cannot grow the id table.
+    /// Equivalent fontstacks (aliases, repeated fonts) share one key, and invalidating a font reaches every key holding it.
+    ///
+    /// # Errors
+    ///
+    /// The same errors, in the same order, as [`Self::get_font_range`] reports for the range and the font names.
+    #[instrument(
+        level = "debug",
+        skip(self),
+        fields(
+            font.fontstack = %ids,
+            font.range.start = start,
+            font.range.end = end,
+        ),
+        err(Debug),
+    )]
+    pub fn cache_key(&self, ids: &str, start: u32, end: u32) -> Result<FontCacheKey, FontError> {
+        check_range(start, end)?;
+        let fonts = self.resolve(ids)?;
+        Ok(FontCacheKey::new(
+            fonts.into_iter().map(|(_, id)| id).collect(),
+            start,
+            end,
+        ))
+    }
+
+    /// The registered fonts a request names, aliases expanded, in fallback order without repeats.
+    fn resolve(&self, ids: &str) -> Result<Vec<(String, SourceId)>, FontError> {
+        let unique_ids = self.expanded_ids(ids);
+        if unique_ids.len() > MAX_FONT_IDS_PER_REQUEST {
+            return Err(FontError::TooManyFontIds {
+                requested: unique_ids.len(),
+                max: MAX_FONT_IDS_PER_REQUEST,
+            });
         }
-        self.expanded_ids(ids).join(",")
+        unique_ids
+            .into_iter()
+            .map(|id| match self.fonts.get(&id).map(|font| font.id) {
+                Some(font) => Ok((id, font)),
+                None => Err(FontError::FontNotFound(id)),
+            })
+            .collect()
     }
 
     /// Returns a catalog of all loaded fonts and aliases.
@@ -297,7 +324,6 @@ impl FontSources {
     /// Combines multiple fonts (comma-separated) with later fonts filling gaps.
     /// Ids may name aliases registered via [`Self::add_alias`], which expand to their member fonts.
     /// Range must be exactly 256 characters (e.g., 0-255, 256-511).
-    #[expect(clippy::cast_possible_truncation)]
     #[instrument(
         level = "debug",
         skip(self),
@@ -309,40 +335,8 @@ impl FontSources {
         err(Debug),
     )]
     pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
-        if start > MAX_UNICODE_CP || end > MAX_UNICODE_CP {
-            return Err(FontError::InvalidFontRangeStartEnd { start, end });
-        }
-        if start > end {
-            return Err(FontError::InvalidFontRangeStartEnd { start, end });
-        }
-        if !start.is_multiple_of(CP_RANGE_SIZE as u32) {
-            return Err(FontError::InvalidFontRangeStart(start));
-        }
-        if end % (CP_RANGE_SIZE as u32) != (CP_RANGE_SIZE as u32 - 1) {
-            return Err(FontError::InvalidFontRangeEnd(end));
-        }
-        if (end - start) != (CP_RANGE_SIZE as u32 - 1) {
-            return Err(FontError::InvalidFontRange(start, end));
-        }
-
-        let unique_ids = self.expanded_ids(ids);
-        if unique_ids.len() > MAX_FONT_IDS_PER_REQUEST {
-            return Err(FontError::TooManyFontIds {
-                requested: unique_ids.len(),
-                max: MAX_FONT_IDS_PER_REQUEST,
-            });
-        }
-
-        let fonts = unique_ids
-            .iter()
-            .map(|id| {
-                if self.fonts.get(id.as_str()).is_none() {
-                    return Err(FontError::FontNotFound(id.clone()));
-                }
-
-                Ok(id.as_str())
-            })
-            .collect::<Result<Vec<&str>, FontError>>()?;
+        check_range(start, end)?;
+        let fonts = self.resolve(ids)?;
 
         if fonts.is_empty() {
             return Ok(Vec::new());
@@ -353,7 +347,7 @@ impl FontSources {
         // Offsets into the range of the codepoints an earlier font in the stack already supplied.
         let mut supplied = BitSet::with_capacity(CP_RANGE_SIZE);
 
-        for id in fonts {
+        for (id, _) in &fonts {
             let Some(font) = self.fonts.get(id) else {
                 continue;
             };
@@ -393,9 +387,32 @@ impl FontSources {
     }
 }
 
+/// Checks that `start..=end` is one whole range of [`CP_RANGE_SIZE`] codepoints.
+#[expect(clippy::cast_possible_truncation)]
+fn check_range(start: u32, end: u32) -> Result<(), FontError> {
+    if start > MAX_UNICODE_CP || end > MAX_UNICODE_CP {
+        return Err(FontError::InvalidFontRangeStartEnd { start, end });
+    }
+    if start > end {
+        return Err(FontError::InvalidFontRangeStartEnd { start, end });
+    }
+    if !start.is_multiple_of(CP_RANGE_SIZE as u32) {
+        return Err(FontError::InvalidFontRangeStart(start));
+    }
+    if end % (CP_RANGE_SIZE as u32) != (CP_RANGE_SIZE as u32 - 1) {
+        return Err(FontError::InvalidFontRangeEnd(end));
+    }
+    if (end - start) != (CP_RANGE_SIZE as u32 - 1) {
+        return Err(FontError::InvalidFontRange(start, end));
+    }
+    Ok(())
+}
+
 /// Internal font source data including path, face index, and available codepoints.
 #[derive(Clone, Debug)]
 pub struct FontSource {
+    /// The interned font name.
+    id: SourceId,
     /// Path to the font file.
     path: PathBuf,
     /// Face index within the font file (for .ttc collections).
@@ -507,7 +524,9 @@ fn parse_font(lib: &Library, fonts: &mut DashMap<String, FontSource>, path: Path
                     "Available font ranges"
                 );
 
+                let id = SourceId::intern(key);
                 v.insert(FontSource {
+                    id,
                     path: path.clone(),
                     face_index,
                     codepoints: Arc::new(codepoints),
@@ -550,9 +569,35 @@ mod tests {
     }
 
     #[test]
-    fn normalize_font_ids_collapses_duplicates_and_keeps_order() {
-        assert_eq!(normalize_font_ids("b,a,b"), "b,a");
-        assert_eq!(normalize_font_ids("a"), "a");
+    fn a_repeated_font_shares_the_key_of_one_mention_but_order_matters() {
+        let sources = overpass_sources();
+        let light_regular = sources
+            .cache_key("Overpass Mono Light,Overpass Mono Regular", 0, 255)
+            .unwrap();
+
+        assert_eq!(
+            sources
+                .cache_key("Overpass Mono Light,Overpass Mono Regular,Overpass Mono Light", 0, 255)
+                .unwrap(),
+            light_regular
+        );
+        assert_ne!(
+            sources
+                .cache_key("Overpass Mono Regular,Overpass Mono Light", 0, 255)
+                .unwrap(),
+            light_regular
+        );
+    }
+
+    #[test]
+    fn an_unknown_font_fails_the_key_and_interns_nothing() {
+        let sources = overpass_sources();
+        let err = sources
+            .cache_key("Overpass Mono Light,request-only-font", 0, 255)
+            .unwrap_err();
+
+        assert_matches!(err, FontError::FontNotFound(name) if name == "request-only-font");
+        assert_eq!(SourceId::lookup("request-only-font"), None);
     }
 
     #[test]
@@ -566,12 +611,16 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            sources.expand_font_ids("Overpass Mono"),
-            "Overpass Mono Regular,Overpass Mono Light"
+            sources.cache_key("Overpass Mono", 0, 255).unwrap(),
+            sources
+                .cache_key("Overpass Mono Regular,Overpass Mono Light", 0, 255)
+                .unwrap()
         );
         assert_eq!(
-            sources.expand_font_ids("Overpass Mono Light,Overpass Mono"),
-            "Overpass Mono Light,Overpass Mono Regular",
+            sources.cache_key("Overpass Mono Light,Overpass Mono", 0, 255).unwrap(),
+            sources
+                .cache_key("Overpass Mono Light,Overpass Mono Regular", 0, 255)
+                .unwrap(),
             "a font shared between the request and the alias appears once"
         );
         let aliased = sources.get_font_range("Overpass Mono", 0, 255).unwrap();

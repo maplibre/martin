@@ -33,7 +33,7 @@ use tokio::io::AsyncReadExt as _;
 use tracing::{info, instrument, warn};
 
 use crate::resources::sprites::SpriteError::{IoError, SpriteInstError, SpriteParsingError, SpriteProcessingError};
-use crate::walk_files;
+use crate::{SourceId, walk_files};
 
 const SVG_EXTENSIONS: &[&str] = &["svg"];
 
@@ -75,21 +75,6 @@ fn split_and_dedup_ids(ids: &str) -> (Vec<&str>, u8) {
     unique_ids.dedup();
 
     (unique_ids, dpi)
-}
-
-/// Normalizes a request-path sprite id list so that equivalent requests
-/// (different id order, repeated ids) share one cache entry instead of
-/// each producing a distinct cache miss.
-#[must_use]
-pub fn normalize_sprite_ids(ids: &str) -> String {
-    let (unique_ids, dpi) = split_and_dedup_ids(ids);
-    join_ids(&unique_ids, dpi)
-}
-
-/// Joins sprite ids back into request-path form, with the `@2x` suffix for the high-DPI ratio.
-fn join_ids<S: AsRef<str>>(ids: &[S], dpi: u8) -> String {
-    let joined = ids.iter().map(AsRef::as_ref).collect::<Vec<_>>().join(",");
-    if dpi == 2 { format!("{joined}@2x") } else { joined }
 }
 
 mod error;
@@ -245,18 +230,34 @@ impl SpriteSources {
         (expanded, dpi)
     }
 
-    /// Expands every alias in a request id list into its member sources, normalized like
-    /// [`normalize_sprite_ids`].
+    /// The cache key of a request for `ids`, with aliases expanded to their member sources.
     ///
-    /// Callers that need the sources a request actually resolves to use this,
-    /// e.g. to build cache keys that can be invalidated per source.
-    #[must_use]
-    pub fn expand_sprite_ids(&self, ids: &str) -> String {
-        if self.aliases.is_empty() {
-            return ids.to_owned();
-        }
-        let (expanded, dpi) = self.expanded_ids(ids);
-        join_ids(&expanded, dpi)
+    /// Resolves names through the registered sources and never interns one, so request input cannot grow the id table.
+    /// Equivalent requests (any id order, repeats, aliases) share one key,
+    /// and invalidating a source reaches every key holding it.
+    ///
+    /// # Errors
+    ///
+    /// The same errors, in the same order, as [`Self::get_sprites`] reports for the ids.
+    #[instrument(
+        level = "debug",
+        skip(self),
+        fields(source.ids = %ids, sprite.sdf = as_sdf),
+        err(Debug),
+    )]
+    pub fn cache_key(&self, ids: &str, as_sdf: bool, as_json: bool) -> Result<SpriteCacheKey, SpriteError> {
+        let (unique_ids, dpi) = self.expanded_ids(ids);
+        check_id_count(unique_ids.len())?;
+        let ids = unique_ids
+            .iter()
+            .map(|id| {
+                self.sources
+                    .get(id)
+                    .map(|source| source.id)
+                    .ok_or_else(|| SpriteError::SpriteNotFound(id.clone()))
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(SpriteCacheKey::new(ids, dpi == 2, as_sdf, as_json))
     }
 
     /// Adds a sprite source directory containing SVG files.
@@ -295,7 +296,8 @@ impl SpriteSources {
                              Sprite requests for this source will fail, until at least one svg is present."
                         );
                     }
-                    v.insert(SpriteSource { path });
+                    let id = SourceId::intern(v.key());
+                    v.insert(SpriteSource { id, path });
                 }
             }
         }
@@ -314,13 +316,7 @@ impl SpriteSources {
     )]
     pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> Result<Spritesheet, SpriteError> {
         let (unique_ids, dpi) = self.expanded_ids(ids);
-
-        if unique_ids.len() > MAX_SPRITE_IDS_PER_REQUEST {
-            return Err(SpriteError::TooManySpriteIds {
-                requested: unique_ids.len(),
-                max: MAX_SPRITE_IDS_PER_REQUEST,
-            });
-        }
+        check_id_count(unique_ids.len())?;
 
         let sprite_ids = unique_ids
             .iter()
@@ -338,9 +334,22 @@ impl SpriteSources {
     }
 }
 
+/// Rejects a request that names more sources than one sheet may combine.
+fn check_id_count(requested: usize) -> Result<(), SpriteError> {
+    if requested > MAX_SPRITE_IDS_PER_REQUEST {
+        return Err(SpriteError::TooManySpriteIds {
+            requested,
+            max: MAX_SPRITE_IDS_PER_REQUEST,
+        });
+    }
+    Ok(())
+}
+
 /// Sprite source directory.
 #[derive(Clone, Debug)]
 pub struct SpriteSource {
+    /// The interned source name.
+    id: SourceId,
     path: PathBuf,
 }
 
@@ -418,10 +427,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn normalize_sprite_ids_collapses_order_and_duplicates() {
-        assert_eq!(normalize_sprite_ids("b,a,b"), "a,b");
-        assert_eq!(normalize_sprite_ids("b,a@2x"), "a,b@2x");
-        assert_eq!(normalize_sprite_ids("a"), "a");
+    fn equivalent_requests_share_a_key_and_the_pixel_ratio_tells_them_apart() {
+        let sprites = two_sources();
+        let key = |ids| sprites.cache_key(ids, false, false).unwrap();
+
+        assert_eq!(key("src2,src1,src2"), key("src1,src2"));
+        assert_eq!(key("src2,src1@2x"), key("src1,src2@2x"));
+        assert_ne!(key("src1,src2@2x"), key("src1,src2"));
+    }
+
+    #[test]
+    fn an_unknown_source_fails_the_key_and_interns_nothing() {
+        let sprites = two_sources();
+        let err = sprites.cache_key("src1,request-only-sprite", false, false).unwrap_err();
+
+        assert_matches!(err, SpriteError::SpriteNotFound(name) if name == "request-only-sprite");
+        assert_eq!(SourceId::lookup("request-only-sprite"), None);
     }
 
     #[tokio::test]
@@ -454,11 +475,12 @@ mod tests {
             .add_alias("icons".to_owned(), vec!["src1".to_owned(), "src2".to_owned()])
             .unwrap();
 
-        assert_eq!(sprites.expand_sprite_ids("icons"), "src1,src2");
-        assert_eq!(sprites.expand_sprite_ids("icons@2x"), "src1,src2@2x");
+        let key = |ids| sprites.cache_key(ids, false, false).unwrap();
+        assert_eq!(key("icons"), key("src1,src2"));
+        assert_eq!(key("icons@2x"), key("src1,src2@2x"));
         assert_eq!(
-            sprites.expand_sprite_ids("src2,icons"),
-            "src1,src2",
+            key("src2,icons"),
+            key("src1,src2"),
             "a source shared between the request and the alias appears once"
         );
         let aliased = sprites.get_sprites("icons", false).await.unwrap();

@@ -6,6 +6,7 @@ use std::convert::Infallible;
 use std::time::Duration;
 
 use bytes::Bytes;
+use martin_core::SourceId;
 use martin_core::fonts::{FontCache, FontCacheKey};
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
@@ -178,7 +179,7 @@ async fn wait_and_flush(cache: &FontCache, duration: Duration) {
 }
 
 fn key(ids: &str, start: u32, end: u32) -> FontCacheKey {
-    FontCacheKey::new(ids.into(), start, end)
+    FontCacheKey::new(ids.split(',').map(SourceId::intern).collect(), start, end)
 }
 
 async fn insert(cache: &FontCache, ids: &str, start: u32, end: u32, data: &[u8]) -> Bytes {

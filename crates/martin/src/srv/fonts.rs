@@ -6,7 +6,7 @@ use actix_web::http::header::{
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route, routes};
 use martin_core::cache::CacheKey as _;
-use martin_core::fonts::{FontCacheKey, FontError, FontSources, OptFontCache, normalize_font_ids};
+use martin_core::fonts::{FontError, FontSources, OptFontCache};
 use martin_tile_utils::{Encoding, encode_brotli_with_quality, encode_gzip, encode_zlib, encode_zstd};
 use serde::Deserialize;
 use tracing::{instrument, warn};
@@ -64,10 +64,9 @@ pub async fn get_font(
             .body("br, gzip, deflate, zstd"));
     };
     let data = if let Some(cache) = cache.as_ref() {
-        // Key the cache by the fonts the request resolves to, not by the alias,
-        // so invalidating a font also evicts entries reached through an alias.
-        let expanded_ids = fonts.expand_font_ids(&path.fontstack);
-        let key = FontCacheKey::new(normalize_font_ids(&expanded_ids), path.start, path.end);
+        let key = fonts
+            .cache_key(&path.fontstack, path.start, path.end)
+            .map_err(|e| map_font_error(&e))?;
         let served = (encoding != Encoding::Uncompressed).then(|| key.clone().with_encoding(encoding));
         if let Some(served) = &served
             && let Some(data) = cache.get(served).await
