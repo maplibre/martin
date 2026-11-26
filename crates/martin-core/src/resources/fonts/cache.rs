@@ -69,4 +69,8 @@ impl CacheKey for FontCacheKey {
             hotpath::gauge!("font_cache_misses").inc(1.0);
         }
     }
+
+    fn heap_size(&self) -> usize {
+        self.ids.capacity()
+    }
 }

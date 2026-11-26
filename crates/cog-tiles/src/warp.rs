@@ -7,6 +7,7 @@ use async_tiff::ImageFileDirectory;
 use async_tiff::decoder::DecoderRegistry;
 use async_tiff::tags::{ExtraSamples, PlanarConfiguration, SampleFormat};
 use futures::future::try_join_all;
+use martin_tile_utils::moka_entry_weight;
 use moka::future::Cache;
 
 use crate::backend::{AsyncBackend, TiffBridge};
@@ -57,9 +58,9 @@ impl Default for BlockCache {
             Cache::builder()
                 .max_capacity(BLOCK_CACHE_BYTES)
                 .weigher(|_key, block: &Option<Arc<TilePixels>>| {
-                    block
-                        .as_ref()
-                        .map_or(1, |pixels| u32::try_from(pixels.data().len()).unwrap_or(u32::MAX))
+                    moka_entry_weight::<BlockKey, Option<Arc<TilePixels>>>(
+                        block.as_ref().map_or(0, |pixels| pixels.data().len()),
+                    )
                 })
                 .time_to_idle(BLOCK_IDLE_TIMEOUT)
                 .build(),

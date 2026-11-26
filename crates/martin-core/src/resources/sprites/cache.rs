@@ -54,10 +54,14 @@ impl CacheKey for SpriteCacheKey {
             hotpath::gauge!("sprite_cache_misses").inc(1.0);
         }
     }
+
+    fn heap_size(&self) -> usize {
+        self.ids.capacity()
+    }
 }
 
 impl Cacheable for Bytes {
-    fn weight(&self) -> u32 {
-        self.len().try_into().unwrap_or(u32::MAX)
+    fn heap_size(&self) -> usize {
+        self.len()
     }
 }

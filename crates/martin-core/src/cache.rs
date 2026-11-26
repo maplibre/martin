@@ -5,6 +5,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
 
+use martin_tile_utils::moka_entry_weight;
 use moka::future::Cache;
 use tracing::{info, trace};
 
@@ -19,13 +20,15 @@ pub trait CacheKey: Hash + Eq + Send + Sync + Clone + Debug + 'static {
 
     /// Records one hit or miss. Called exactly once per `get_or_insert`.
     fn record_outcome(&self, hit: bool);
+
+    /// Bytes the key owns on the heap.
+    fn heap_size(&self) -> usize;
 }
 
 /// A value type storable in [`ResourceCache`].
 pub trait Cacheable: Send + Sync + Clone + 'static {
-    /// Approximate byte size, used as the moka eviction weight. Saturates at
-    /// [`u32::MAX`].
-    fn weight(&self) -> u32;
+    /// Bytes the value owns on the heap.
+    fn heap_size(&self) -> usize;
 }
 
 /// In-memory cache backed by [`moka::future::Cache`]. The concrete sprite,
@@ -51,7 +54,7 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
     pub fn new(max_size_bytes: u64, expiry: Option<Duration>, idle_timeout: Option<Duration>) -> Self {
         let mut builder = Cache::builder()
             .name(K::CACHE_NAME)
-            .weigher(|_key: &K, value: &V| value.weight())
+            .weigher(|key: &K, value: &V| moka_entry_weight::<K, V>(key.heap_size() + value.heap_size()))
             .max_capacity(max_size_bytes)
             .support_invalidation_closures();
         if let Some(ttl) = expiry {
@@ -161,8 +164,8 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
 }
 
 impl Cacheable for Vec<u8> {
-    fn weight(&self) -> u32 {
-        self.len().try_into().unwrap_or(u32::MAX)
+    fn heap_size(&self) -> usize {
+        self.capacity()
     }
 }
 
@@ -202,6 +205,10 @@ mod tests {
         }
 
         fn record_outcome(&self, _hit: bool) {}
+
+        fn heap_size(&self) -> usize {
+            self.ids.capacity()
+        }
     }
 
     fn cache() -> ResourceCache<TestKey, Vec<u8>> {
@@ -318,8 +325,24 @@ mod tests {
     }
 
     #[test]
-    fn vec_u8_weight_is_length_saturating() {
-        assert_eq!(Cacheable::weight(&vec![]), 0);
-        assert_eq!(Cacheable::weight(&vec![0; 7]), 7);
+    fn vec_u8_heap_size_is_capacity() {
+        assert_eq!(Cacheable::heap_size(&Vec::<u8>::new()), 0);
+        assert_eq!(Cacheable::heap_size(&Vec::<u8>::with_capacity(7)), 7);
+    }
+
+    #[tokio::test]
+    async fn empty_values_count_against_max_size() {
+        let cache = ResourceCache::<TestKey, Vec<u8>>::new(1_000_000, None, None);
+        for i in 0..100_000 {
+            cache.insert(TestKey::new(&i.to_string()), Vec::new()).await;
+        }
+        cache.run_pending_tasks().await;
+
+        assert!(
+            cache.entry_count() <= 1_000_000 / u64::from(martin_tile_utils::MOKA_ENTRY_OVERHEAD),
+            "{} empty entries fit in 1 MB",
+            cache.entry_count()
+        );
+        assert!(cache.weighted_size() <= 1_000_000);
     }
 }

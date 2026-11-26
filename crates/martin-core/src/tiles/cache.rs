@@ -109,10 +109,17 @@ impl CacheKey for TileCacheKey {
             hotpath::gauge!("tile_cache_misses").inc(1.0);
         }
     }
+
+    fn heap_size(&self) -> usize {
+        match self {
+            Self::Dynamic { source_id, query, .. } => source_id.len() + query.as_deref().map_or(0, str::len),
+            Self::Static { source_id, .. } => source_id.len(),
+        }
+    }
 }
 
 impl Cacheable for Tile {
-    fn weight(&self) -> u32 {
-        self.data.len().try_into().unwrap_or(u32::MAX)
+    fn heap_size(&self) -> usize {
+        self.data.len()
     }
 }
