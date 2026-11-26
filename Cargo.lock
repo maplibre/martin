@@ -2039,8 +2039,6 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af491d569909a7e4dee0ad7db7f5341fef5c614d5b8ec8cf765732aba3cff681"
 dependencies = [
- "serde",
- "termcolor",
  "unicode-width 0.2.3",
 ]
 
@@ -3003,7 +3001,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e35d6e78f4cebb90e51d543db8fe41528851d6deeef6ef21ebd4bfdc1e784776"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3111,10 +3109,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "852aa4708f6b1b09274ac76f91faa312ce7ff736ac458f41cb9ac1f5329c2933"
 dependencies = [
  "buffa",
- "foldhash 0.2.0",
  "geo-types",
- "serde",
- "serde_json",
  "thiserror 2.0.21",
  "usize_cast",
 ]
@@ -3554,9 +3549,9 @@ dependencies = [
 [[package]]
 name = "geo"
 version = "0.33.1"
-source = "git+https://github.com/georust/geo?rev=f34ee562db2a843037fb865d354b82a521cd9796#f34ee562db2a843037fb865d354b82a521cd9796"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30eb1fdc57c1e5cfd11826fe0caec4b9dc7901f3758263bb506228d88c8d9e9a"
 dependencies = [
- "earcut",
  "float_next_after 2.0.0",
  "geo-types",
  "geographiclib-rs",
@@ -3784,7 +3779,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51255ea7cfaadb6c5f1528d43e92a82acb2b96c43365989a28b2d44ee38f8795"
 dependencies = [
  "ash",
- "hashbrown 0.16.1",
  "log",
  "presser",
  "thiserror 2.0.21",
@@ -4079,15 +4073,6 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.31.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f41c413153d29c7665f7a1a21b1fed9816c9be794fc7e58f48d420ce3e60b403"
-dependencies = [
- "hotpath-macros 0.31.3",
-]
-
-[[package]]
-name = "hotpath"
 version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c512d9810e0836ad7aae1ecc363a727a20e7d56e1d497433150a354f6ddaccee"
@@ -4139,12 +4124,6 @@ name = "hotpath-drain"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b14e13a25026f1b7c41477e43fdc2182dd41d233212fba5e08bb595316134db"
-
-[[package]]
-name = "hotpath-macros"
-version = "0.31.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "183e2530804a17d4aeef73a9d613a6977ad220cc11a1cd9312b9b6e52852ead4"
 
 [[package]]
 name = "hotpath-macros"
@@ -5986,7 +5965,7 @@ dependencies = [
  "martin-vendored-cql2",
  "mbtiles",
  "miette",
- "mlt-core 0.23.0",
+ "mlt-core",
  "notify",
  "num_cpus",
  "object_store",
@@ -6079,7 +6058,7 @@ dependencies = [
  "martin-tilegen",
  "mbtiles",
  "mln-rs",
- "mlt-core 0.23.0",
+ "mlt-core",
  "moka",
  "object_store",
  "pbf_font_tools",
@@ -6136,7 +6115,7 @@ dependencies = [
  "jxl-oxide",
  "libc",
  "martin-tile-utils",
- "mlt-core 0.23.0",
+ "mlt-core",
  "object_store",
  "pbf_font_tools",
  "pmtiles",
@@ -6200,7 +6179,7 @@ dependencies = [
  "martin-tilegen",
  "mbtiles",
  "memmap2",
- "mlt-core 0.23.0",
+ "mlt-core",
  "osmflow",
  "perf-event2",
  "pmtiles",
@@ -6465,16 +6444,14 @@ dependencies = [
 
 [[package]]
 name = "mln-rs"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07d5fb31fd62e305070461a86d5c6332c0770997f8211c7e3750397f3035a237"
+checksum = "e72beab8967d363105b2e41ef1b3f0902f35b8e304ec30096dffaa1f9b11fdd3"
 dependencies = [
  "geo-types",
  "geojson 1.0.0",
  "glam",
- "mln-rs-conversion",
  "mln-rs-d3d12",
- "mln-rs-expression",
  "mln-rs-feature",
  "mln-rs-frame-pacer",
  "mln-rs-geojson",
@@ -6494,7 +6471,6 @@ dependencies = [
  "mln-rs-storage",
  "mln-rs-storage-offline",
  "mln-rs-style",
- "mln-rs-style-types",
  "mln-rs-system-fonts",
  "mln-rs-text",
  "mln-rs-tile",
@@ -6503,84 +6479,28 @@ dependencies = [
  "mln-rs-vec-map",
  "mln-rs-vulkan",
  "mln-rs-web-host",
- "mln-rs-webgpu",
-]
-
-[[package]]
-name = "mln-rs-conversion"
-version = "0.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "685a55cde5f28e443b4c13d56e7a587aed5b22b195207be0af65e96e84405f2e"
-dependencies = [
- "foldhash 0.2.0",
- "geojson 1.0.0",
- "mln-rs-feature",
- "serde",
- "serde_json",
- "serde_json_borrow",
- "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "mln-rs-d3d12"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81e6f80782d03e554fda13759fa8b9569de2d4599aee3b545bbd165836af5ce9"
+checksum = "b36407dc8f8b43af46bb85a27819cfe842064c973141ba61451de741c068ee32"
 dependencies = [
  "gpu-allocator",
+ "log",
  "mln-rs-gfx",
  "mln-rs-glsl",
- "mln-rs-util",
  "naga",
  "parking_lot",
  "windows",
 ]
 
 [[package]]
-name = "mln-rs-expression"
-version = "0.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aff3a87d4b08495e96e0a4d805b166d093e4ba0680d4acc44a5944e9969c4e5f"
-dependencies = [
- "cheap-ruler",
- "fixed_decimal",
- "geo-types",
- "geojson 1.0.0",
- "icu_collator",
- "icu_decimal",
- "icu_experimental",
- "icu_locale",
- "icu_plurals",
- "icu_provider",
- "jni",
- "js-sys",
- "mln-rs-conversion",
- "mln-rs-feature",
- "mln-rs-geometry",
- "mln-rs-math",
- "mln-rs-style-types",
- "mln-rs-text",
- "mln-rs-tile",
- "mln-rs-tile-id",
- "mln-rs-util",
- "mln-rs-vec-map",
- "mln-rs-wire",
- "objc2",
- "objc2-foundation",
- "parking_lot",
- "serde",
- "serde_json",
- "smallvec",
- "thiserror 2.0.21",
- "wasm-bindgen",
- "writeable",
-]
-
-[[package]]
 name = "mln-rs-feature"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80730e6348dd52d0e09bfc900d98dda6bb28b2ef9dc5b84283ac3c5f4b29327b"
+checksum = "357020a31ab3a51d30ae23e046fd5109b67ca6479b20106d451869fec8e42cba"
 dependencies = [
  "geo-types",
  "geojson 1.0.0",
@@ -6591,9 +6511,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-frame-pacer"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a25b28cd15f88c5a3e31bb1333f4a456d5dc5b1d2f60e12934a852d0c6a4a81"
+checksum = "5dc9d27fec6dcea61ca726d3666aed3b4158d74e9ed278df69745e82bbea6b53"
 dependencies = [
  "libc",
  "mln-rs-util",
@@ -6606,9 +6526,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-geojson"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8362e663db067317cdbae81489f1977df3dae56b77f41dde7acea70c53eb2449"
+checksum = "cec3c620aeb1cc89fe05d166493a3c9f0887130216b193ce513328e262fdf3bc"
 dependencies = [
  "foldhash 0.2.0",
  "geo-index",
@@ -6621,9 +6541,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-geometry"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a609aaf74f5160bb3870d8717cb5fa3993a9e1e49fce702b32b60ab2aa92126d"
+checksum = "e0c889c55c730cc987e8405520990e2a170855e7e670d4644267ddfb124b8d7a"
 dependencies = [
  "geo-types",
  "mln-rs-wire",
@@ -6631,9 +6551,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-gestures"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "112360032f09cc3574ca48744ddea9b8972a02203ac1b2fc11cacda067d59ab5"
+checksum = "8eb156a224e0ee3096f3af6af343f9a13d3bf956a0392fc60577edeacdbb30d2"
 dependencies = [
  "mln-rs-map",
  "mln-rs-util",
@@ -6643,14 +6563,14 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-gfx"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97fb02ff52dfc40e5a9a7ad214d21c61cf1779296bc457cd3c4c064605f9b313"
+checksum = "4dd66df07d14c82ede767763332ba7971e9530e711e23bb0d5475a697f4fdbbd"
 dependencies = [
  "bytemuck",
- "mln-rs-util",
- "mln-rs-vec-map",
- "mln-rs-wire",
+ "foldhash 0.2.0",
+ "js-sys",
+ "log",
  "raw-window-handle",
  "slotmap",
  "thiserror 2.0.21",
@@ -6658,9 +6578,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-gl"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f772000bec95b6de2e178c068ad49a6e76b10253f30ee680c3e13462595e7b4a"
+checksum = "d2d81d09e37cf4748ebf7e7b53b8d3201857f9b567a11e70fa14838f74408f24"
 dependencies = [
  "bytemuck",
  "glow",
@@ -6668,9 +6588,8 @@ dependencies = [
  "khronos-egl",
  "libc",
  "libloading",
+ "log",
  "mln-rs-gfx",
- "mln-rs-tile-id",
- "mln-rs-util",
  "parking_lot",
  "raw-window-handle",
  "wasm-bindgen",
@@ -6680,9 +6599,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-glsl"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dd44c51c9c1f30ccbca78e1e144fa0dd5e54645e9743084e7d5d2f4623c4e95"
+checksum = "d5ce81086c3ed9d3a34bb2f1bba05af044c45b3826e3e7c5e27513c9d3267059"
 dependencies = [
  "mln-rs-gfx",
  "naga",
@@ -6690,9 +6609,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-image"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e2924a99d80dfeab2ce707f06d418c3be370ae879657a3faac827074a7ddf72"
+checksum = "9b690893f034f913dcaeb0c72991271bcfdc1387dd45180851aeae41bbdff837"
 dependencies = [
  "flate2",
  "image-webp",
@@ -6707,9 +6626,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-map"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c27d3a42deaec86875cc2016c36957e4f9c7ed2e1eb2fe0933296760761b85a"
+checksum = "429ca4c5ad4ec1d59451d55d14c1bcde29052fa2216b75d2212fa4adb9118bf9"
 dependencies = [
  "geo-types",
  "geojson 1.0.0",
@@ -6722,7 +6641,6 @@ dependencies = [
  "mln-rs-sprite",
  "mln-rs-storage",
  "mln-rs-style",
- "mln-rs-style-types",
  "mln-rs-text",
  "mln-rs-tile-id",
  "mln-rs-util",
@@ -6732,14 +6650,15 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-map-types"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6eb6b0f426d7ec6c1dfd9bbb5f5282d47c86a2745a49cf5938f7aac2374d29c"
+checksum = "1bae93eccef04774245705cf9ec7daa10d0bc6e1a410ac896792e60eaf40676a"
 dependencies = [
  "glam",
  "mln-rs-geometry",
+ "mln-rs-gfx",
  "mln-rs-math",
- "mln-rs-style-types",
+ "mln-rs-style",
  "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-wire",
@@ -6748,21 +6667,20 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-math"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "063b39efecda7b0dd6bdfbcfe1a0b64455436a819960f1c7c7ce4cf0c866e70b"
+checksum = "b8d8099bc85529abde4a20f99c60ed9ab678fa39ecc6450c2719e7acd7e82749"
 
 [[package]]
 name = "mln-rs-mtl"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "467beca3f33b1e601a4c98d9d73ff5b8112b7610bf0294b84cc5f674a68585c6"
+checksum = "8e6ae45cd3097602c161b3c14a0658387d0ae435a1d279a221f50ec2d9308571"
 dependencies = [
  "block2",
  "bytemuck",
+ "log",
  "mln-rs-gfx",
- "mln-rs-tile-id",
- "mln-rs-util",
  "objc2",
  "objc2-core-foundation",
  "objc2-foundation",
@@ -6770,22 +6688,23 @@ dependencies = [
  "objc2-metal",
  "objc2-quartz-core",
  "parking_lot",
+ "raw-window-metal",
 ]
 
 [[package]]
 name = "mln-rs-polylabel"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d3eafce2b7c8c668c7902aa9eecff98f2f9b1fc02955089c60072318af0717f"
+checksum = "ff65e0a6b74b2ac85363bfb9e753a7bafeabad730ba450bdd021162c535cc966"
 dependencies = [
  "mln-rs-geometry",
 ]
 
 [[package]]
 name = "mln-rs-renderer"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8116f09170dea0a5e0b32ada101265717852756facfd85424ec94e4afe3f4e7"
+checksum = "63da68e9b00cf66199329c6e8f8dc0105e8f5ec76a13f82230735ce2c36f9709"
 dependencies = [
  "bytemuck",
  "earcut",
@@ -6793,7 +6712,6 @@ dependencies = [
  "geo-index",
  "geo-types",
  "glam",
- "mln-rs-expression",
  "mln-rs-feature",
  "mln-rs-geometry",
  "mln-rs-gfx",
@@ -6803,7 +6721,6 @@ dependencies = [
  "mln-rs-polylabel",
  "mln-rs-storage",
  "mln-rs-style",
- "mln-rs-style-types",
  "mln-rs-text",
  "mln-rs-tile",
  "mln-rs-tile-id",
@@ -6816,14 +6733,13 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-runtime"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2b350d9737146eba8abaebb09d40ee58e02168d2b9176ee6960f01ffa65b35f"
+checksum = "464603b8b56186cfaba889fa0cb02517e59ef985004398f0c4f0063c5fc6ef3b"
 dependencies = [
  "geo-types",
  "geojson 1.0.0",
  "js-sys",
- "mln-rs-conversion",
  "mln-rs-d3d12",
  "mln-rs-feature",
  "mln-rs-frame-pacer",
@@ -6837,41 +6753,38 @@ dependencies = [
  "mln-rs-storage",
  "mln-rs-storage-offline",
  "mln-rs-style",
- "mln-rs-style-types",
  "mln-rs-system-fonts",
  "mln-rs-text",
  "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-vulkan",
  "mln-rs-web-host",
- "mln-rs-webgpu",
  "parking_lot",
  "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "wgpu",
 ]
 
 [[package]]
 name = "mln-rs-sprite"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcfd9ac6fc5b65b4a4239fbf2ac0b82b792c63f838114ef3c6852f01f66c23ac"
+checksum = "11c7f20129dfae9565f89d7bfbe842af093079c6e8176de572eb27d6a05ac052"
 dependencies = [
  "mln-rs-geometry",
  "mln-rs-image",
  "mln-rs-storage",
- "mln-rs-style-types",
+ "mln-rs-style",
  "mln-rs-util",
  "serde_json",
 ]
 
 [[package]]
 name = "mln-rs-storage"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75d4f6307b27f51cca55e01c66d0f38d3d1ff7816a83ce5619d4625a2c7222dc"
+checksum = "bfbb56db062f0916df8442f6b2d3b7ea89696569ed89e83b0cfa233190de5c44"
 dependencies = [
  "block2",
  "bytes",
@@ -6899,15 +6812,14 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-storage-offline"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d7e6cbc0b9850e421e2bebaa5638c3cbbde4a9cafe0f3c0ef3e26a638f4857d"
+checksum = "4b684f64673f1b5d15f78c0851c581350d846bc9b7e10a99ad6fe179e0621bcf"
 dependencies = [
  "mln-rs-feature",
  "mln-rs-renderer",
  "mln-rs-storage",
  "mln-rs-style",
- "mln-rs-style-types",
  "mln-rs-text",
  "mln-rs-tile-id",
  "mln-rs-util",
@@ -6916,49 +6828,49 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-style"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "345a2730b41a8b6e312513c278bdecf6b86ded699d7a0ffe4c0a5342ca6fafe0"
+checksum = "9406ed61b76365ead2eeb3415f3b33dd04c2cc7c92dc66a17eb7ceb7b19e9922"
 dependencies = [
+ "cheap-ruler",
+ "fixed_decimal",
+ "foldhash 0.2.0",
  "geo-types",
  "geojson 1.0.0",
- "mln-rs-conversion",
- "mln-rs-expression",
+ "icu_collator",
+ "icu_decimal",
+ "icu_experimental",
+ "icu_locale",
+ "icu_plurals",
+ "icu_provider",
+ "jni",
+ "js-sys",
  "mln-rs-feature",
  "mln-rs-geojson",
+ "mln-rs-geometry",
  "mln-rs-image",
- "mln-rs-map-types",
  "mln-rs-math",
- "mln-rs-storage",
- "mln-rs-style-types",
- "mln-rs-text",
  "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-vec-map",
  "mln-rs-wire",
+ "objc2",
+ "objc2-foundation",
  "parking_lot",
+ "serde",
  "serde_json",
+ "serde_json_borrow",
+ "smallvec",
  "thiserror 2.0.21",
-]
-
-[[package]]
-name = "mln-rs-style-types"
-version = "0.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a89a0e62fa275edcc25da7f221e8baa5c0698d2313e6be1e71b1410af036a90"
-dependencies = [
- "mln-rs-feature",
- "mln-rs-math",
- "mln-rs-util",
- "mln-rs-vec-map",
- "mln-rs-wire",
+ "wasm-bindgen",
+ "writeable",
 ]
 
 [[package]]
 name = "mln-rs-system-fonts"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3919899bcaa19cc8bfcbb21ddae3eacbd0bc544cc491c7cd754e82b50dbd2e7"
+checksum = "1b48f14a0cf25a666377654932fb10910499b6ceb5dfe6dc3d6a08dcdec410a5"
 dependencies = [
  "jni",
  "libloading",
@@ -6976,9 +6888,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-text"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ab712b9448beb5ff1091801010203451a791cb4d2e1207ee4592cfbb2e19811"
+checksum = "9c4af3134f319990905c612ab73dd77237c7b6e01585fc7925220615af9b53df"
 dependencies = [
  "ab_glyph_rasterizer",
  "buffa",
@@ -6987,7 +6899,7 @@ dependencies = [
  "harfrust 0.15.0",
  "js-sys",
  "mln-rs-math",
- "mln-rs-style-types",
+ "mln-rs-style",
  "mln-rs-util",
  "mln-rs-vec-map",
  "mln-rs-wire",
@@ -7004,9 +6916,9 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-tile"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5c1bc4e7d6edfce0691b69f8b22ca6accfde00ad1fcaa8e136747965d955396"
+checksum = "11b29a537692160a3834531dcb867d22fb2a0ea9a87532b02c165d06307bad5b"
 dependencies = [
  "fast-mvt 0.7.3",
  "geo-types",
@@ -7014,21 +6926,21 @@ dependencies = [
  "mln-rs-feature",
  "mln-rs-geometry",
  "mln-rs-math",
+ "mln-rs-style",
  "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-wire",
- "mlt-core 0.22.2",
+ "mlt-core",
  "parking_lot",
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "mln-rs-tile-id"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "499b5e2114bd07bd53c936f6e2eb914787c1ad6fe2246c8acf37daac980f827d"
+checksum = "50c64d090813018b4bb22275dd1f030a436fb4d6913002ca7bc4cb7378be7be7"
 dependencies = [
- "mln-rs-feature",
  "mln-rs-geometry",
  "mln-rs-math",
  "mln-rs-util",
@@ -7037,17 +6949,17 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-util"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95f507cd1c3aea8924b94ed2d16d55f76574c0ada34b5784dd7c9c73a1f13e9a"
+checksum = "58d89c13f5e78bb78e42ff06d75b424f1eb20401bc49d8efbdce30f268938458"
 dependencies = [
- "bytemuck",
  "flate2",
  "foldhash 0.2.0",
  "geo-types",
  "glam",
  "httpdate",
- "js-sys",
+ "jni",
+ "libc",
  "mln-rs-feature",
  "mln-rs-geometry",
  "mln-rs-math",
@@ -7060,27 +6972,26 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-vec-map"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cab8544e3d02aa6019aec0c4dae56fd75b0f2f9d0152a3564fa17ae86dcdab8"
+checksum = "607187f9b3484061c1764dbfd20d1c0b0e150c429aba2a4b9437cd46b8802366"
 dependencies = [
  "mln-rs-wire",
 ]
 
 [[package]]
 name = "mln-rs-vulkan"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4be9cc8a4e6ad3cccaedaae7932e1568bdf396067970a1f0d0e6b35f384bbeef"
+checksum = "8db4bba46d4be026fc37e6dc1221729e058bd7147d196d7684f25909160a4c74"
 dependencies = [
  "ash",
  "bytemuck",
  "gpu-allocator",
  "libc",
+ "log",
  "mln-rs-gfx",
  "mln-rs-glsl",
- "mln-rs-tile-id",
- "mln-rs-util",
  "naga",
  "parking_lot",
  "windows",
@@ -7088,14 +6999,15 @@ dependencies = [
 
 [[package]]
 name = "mln-rs-web-host"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1df50477769f585340ec350363c6b48cd4e431c70e42fdca8bcc3e9c7577075d"
+checksum = "6d746f8cffc32e6e4ae245949beb14d1c1efeed1c87c88d02ff703afdc5b0a89"
 dependencies = [
  "js-sys",
  "mln-rs-renderer",
  "mln-rs-text",
  "mln-rs-util",
+ "mln-rs-wire",
  "parking_lot",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -7103,74 +7015,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "mln-rs-webgpu"
-version = "0.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc76f752ec6ab0c7a3f324d89e35e81d371b70e7238dc3b5d229ccde43cb6f6f"
-dependencies = [
- "mln-rs-gfx",
- "mln-rs-util",
- "mln-rs-vec-map",
- "parking_lot",
- "pollster",
- "wgpu",
-]
-
-[[package]]
 name = "mln-rs-wire"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3335c2f14ca6943cabcfa1ce85bd622255146a81ca5a7100a5554cb132944263"
+checksum = "c64e43b62b35de3265b493a35f82e24400a7a14e51a409f2d6db169c211ff414"
 dependencies = [
+ "bytemuck",
+ "foldhash 0.2.0",
  "geo-types",
  "glam",
+ "js-sys",
  "mln-rs-wire-derive",
  "parking_lot",
 ]
 
 [[package]]
 name = "mln-rs-wire-derive"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b504ee61921f716e2a3cb8ea970f3e59dcd557372d717f81d55aae7ba4a69d32"
+checksum = "e41e3ef8caeb6b46ac5e1fde62e1c8b224470146e35b936896d72be02158cde0"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "mlt-core"
-version = "0.22.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b88c217d3f4c3be17490693b242a8fb77d6cfe37929c07b5c4abcc2e4df9175a"
-dependencies = [
- "bitvec",
- "bytemuck",
- "compact_str 0.10.0",
- "derive-debug",
- "enum_dispatch",
- "fast-mvt 0.7.3",
- "fastpfor",
- "fsst-rs",
- "geo",
- "geo-types",
- "hex",
- "hilbert_2d",
- "hotpath 0.31.3",
- "integer-encoding",
- "num-traits",
- "num_enum",
- "rustc-hash 2.1.3",
- "serde",
- "serde_json",
- "strum 0.28.0",
- "thiserror 2.0.21",
- "union-find",
- "usize_cast",
- "wide 1.7.1",
- "xxhash-rust",
- "zigzag",
 ]
 
 [[package]]
@@ -7678,10 +7545,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e022c9d066895efa1345f8e33e584b9f958da2fd4cd116792e15e07e4720a807"
 dependencies = [
  "bitflags 2.13.2",
- "dispatch2",
- "objc2",
  "objc2-core-foundation",
- "objc2-io-surface",
 ]
 
 [[package]]
@@ -7756,7 +7620,6 @@ dependencies = [
  "bitflags 2.13.2",
  "objc2",
  "objc2-core-foundation",
- "objc2-core-graphics",
  "objc2-foundation",
  "objc2-metal",
 ]
@@ -8439,12 +8302,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pollster"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e9b9cf600136f5b976fbc5727d58c26e1ecab8ee23088d44ef1c7af793550ab"
-
-[[package]]
 name = "polycool"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8625,12 +8482,6 @@ checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
 ]
-
-[[package]]
-name = "profiling"
-version = "1.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5"
 
 [[package]]
 name = "prometheus"
@@ -8890,7 +8741,7 @@ dependencies = [
  "once_cell",
  "socket2 0.6.5",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9010,12 +8861,6 @@ checksum = "eb95882a1e14462c69aea9984bb261293ccfe6022ef8de0eda18bd5afb0052df"
 dependencies = [
  "rand_core 0.10.1",
 ]
-
-[[package]]
-name = "range-alloc"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca45419789ae5a7899559e9512e58ca889e41f04f1f2445e9f4b290ceccd1d08"
 
 [[package]]
 name = "ratatui"
@@ -9316,12 +9161,6 @@ name = "relative-path"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
-
-[[package]]
-name = "renderdoc-sys"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
 name = "reqwest"
@@ -9648,7 +9487,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9716,7 +9555,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -10971,19 +10810,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "termcolor"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
-dependencies = [
- "winapi-util",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -12457,160 +12287,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wgpu"
-version = "30.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "146fc3d654250e6207921a66c87534c621bc886c70df83dcf466c1d66813810e"
-dependencies = [
- "arrayvec",
- "bitflags 2.13.2",
- "bytemuck",
- "cfg-if",
- "cfg_aliases 0.2.2",
- "document-features",
- "hashbrown 0.17.1",
- "js-sys",
- "log",
- "naga",
- "parking_lot",
- "portable-atomic",
- "profiling",
- "raw-window-handle",
- "smallvec",
- "static_assertions",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "wgpu-core",
- "wgpu-hal",
- "wgpu-types",
-]
-
-[[package]]
-name = "wgpu-core"
-version = "30.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad661da2ee99f208c30090b585284b2ab5b8bf2358ddf2d2215592808ec62f1a"
-dependencies = [
- "arrayvec",
- "bit-set 0.10.0",
- "bit-vec 0.9.1",
- "bitflags 2.13.2",
- "bytemuck",
- "cfg_aliases 0.2.2",
- "document-features",
- "hashbrown 0.17.1",
- "indexmap 2.14.2",
- "log",
- "naga",
- "naga-types",
- "once_cell",
- "parking_lot",
- "portable-atomic",
- "profiling",
- "raw-window-handle",
- "rustc-hash 1.1.0",
- "smallvec",
- "thiserror 2.0.21",
- "wgpu-core-deps-apple",
- "wgpu-core-deps-windows-linux-android",
- "wgpu-hal",
- "wgpu-naga-bridge",
- "wgpu-types",
-]
-
-[[package]]
-name = "wgpu-core-deps-apple"
-version = "30.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d3f2f24aee039ffe9ef527300daf6b7428c58edeefdaa1700f4fa0fd754df16"
-dependencies = [
- "wgpu-hal",
-]
-
-[[package]]
-name = "wgpu-core-deps-windows-linux-android"
-version = "30.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1331b08fa2362c5d454eccc4448e6e4f01eccfea569a00e310adbfc4415f2bdc"
-dependencies = [
- "wgpu-hal",
-]
-
-[[package]]
-name = "wgpu-hal"
-version = "30.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a57452fe453658e141aafdb09de1028afa498805fab518238ddf372a518813ff"
-dependencies = [
- "android_system_properties",
- "arrayvec",
- "ash",
- "bit-set 0.10.0",
- "bitflags 2.13.2",
- "block2",
- "bytemuck",
- "cfg-if",
- "cfg_aliases 0.2.2",
- "gpu-allocator",
- "hashbrown 0.17.1",
- "libc",
- "libloading",
- "log",
- "naga",
- "naga-types",
- "objc2",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "objc2-foundation",
- "objc2-metal",
- "objc2-quartz-core",
- "once_cell",
- "ordered-float",
- "parking_lot",
- "portable-atomic",
- "portable-atomic-util",
- "profiling",
- "range-alloc",
- "raw-window-handle",
- "raw-window-metal",
- "renderdoc-sys",
- "smallvec",
- "static_assertions",
- "thiserror 2.0.21",
- "wgpu-naga-bridge",
- "wgpu-types",
- "windows",
- "windows-core",
-]
-
-[[package]]
-name = "wgpu-naga-bridge"
-version = "30.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44a62ead68aad7cd40ac9e2cd2b8ec64f32dfbad2765f429b9fb74b8b735869f"
-dependencies = [
- "naga",
- "wgpu-types",
-]
-
-[[package]]
-name = "wgpu-types"
-version = "30.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9f6ee0bd50f5ab79fb8c25e3f33afb27126f034af4ba5909c7a0967058659e6"
-dependencies = [
- "bitflags 2.13.2",
- "bytemuck",
- "js-sys",
- "log",
- "naga-types",
- "raw-window-handle",
- "static_assertions",
- "web-sys",
-]
-
-[[package]]
 name = "whoami"
 version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12665,7 +12341,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
