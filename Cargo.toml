@@ -151,7 +151,6 @@ lambda-web = { version = "0.2.1", features = ["actix4"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 log = "0.4"
 map-tile-toolkit = { path = "./crates/map-tile-toolkit", version = "0.4.1" }
-maplibre-native-ffi = "0.202611.0"
 martin-config-macros = { path = "./crates/martin-config-macros", version = "0.1.5" }
 martin-core = { path = "./crates/martin-core", version = "0.18.0", default-features = false }
 martin-tile-utils = { path = "./crates/martin-tile-utils", version = "0.9.4" }
@@ -161,6 +160,7 @@ mbtiles = { path = "./crates/mbtiles", version = "0.24.0" }
 md5 = "0.8.0"
 memmap2 = "0.9.11"
 miette = { version = "7.6", features = ["fancy"] }
+mln-rs = "0.0.17"
 mlt-core = { version = "0.24.0", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "9.0.0"

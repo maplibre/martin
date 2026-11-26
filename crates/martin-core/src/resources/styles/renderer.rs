@@ -1,36 +1,64 @@
-//! One `MapLibre` map drawing still images into its own texture, driven from a single thread.
+//! One `MapLibre` map drawing still images into its own texture, driven from a single thread (mln-rs).
 
 use std::collections::HashMap;
 use std::future::Future;
-use std::ops::Deref;
 use std::path::Path;
 use std::pin::Pin;
-use std::sync::{Arc, Condvar, Mutex, Once, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::task::{Context, Poll, Wake, Waker};
 use std::time::{Duration, Instant};
 
 use image::RgbaImage;
-use maplibre_native_ffi::{
-    CameraOptions, CameraUpdate, CameraUpdateMode, CommandCompletion, LogHandler, LogSeverity, LogicalExtent,
-    LogicalSize, MapHandle, MapMode, MapOptions, NativeFuture, OffscreenDescriptor, OffscreenDeviceHandle,
-    OffscreenDeviceOptions, RenderDriverKind, RenderSessionAttachOptions, RenderSessionHandle, RuntimeEvent,
-    RuntimeEventFlag, RuntimeEventHandler, RuntimeEventType, RuntimeHandle, RuntimeOptions, TextureReadbackResult,
-    set_log_callback,
+pub use mln_rs::mln_map::{CameraOptions, MapMode};
+use mln_rs::mln_map::{CameraUpdate, CameraUpdateMode, LogicalExtent, MapEvent};
+pub use mln_rs::mln_util::LatLng;
+use mln_rs::mln_util::size::Size;
+use mln_rs::{
+    Applied, AttachOptions, BackendType, Completion, Device, DeviceOptions, Driver, EventMask, EventSource, EventType,
+    MapId, MapOptions, RenderSession, RenderTarget, RuntimeEvent, RuntimeEventKind, RuntimeOptions,
 };
-
-use tracing::{error, info, warn};
+pub use mln_rs::{Error as EngineError, Map as MapHandle};
+use tracing::warn;
 
 use crate::resources::styles::StyleError;
 
 /// How long a call into `MapLibre` may take before its renderer is given up on.
 const NATIVE_TIMEOUT: Duration = Duration::from_secs(60);
 
+/// A map command's outcome, as the overlay code sends it.
+pub type Command = Result<Completion<Applied>, EngineError>;
+
+/// The WGS84 point at `lat`, `lon`.
+pub fn lat_lng(lat: f64, lon: f64) -> LatLng {
+    LatLng::new(lat, lon).expect("tile centers and request coordinates are valid")
+}
+
+/// Adds the source `id` from its JSON.
+pub fn add_source_json(map: &MapHandle, id: &str, json: &str) -> Command {
+    map.add_style_source_json(id, json)
+}
+
+/// Adds the layer of `json` above every other.
+pub fn add_layer_json(map: &MapHandle, json: &str) -> Command {
+    map.add_style_layer_json(json, None)
+}
+
+/// Queues the removal of layer `id` without waiting for it.
+pub fn remove_layer(map: &MapHandle, id: &str) {
+    drop(map.remove_style_layer(id));
+}
+
+/// Queues the removal of source `id` without waiting for it.
+pub fn remove_source(map: &MapHandle, id: &str) {
+    drop(map.remove_style_source(id));
+}
+
 /// A `MapLibre` runtime shared by every renderer of a pool, with one ambient cache.
 pub struct Runtime {
-    /// The native runtime.
-    handle: Releasable<RuntimeHandle>,
+    /// The runtime.
+    handle: mln_rs::Runtime,
     /// Style-load listeners, by the id of the map they listen to.
-    listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>>,
+    listeners: Arc<Mutex<HashMap<MapId, Arc<StyleListener>>>>,
 }
 
 impl std::fmt::Debug for Runtime {
@@ -40,15 +68,13 @@ impl std::fmt::Debug for Runtime {
 }
 
 impl Drop for Runtime {
-    /// Releases the runtime and waits until its native threads have stopped.
+    /// Releases the runtime and waits until its threads have stopped.
     fn drop(&mut self) {
         let signal = Arc::new(Signal::default());
-        let Some(handle) = self.handle.take() else { return };
-        let released = handle
-            .release()
-            .map(|released| block_on(&signal, released, "runtime release"))
-            .map_err(|err| StyleError::from(err.error));
-        if let Err(err) | Ok(Err(err)) = released {
+        let released = (self.handle.release())
+            .map_err(StyleError::from)
+            .and_then(|released| block_on(&signal, released, "runtime release"));
+        if let Err(err) = released {
             warn!(error = %err, "Failed to release the MapLibre runtime");
         }
     }
@@ -57,25 +83,22 @@ impl Drop for Runtime {
 impl Runtime {
     /// Creates a runtime whose ambient cache holds up to `ambient_cache_bytes`
     /// (`None` keeps `MapLibre`'s default, `Some(0)` disables it).
-    ///
-    /// # Errors
-    ///
-    /// Returns [`StyleError::RenderingError`] when `MapLibre` cannot start.
     pub fn new(ambient_cache_bytes: Option<u64>) -> Result<Self, StyleError> {
-        forward_logs();
-        let handle = RuntimeHandle::create(Some(&RuntimeOptions::default()))?;
-        let listeners: Arc<Mutex<HashMap<u64, Arc<StyleListener>>>> = Arc::default();
+        let handle = mln_rs::Runtime::new(&RuntimeOptions::default())?;
+        let listeners: Arc<Mutex<HashMap<MapId, Arc<StyleListener>>>> = Arc::default();
         let routes = Arc::downgrade(&listeners);
         let signal = Arc::new(Signal::default());
-        let handler = RuntimeEventHandler::new(move |batch| {
+        let handler = move |batch: &[RuntimeEvent]| {
             let Some(routes) = routes.upgrade() else { return };
             let routes = routes.lock().unwrap_or_else(PoisonError::into_inner);
             for event in batch {
-                if let Some(listener) = routes.get(&event.source) {
-                    listener.observe(&event);
+                if let EventSource::Map { id, generation } = event.source
+                    && let Some(listener) = routes.get(&id)
+                {
+                    listener.observe(generation, &event.kind);
                 }
             }
-        });
+        };
         block_on(&signal, handle.set_event_handler(handler)?, "event handler setup")?;
         if let Some(bytes) = ambient_cache_bytes {
             block_on(
@@ -84,35 +107,34 @@ impl Runtime {
                 "ambient cache setup",
             )?;
         }
-        Ok(Self {
-            handle: Releasable(Some(handle)),
-            listeners,
-        })
+        Ok(Self { handle, listeners })
     }
 }
 
-/// One worker's graphics device, created with `single_context` when the worker is built.
-///
-/// `single_context` requires that the device's sessions never render at the same time, which holds because a
-/// worker renders one image at a time.
+/// The backend that `MARTIN_MLN_BACKEND` names: `gl` (default), `vulkan` or `webgpu`.
+fn backend() -> BackendType {
+    match std::env::var("MARTIN_MLN_BACKEND").as_deref() {
+        Ok("vulkan") => BackendType::Vulkan,
+        Ok("webgpu") => BackendType::WebGPU,
+        _ => BackendType::OpenGL,
+    }
+}
+
+/// One worker's graphics device, created with `gl_single_context` when the worker is built.
 #[derive(Debug)]
 pub struct WorkerDevice {
     runtime: Arc<Runtime>,
-    device: OffscreenDeviceHandle,
+    device: Device,
 }
 
 impl WorkerDevice {
     /// Creates the device for a new worker of a pool of `runtime`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`StyleError::GraphicsUnavailable`] when no graphics device can be created.
     pub fn new(runtime: Arc<Runtime>) -> Result<Self, StyleError> {
-        let options = OffscreenDeviceOptions {
-            single_context: Some(true),
-            ..OffscreenDeviceOptions::default()
+        let options = DeviceOptions {
+            gl_single_context: true,
+            ..DeviceOptions::default()
         };
-        let device = OffscreenDeviceHandle::create(Some(&options)).map_err(|err| StyleError::GraphicsUnavailable {
+        let device = Device::with_backend(backend(), options).map_err(|err| StyleError::GraphicsUnavailable {
             reason: err.to_string(),
         })?;
         Ok(Self { runtime, device })
@@ -122,27 +144,6 @@ impl WorkerDevice {
     pub fn renderer(&self, mode: MapMode, width: u32, height: u32, pixel_ratio: f64) -> Result<Renderer, StyleError> {
         Renderer::new(&self.runtime, &self.device, mode, width, height, pixel_ratio)
     }
-}
-
-/// Forwards `MapLibre`'s log records to `tracing` under the target `maplibre_native`, once per process.
-fn forward_logs() {
-    static FORWARDED: Once = Once::new();
-    FORWARDED.call_once(|| {
-        let handler = LogHandler::new(|severity, event, code, message| match severity {
-            LogSeverity::Info => {
-                info!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-            }
-            LogSeverity::Warning => {
-                warn!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-            }
-            LogSeverity::Error | LogSeverity::Unknown(_) => {
-                error!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-            }
-        });
-        if let Err(err) = set_log_callback(handler) {
-            warn!(error = %err, "Failed to forward MapLibre's log records to tracing");
-        }
-    });
 }
 
 /// What a map reported about loading a style.
@@ -155,9 +156,6 @@ enum StyleOutcome {
 }
 
 /// Collects the style-load outcomes one map reports while a style load is pending.
-///
-/// Outcomes are kept with their generation, because only once the style command has
-/// committed is it known which generation the new style starts at.
 #[derive(Debug, Default)]
 struct StyleListener {
     /// Outcomes reported since the pending load began, with their generations,
@@ -169,16 +167,16 @@ struct StyleListener {
 
 impl StyleListener {
     /// Records `event` if it is a style-load outcome and a load is pending.
-    fn observe(&self, event: &RuntimeEvent) {
-        let outcome = if matches!(event.r#type, RuntimeEventType::MapStyleLoaded) {
+    fn observe(&self, generation: u64, event: &RuntimeEventKind) {
+        let outcome = if let RuntimeEventKind::Map(MapEvent::StyleLoaded) = event {
             StyleOutcome::Loaded
-        } else if matches!(event.r#type, RuntimeEventType::MapLoadingFailed) {
-            StyleOutcome::Failed(event.message.clone())
+        } else if let RuntimeEventKind::Map(MapEvent::LoadingFailed(error)) = event {
+            StyleOutcome::Failed(error.message().to_owned())
         } else {
             return;
         };
         if let Some(outcomes) = self.outcomes.lock().unwrap_or_else(PoisonError::into_inner).as_mut() {
-            outcomes.push((event.generation, outcome));
+            outcomes.push((generation, outcome));
             self.signal.raise();
         }
     }
@@ -208,20 +206,18 @@ impl StyleListener {
     }
 }
 
-/// A map in tile or static mode with a session-owned texture it reads its still images back from.
-///
-/// Every call blocks the calling thread until `MapLibre` answers.
+/// A map in tile or static mode with an offscreen texture it reads its still images back from.
 #[derive(Debug)]
 pub struct Renderer {
     /// The pool's runtime, kept alive for as long as the map.
     runtime: Arc<Runtime>,
     /// The map the camera, style and overlays apply to.
-    map: Releasable<MapHandle>,
+    map: MapHandle,
     /// The render target the map draws into.
-    session: Releasable<RenderSessionHandle>,
+    session: RenderSession,
     /// Style-load outcomes of `map`.
     style: Arc<StyleListener>,
-    /// Raised by every native completion this renderer waits on.
+    /// Raised by every completion this renderer waits on.
     signal: Arc<Signal>,
 }
 
@@ -229,25 +225,42 @@ impl Renderer {
     /// Creates a map of `mode` drawing `width` x `height` logical pixels at `pixel_ratio` into a texture on `device`.
     pub fn new(
         runtime: &Arc<Runtime>,
-        device: &OffscreenDeviceHandle,
+        device: &Device,
         mode: MapMode,
         width: u32,
         height: u32,
         pixel_ratio: f64,
     ) -> Result<Self, StyleError> {
         let signal = Arc::new(Signal::default());
-        let extent = LogicalExtent::new(width, height, pixel_ratio);
-        let options = MapOptions {
-            map_mode: mode,
-            event_mask: Some(RuntimeEventFlag::MAP_STYLE_LOADED | RuntimeEventFlag::MAP_LOADING_FAILED),
-            ..MapOptions::new(extent)
+        let size = Size { width, height };
+        let mut options = MapOptions {
+            event_mask: EventMask::from_bits(
+                (1 << EventType::MapStyleLoaded as u64) | (1 << EventType::MapLoadingFailed as u64),
+            )
+            .expect("style events are map events"),
+            system_fonts: false,
+            ..MapOptions::default()
         };
-        let (map, created) = runtime.handle.create_map(&options)?;
+        options.map.map_mode = mode;
+        options.map.size = size;
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "pixel ratios are small, an f32 holds them"
+        )]
+        let pixel_ratio = pixel_ratio as f32;
+        options.map.pixel_ratio = pixel_ratio;
+        let (map, created) = runtime.handle.create_map(options)?;
         block_on(&signal, created, "map creation")?;
 
-        let attach = RenderSessionAttachOptions::new(RenderDriverKind::CoreWorker);
-        let descriptor = OffscreenDescriptor::new(LogicalSize::new(width, height));
-        let (session, attached) = map.attach_offscreen(&descriptor, &attach, Some(device))?;
+        let target = RenderTarget::Offscreen {
+            size,
+            device: Some(device.clone()),
+        };
+        let options = AttachOptions {
+            driver: Driver::CoreWorker,
+            ..AttachOptions::default()
+        };
+        let (session, attached) = map.attach(target, options)?;
         let style = Arc::new(StyleListener::default());
         runtime
             .listeners
@@ -256,8 +269,8 @@ impl Renderer {
             .insert(map.id(), Arc::clone(&style));
         let renderer = Self {
             runtime: Arc::clone(runtime),
-            map: Releasable(Some(map)),
-            session: Releasable(Some(session)),
+            map,
+            session,
             style,
             signal,
         };
@@ -282,7 +295,7 @@ impl Renderer {
             .into());
         };
         let url = format!("file://{path}");
-        self.set_style(|map| map.set_style_url(&url))
+        self.set_style(|map| map.set_style_url(url))
     }
 
     /// Loads the style document `json` and waits until `MapLibre` has loaded or rejected it.
@@ -291,13 +304,9 @@ impl Renderer {
     }
 
     /// Sends the style command `set` and waits until `MapLibre` has loaded or rejected its style.
-    fn set_style(
-        &self,
-        set: impl FnOnce(&MapHandle) -> maplibre_native_ffi::Result<NativeFuture<CommandCompletion>>,
-    ) -> Result<(), StyleError> {
+    fn set_style(&self, set: impl FnOnce(&MapHandle) -> Command) -> Result<(), StyleError> {
         let until = Instant::now() + NATIVE_TIMEOUT;
         self.style.begin();
-        // A failed style command loads nothing, so no outcome would ever arrive.
         let set = match block_on(&self.signal, set(&self.map)?, "style command") {
             Ok(set) => set,
             Err(StyleError::RenderingError(err)) => {
@@ -319,9 +328,11 @@ impl Renderer {
 
     /// Resizes the drawing to `width` x `height` logical pixels, keeping the map and its style.
     pub fn resize(&mut self, width: u32, height: u32) -> Result<(), StyleError> {
+        let scale_factor = self.session.snapshot()?.extent.scale_factor;
         block_on(
             &self.signal,
-            self.session.resize(LogicalSize::new(width, height))?,
+            self.session
+                .resize(LogicalExtent::new(Size { width, height }, scale_factor))?,
             "resize",
         )?;
         Ok(())
@@ -333,57 +344,49 @@ impl Renderer {
     }
 
     /// Waits for the outcome of a style command, failing if `MapLibre` rejected it or did not answer in time.
-    pub fn command(
-        &self,
-        command: maplibre_native_ffi::Result<NativeFuture<CommandCompletion>>,
-    ) -> Result<(), StyleError> {
+    pub fn command(&self, command: Command) -> Result<(), StyleError> {
         block_on(&self.signal, command?, "style command")?;
         Ok(())
     }
 
+    /// The style's root property `name` as JSON, or `None` when the style leaves it unset.
+    pub fn root_property(&self, name: &str) -> Result<Option<String>, StyleError> {
+        block_on(&self.signal, self.map.style_root_property(name)?, "style root property")
+    }
+
+    /// Sets the style's root property `name` to `json` without reloading the style.
+    pub fn set_root_property(&self, name: &str, json: &str) -> Result<(), StyleError> {
+        self.command(self.map.set_style_root_property(name, json))
+    }
+
     /// Moves the camera to `camera` and renders the still image `MapLibre` produces once everything it shows has loaded.
     pub fn render(&mut self, camera: CameraOptions) -> Result<RgbaImage, StyleError> {
-        self.map.discarding().update_camera(&CameraUpdate {
+        drop(self.map.update_camera(CameraUpdate {
             mode: CameraUpdateMode::Jump,
             camera,
             ..CameraUpdate::default()
-        })?;
+        })?);
         block_on(&self.signal, self.map.request_still_image()?, "still image")?;
-        // Frame results queue up on the session until drained, and the still image needs none of them.
-        self.session.drain_frame_results()?;
+        drop(self.session.drain_frame_results()?);
         let readback = block_on(&self.signal, self.session.read_texture()?, "texture readback")?;
-        Ok(unpremultiply(readback))
+        Ok(unpremultiply(readback.size.width, readback.size.height, readback.data))
     }
 }
 
 impl Drop for Renderer {
-    /// Detaches and releases the session, then the map, waiting for each, so no native
-    /// worker still draws when the runtime or the process goes away.
+    /// Detaches the session, then releases the map, waiting for each.
     fn drop(&mut self) {
-        let detached = self
-            .session
-            .detach()
-            .map(|detached| block_on(&self.signal, detached, "render session detach"))
-            .map_err(StyleError::from);
-        if let Err(err) | Ok(Err(err)) = detached {
+        let detached = (self.session.detach())
+            .map_err(StyleError::from)
+            .and_then(|detached| block_on(&self.signal, detached, "render session detach"));
+        if let Err(err) = detached {
             warn!(error = %err, "Failed to detach a render session");
         }
-        if let Some(session) = self.session.take() {
-            let released = session
-                .release()
-                .map(|(released, _)| block_on(&self.signal, released, "render session release"))
-                .map_err(|err| StyleError::from(err.error));
-            if let Err(err) | Ok(Err(err)) = released {
-                warn!(error = %err, "Failed to release a render session");
-            }
-        }
-        let Some(map) = self.map.take() else { return };
-        let id = map.id();
-        let released = map
-            .release()
-            .map(|released| block_on(&self.signal, released, "map release"))
-            .map_err(|err| StyleError::from(err.error));
-        if let Err(err) | Ok(Err(err)) = released {
+        let id = self.map.id();
+        let released = (self.map.release())
+            .map_err(StyleError::from)
+            .and_then(|released| block_on(&self.signal, released, "map release"));
+        if let Err(err) = released {
             warn!(error = %err, "Failed to release a map");
         }
         self.runtime
@@ -394,52 +397,20 @@ impl Drop for Renderer {
     }
 }
 
-/// A native handle that `Drop` moves out to release it and wait for its teardown.
-#[derive(Debug)]
-struct Releasable<T>(Option<T>);
-
-impl<T> Releasable<T> {
-    /// Moves the handle out, leaving nothing to release twice.
-    fn take(&mut self) -> Option<T> {
-        self.0.take()
-    }
-}
-
-impl<T> Deref for Releasable<T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        self.0
-            .as_ref()
-            .expect("a handle is only moved out while its owner drops")
-    }
-}
-
-/// Converts `MapLibre`'s premultiplied readback to straight alpha, rounding as `MapLibre`'s own
-/// `unpremultiply` does, and drops any row padding.
-fn unpremultiply(readback: TextureReadbackResult) -> RgbaImage {
-    let TextureReadbackResult { mut data, info } = readback;
-    let row = info.width as usize * 4;
-    let stride = info.stride as usize;
-    if stride != row {
-        for y in 1..info.height as usize {
-            data.copy_within(y * stride..y * stride + row, y * row);
-        }
-    }
-    data.truncate(row * info.height as usize);
+/// Converts `MapLibre`'s premultiplied readback to straight alpha, rounding as `MapLibre`'s own `unpremultiply` does.
+fn unpremultiply(width: u32, height: u32, mut data: Vec<u8>) -> RgbaImage {
     for pixel in data.as_chunks_mut::<4>().0 {
         let alpha = u16::from(pixel[3]);
         if alpha != 0 && alpha != 255 {
             for channel in &mut pixel[..3] {
-                // At most 255, since a premultiplied channel never exceeds its alpha.
                 *channel = u8::try_from((255 * u16::from(*channel) + alpha / 2) / alpha).unwrap_or(u8::MAX);
             }
         }
     }
-    RgbaImage::from_raw(info.width, info.height, data).expect("readback holds width x height RGBA pixels")
+    RgbaImage::from_raw(width, height, data).expect("readback holds width x height RGBA pixels")
 }
 
-/// A counter that threads wait on to move past, raised by native callbacks and future wakers.
+/// A counter that threads wait on to move past, raised by callbacks and future wakers.
 #[derive(Debug, Default)]
 struct Signal {
     /// How often the signal was raised.

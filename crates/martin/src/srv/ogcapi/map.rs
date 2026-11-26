@@ -495,7 +495,9 @@ pub(super) async fn render_map(
     let format = MapFormat::of(req)?;
     let viewport = Viewport::of(query, default_bounds).map_err(|e| map_error(&e))?;
     let (lon, lat, zoom) = viewport.camera();
-    let params = RenderParams::new(style, lat, lon, zoom).with_size(viewport.width, viewport.height, NonZeroU8::MIN);
+    let params = RenderParams::new(style, lat, lon, zoom)
+        .with_size(viewport.width, viewport.height, NonZeroU8::MIN)
+        .force_mercator();
     let image = match styles.render_static(params).await {
         Ok(image) => image,
         Err(e) => return Ok(render_failure(&e)),

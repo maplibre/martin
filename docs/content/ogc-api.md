@@ -106,7 +106,7 @@ A map is in the format the `Accept` header weighs highest, ignoring `q=0`: PNG (
 | `scale-denominator` | scale of the map, instead of `width` and `height` with `bbox`                                               |
 | `collections`       | for `/ogc/map` only: comma-separated source IDs, or their `/ogc/collections/{sourceID}` URLs                |
 
-Maps are always in web mercator, which the `Content-Crs` header states.
+Maps are always in Web Mercator, which the `Content-Crs` header states, even for a style that sets `"projection": {"type": "globe"}`.
 The `Content-Bbox` header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for.
 PNGs always have an alpha channel, and TIFFs are GeoTIFFs placed at that area.
 

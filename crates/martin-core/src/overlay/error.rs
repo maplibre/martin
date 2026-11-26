@@ -1,3 +1,5 @@
+use crate::resources::styles::renderer::EngineError;
+
 /// Error produced when maplibre rejects a source or layer while applying an
 /// [`OverlaySpec`](crate::overlay::OverlaySpec) to a renderer's map.
 #[derive(Debug, thiserror::Error)]
@@ -7,5 +9,5 @@ pub struct ApplyError {
     pub id: String,
     /// Underlying maplibre error.
     #[source]
-    pub error: maplibre_native_ffi::Error,
+    pub error: EngineError,
 }
