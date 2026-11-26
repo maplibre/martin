@@ -2054,6 +2054,7 @@ dependencies = [
  "image",
  "insta",
  "jpeg-decoder",
+ "martin-tile-utils",
  "moka",
  "object_store",
  "png",
@@ -5965,7 +5966,7 @@ dependencies = [
  "martin-vendored-cql2",
  "mbtiles",
  "miette",
- "mlt-core",
+ "mlt-core 0.24.0",
  "notify",
  "num_cpus",
  "object_store",
@@ -6058,7 +6059,7 @@ dependencies = [
  "martin-tilegen",
  "mbtiles",
  "mln-rs",
- "mlt-core",
+ "mlt-core 0.24.0",
  "moka",
  "object_store",
  "pbf_font_tools",
@@ -6115,7 +6116,7 @@ dependencies = [
  "jxl-oxide",
  "libc",
  "martin-tile-utils",
- "mlt-core",
+ "mlt-core 0.24.0",
  "object_store",
  "pbf_font_tools",
  "pmtiles",
@@ -6149,6 +6150,7 @@ dependencies = [
  "bytes",
  "flate2",
  "hotpath 0.33.0",
+ "moka",
  "rstest",
  "serde",
  "serde_json",
@@ -6179,7 +6181,7 @@ dependencies = [
  "martin-tilegen",
  "mbtiles",
  "memmap2",
- "mlt-core",
+ "mlt-core 0.24.0",
  "osmflow",
  "perf-event2",
  "pmtiles",
@@ -6930,7 +6932,7 @@ dependencies = [
  "mln-rs-tile-id",
  "mln-rs-util",
  "mln-rs-wire",
- "mlt-core",
+ "mlt-core 0.23.0",
  "parking_lot",
  "thiserror 2.0.21",
 ]
@@ -7045,6 +7047,41 @@ name = "mlt-core"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bbbbe0a22eea799e91bbe97ff5513e92f4ac642c1d5a932b2570460f2ec3385"
+dependencies = [
+ "bitvec",
+ "bytemuck",
+ "compact_str 0.10.0",
+ "derive-debug",
+ "earcut",
+ "enum_dispatch",
+ "fast-mvt 0.8.1",
+ "fastpfor",
+ "fsst-rs",
+ "geo",
+ "geo-types",
+ "hex",
+ "hilbert_2d",
+ "hotpath 0.32.1",
+ "integer-encoding",
+ "num-traits",
+ "num_enum",
+ "rustc-hash 2.1.3",
+ "serde",
+ "serde_json",
+ "strum 0.28.0",
+ "thiserror 2.0.21",
+ "union-find",
+ "usize_cast",
+ "wide 1.7.1",
+ "xxhash-rust",
+ "zigzag",
+]
+
+[[package]]
+name = "mlt-core"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f92c59ea9e0120fc5d9c7b0b075e0b1eb178e01bebb5c73881ce77cc3c4e097d"
 dependencies = [
  "bitvec",
  "bytemuck",

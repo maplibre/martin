@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
+use martin_tile_utils::moka_entry_weight;
 use moka::future::Cache;
 use tracing::info;
 
@@ -26,9 +27,10 @@ impl PmtCache {
     pub fn new(max_size_bytes: u64, expiry: Option<Duration>, idle_timeout: Option<Duration>) -> Self {
         let mut builder = Cache::builder()
             .name("pmtiles_directory_cache")
-            .weigher(|_key: &PmtCacheKey, value: &Arc<pmtiles::Directory>| -> u32 {
-                value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
-                    + size_of::<PmtCacheKey>().try_into().unwrap_or(u32::MAX)
+            .weigher(|_key: &PmtCacheKey, value: &Arc<pmtiles::Directory>| {
+                moka_entry_weight::<PmtCacheKey, Arc<pmtiles::Directory>>(
+                    size_of::<pmtiles::Directory>() + value.get_approx_byte_size(),
+                )
             })
             .max_capacity(max_size_bytes);
         if let Some(ttl) = expiry {

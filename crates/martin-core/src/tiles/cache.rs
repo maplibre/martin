@@ -1,4 +1,4 @@
-use martin_tile_utils::{Encoding, Format, TileCoord};
+use martin_tile_utils::{Encoding, Format, PackedTileCoord, TileCoord};
 
 use crate::cache::{CacheKey, Cacheable, ResourceCache};
 use crate::tiles::Tile;
@@ -22,7 +22,7 @@ pub enum TileCacheKey {
         /// Source the tile belongs to, or the comma-separated sources of a composite.
         source_id: Box<str>,
         /// Tile coordinate.
-        xyz: TileCoord,
+        xyz: PackedTileCoord,
         /// Request query string, when the source consumes one.
         query: Option<Box<str>>,
         /// Format requested via the `Accept` header
@@ -38,7 +38,7 @@ pub enum TileCacheKey {
         /// Source the tile belongs to.
         source_id: Box<str>,
         /// Tile coordinate.
-        xyz: TileCoord,
+        xyz: PackedTileCoord,
     },
 }
 
@@ -54,7 +54,7 @@ impl TileCacheKey {
     ) -> Self {
         Self::Dynamic {
             source_id: source_id.into(),
-            xyz,
+            xyz: xyz.pack(),
             query,
             format,
             encoding,
@@ -66,7 +66,7 @@ impl TileCacheKey {
     pub fn new_request_static(source_id: impl Into<Box<str>>, xyz: TileCoord) -> Self {
         Self::Static {
             source_id: source_id.into(),
-            xyz,
+            xyz: xyz.pack(),
         }
     }
 
@@ -81,7 +81,7 @@ impl TileCacheKey {
     /// The coordinate this entry is for.
     pub const fn xyz(&self) -> TileCoord {
         match self {
-            Self::Dynamic { xyz, .. } | Self::Static { xyz, .. } => *xyz,
+            Self::Dynamic { xyz, .. } | Self::Static { xyz, .. } => xyz.unpack(),
         }
     }
 }
@@ -109,10 +109,50 @@ impl CacheKey for TileCacheKey {
             hotpath::gauge!("tile_cache_misses").inc(1.0);
         }
     }
+
+    fn heap_size(&self) -> usize {
+        match self {
+            Self::Dynamic { source_id, query, .. } => source_id.len() + query.as_deref().map_or(0, str::len),
+            Self::Static { source_id, .. } => source_id.len(),
+        }
+    }
 }
 
 impl Cacheable for Tile {
-    fn weight(&self) -> u32 {
-        self.data.len().try_into().unwrap_or(u32::MAX)
+    fn heap_size(&self) -> usize {
+        let etag = if self.etag.is_heap_allocated() {
+            self.etag.capacity()
+        } else {
+            0
+        };
+        self.data.len() + etag
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use compact_str::CompactString;
+    use martin_tile_utils::TileInfo;
+
+    use super::*;
+
+    #[test]
+    fn heap_size_ignores_inline_etag() {
+        let tile = Tile::new_with_etag(
+            vec![0; 7],
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed),
+            "short".into(),
+        );
+
+        assert_eq!(tile.heap_size(), 7);
+    }
+
+    #[test]
+    fn heap_size_counts_heap_allocated_etag() {
+        let etag = CompactString::from("\"0123456789abcdef0123456789abcdef\"".repeat(4));
+        let capacity = etag.capacity();
+        let tile = Tile::new_with_etag(vec![0; 7], TileInfo::new(Format::Mvt, Encoding::Uncompressed), etag);
+
+        assert_eq!(tile.heap_size(), 7 + capacity);
     }
 }

@@ -45,6 +45,7 @@ bytes.workspace = true
 futures.workspace = true
 geo-index = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
+martin-tile-utils.workspace = true
 moka = { workspace = true, features = ["future"] }
 object_store = { workspace = true, optional = true }
 png = { workspace = true, optional = true }

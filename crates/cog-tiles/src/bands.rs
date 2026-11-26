@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use bytes::Bytes;
+use martin_tile_utils::moka_entry_weight;
 use moka::future::Cache;
 
 use crate::{CogError, CogResult};
@@ -51,7 +52,7 @@ impl Default for BandCache {
         Self(
             Cache::builder()
                 .max_capacity(BAND_CACHE_BYTES)
-                .weigher(|_key, band: &Bytes| u32::try_from(band.len()).unwrap_or(u32::MAX))
+                .weigher(|_key, band: &Bytes| moka_entry_weight::<BandKey, Bytes>(band.len()))
                 .time_to_idle(BAND_IDLE_TIMEOUT)
                 .build(),
         )

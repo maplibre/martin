@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use bytes::Bytes;
 use flume::{Receiver, SendError, Sender, bounded};
 use futures::TryStreamExt as _;
+use martin_tile_utils::moka_entry_weight;
 use moka::sync::Cache;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use sqlx::{AssertSqlSafe, Connection as _, Row as _, SqliteConnection};
@@ -330,11 +331,11 @@ where
     }
 }
 
-/// Construct a weighted `moka` cache bounded by `max_bytes` of encoded payload.
+/// Construct a weighted `moka` cache bounded by `max_bytes` of memory.
 fn make_cache(max_bytes: u64) -> EncodedCache {
     Cache::builder()
         .max_capacity(max_bytes)
-        .weigher(|_key, value: &Bytes| u32::try_from(value.len()).unwrap_or(u32::MAX))
+        .weigher(|_key, value: &Bytes| moka_entry_weight::<u128, Bytes>(value.len()))
         .build()
 }
 

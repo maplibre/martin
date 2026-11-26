@@ -28,6 +28,7 @@ zstd.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
+moka = { workspace = true, features = ["sync"] }
 rstest.workspace = true
 
 [lints]

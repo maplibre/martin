@@ -21,6 +21,8 @@ pub const EARTH_RADIUS: f64 = EARTH_CIRCUMFERENCE / 2.0 / PI;
 
 pub const MAX_ZOOM: u8 = 30;
 
+mod cache_weight;
+pub use crate::cache_weight::{MOKA_ENTRY_OVERHEAD, moka_entry_weight};
 mod decoders;
 pub use decoders::*;
 mod grid;
@@ -32,7 +34,7 @@ pub use crate::grid::{
 mod rectangle;
 pub use crate::rectangle::{TileRect, append_rect};
 mod coordinate;
-pub use crate::coordinate::TileCoord;
+pub use crate::coordinate::{PackedTileCoord, TileCoord};
 
 pub type TileData = bytes::Bytes;
 pub type Tile = (TileCoord, Option<TileData>);
