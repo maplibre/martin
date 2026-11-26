@@ -9,6 +9,9 @@ pub use crate::error::{Classify, ErrorKind};
 /// Generic resource cache shared by sprite, font, and tile caches.
 pub mod cache;
 
+mod source_id;
+pub use crate::source_id::SourceId;
+
 mod cache_zoom_range;
 pub use crate::cache_zoom_range::CacheZoomRange;
 
