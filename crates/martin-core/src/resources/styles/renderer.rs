@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
-use std::sync::{Arc, Condvar, Mutex, Once, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::task::{Context, Poll, Wake, Waker};
 use std::time::{Duration, Instant};
 
@@ -12,14 +12,13 @@ use image::RgbaImage;
 pub use mln_rs::mln_map::{CameraOptions, MapMode};
 use mln_rs::mln_map::{CameraUpdate, CameraUpdateMode, LogicalExtent, MapEvent};
 pub use mln_rs::mln_util::LatLng;
-use mln_rs::mln_util::logging::{Event, EventSeverity, Log, Observer};
 use mln_rs::mln_util::size::Size;
 use mln_rs::{
     Applied, AttachOptions, BackendType, Completion, Device, DeviceOptions, Driver, EventMask, EventSource, EventType,
     MapId, MapOptions, RenderSession, RenderTarget, RuntimeEvent, RuntimeEventKind, RuntimeOptions,
 };
 pub use mln_rs::{Error as EngineError, Map as MapHandle};
-use tracing::{debug, error, info, warn};
+use tracing::warn;
 
 use crate::resources::styles::StyleError;
 
@@ -85,7 +84,6 @@ impl Runtime {
     /// Creates a runtime whose ambient cache holds up to `ambient_cache_bytes`
     /// (`None` keeps `MapLibre`'s default, `Some(0)` disables it).
     pub fn new(ambient_cache_bytes: Option<u64>) -> Result<Self, StyleError> {
-        forward_logs();
         let handle = mln_rs::Runtime::new(&RuntimeOptions::default())?;
         let listeners: Arc<Mutex<HashMap<MapId, Arc<StyleListener>>>> = Arc::default();
         let routes = Arc::downgrade(&listeners);
@@ -146,32 +144,6 @@ impl WorkerDevice {
     pub fn renderer(&self, mode: MapMode, width: u32, height: u32, pixel_ratio: f64) -> Result<Renderer, StyleError> {
         Renderer::new(&self.runtime, &self.device, mode, width, height, pixel_ratio)
     }
-}
-
-/// Forwards `MapLibre`'s log records to `tracing` under the target `maplibre_native`, once per process.
-fn forward_logs() {
-    struct Forwarder;
-    impl Observer for Forwarder {
-        fn on_record(&self, severity: EventSeverity, event: Event, code: i64, message: &str) -> bool {
-            match severity {
-                EventSeverity::Debug => {
-                    debug!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-                }
-                EventSeverity::Info => {
-                    info!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-                }
-                EventSeverity::Warning => {
-                    warn!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-                }
-                EventSeverity::Error => {
-                    error!(target: "maplibre_native", { maplibre.event = ?event, maplibre.code = code }, "{message}");
-                }
-            }
-            true
-        }
-    }
-    static FORWARDED: Once = Once::new();
-    FORWARDED.call_once(|| Log::set_observer(Box::new(Forwarder)));
 }
 
 /// What a map reported about loading a style.

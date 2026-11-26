@@ -224,8 +224,8 @@ Martin leaves `MESA_SHADER_CACHE_DIR` and `MESA_SHADER_CACHE_DISABLE` alone when
 
 ## Logs
 
-MapLibre logs its own messages under the `maplibre_native` target, which Martin's default log filter hides.
-`RUST_LOG=martin=info,maplibre_native=warn` shows MapLibre's warnings and errors, such as a tile or a glyph range that failed to load.
+MapLibre logs its own messages under targets starting with `mln` (such as `mln_style::parse_style`), which Martin's default log filter hides.
+`RUST_LOG=martin=info,mln=warn` shows MapLibre's warnings and errors, such as a tile or a glyph range that failed to load.
 
 ## Static images
 

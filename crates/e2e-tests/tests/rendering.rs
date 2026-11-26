@@ -164,7 +164,7 @@ async fn maplibre_logs_under_its_own_target() {
               sources:
                 version_7: {version_7}
         "})
-        .env("RUST_LOG", "martin=info,maplibre_native=warn")
+        .env("RUST_LOG", "martin=info,mln=warn")
         .start()
         .await
         .expect("failed to start martin");
@@ -172,7 +172,7 @@ async fn maplibre_logs_under_its_own_target() {
     assert_eq!(martin.get("/style/version_7/0/0/0.png").await.status(), 200);
 
     martin.stop().await;
-    insta::assert_snapshot!(martin.take_log_lines("maplibre.").join("\n"), @" WARN current renderer implementation only supports style spec version 8; using an outdated style will cause rendering errors maplibre.event=ParseStyle maplibre.code=-1");
+    insta::assert_snapshot!(martin.take_log_lines("style spec version 8").join("\n"), @" WARN current renderer implementation only supports style spec version 8; using an outdated style will cause rendering errors");
 }
 
 #[tokio::test]
