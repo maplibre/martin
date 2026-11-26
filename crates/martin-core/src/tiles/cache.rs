@@ -109,10 +109,50 @@ impl CacheKey for TileCacheKey {
             hotpath::gauge!("tile_cache_misses").inc(1.0);
         }
     }
+
+    fn heap_size(&self) -> usize {
+        match self {
+            Self::Dynamic { source_id, query, .. } => source_id.len() + query.as_deref().map_or(0, str::len),
+            Self::Static { source_id, .. } => source_id.len(),
+        }
+    }
 }
 
 impl Cacheable for Tile {
-    fn weight(&self) -> u32 {
-        self.data.len().try_into().unwrap_or(u32::MAX)
+    fn heap_size(&self) -> usize {
+        let etag = if self.etag.is_heap_allocated() {
+            self.etag.capacity()
+        } else {
+            0
+        };
+        self.data.len() + etag
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use compact_str::CompactString;
+    use martin_tile_utils::TileInfo;
+
+    use super::*;
+
+    #[test]
+    fn heap_size_ignores_inline_etag() {
+        let tile = Tile::new_with_etag(
+            vec![0; 7],
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed),
+            "short".into(),
+        );
+
+        assert_eq!(tile.heap_size(), 7);
+    }
+
+    #[test]
+    fn heap_size_counts_heap_allocated_etag() {
+        let etag = CompactString::from("\"0123456789abcdef0123456789abcdef\"".repeat(4));
+        let capacity = etag.capacity();
+        let tile = Tile::new_with_etag(vec![0; 7], TileInfo::new(Format::Mvt, Encoding::Uncompressed), etag);
+
+        assert_eq!(tile.heap_size(), 7 + capacity);
     }
 }
