@@ -67,18 +67,17 @@ pub async fn get_source_info(
 
     let version_param = &srv_config.tilejson_url_version_param;
     let versions: Option<(&str, String)> = if let Some(v) = version_param {
-        let version_str =
-            resolved
-                .sources
-                .iter()
-                .filter_map(|(s, _)| s.get_version())
-                .fold(String::new(), |mut acc, ver| {
-                    if !acc.is_empty() {
-                        acc.push('-');
-                    }
-                    acc.push_str(&ver);
-                    acc
-                });
+        let version_str = resolved
+            .sources
+            .iter()
+            .filter_map(|SourceEntry { source: s, .. }| s.get_version())
+            .fold(String::new(), |mut acc, ver| {
+                if !acc.is_empty() {
+                    acc.push('-');
+                }
+                acc.push_str(&ver);
+                acc
+            });
         if version_str.is_empty() {
             None
         } else {
@@ -118,7 +117,13 @@ pub async fn get_source_info(
 pub fn merge_tilejson(sources: &[SourceEntry], tiles_url: String) -> TileJSON {
     let mut advertised: Vec<TileJSON> = sources
         .iter()
-        .map(|(src, pc)| pc.advertised_tilejson(src.get_tilejson().clone()))
+        .map(
+            |SourceEntry {
+                 source: src,
+                 process: pc,
+                 ..
+             }| pc.advertised_tilejson(src.get_tilejson().clone()),
+        )
         .collect();
 
     if advertised.len() == 1 {
@@ -213,7 +218,6 @@ pub fn merge_tilejson(sources: &[SourceEntry], tiles_url: String) -> TileJSON {
 #[cfg(test)]
 pub mod tests {
     use std::collections::BTreeMap;
-    use std::sync::Arc;
 
     use martin_core::tiles::Source as _;
     use martin_core::tiles::testing::TestSource;
@@ -221,6 +225,7 @@ pub mod tests {
     use tilejson::{Bounds, VectorLayer};
 
     use super::*;
+    use crate::config::file::ResolvedProcess;
 
     #[test]
     fn merges_tilejson() {
@@ -240,7 +245,10 @@ pub mod tests {
                 ],
             })
             .with_format(Format::Mvt);
-        let tj = merge_tilejson(&[(src1.clone().boxed(), Arc::default())], url.clone());
+        let tj = merge_tilejson(
+            &[SourceEntry::new("id", src1.clone().boxed(), ResolvedProcess::default())],
+            url.clone(),
+        );
         assert_eq!(
             TileJSON {
                 tiles: vec![url.clone()],
@@ -266,7 +274,10 @@ pub mod tests {
             .with_format(Format::Mvt);
 
         let tj = merge_tilejson(
-            &[(src1.boxed(), Arc::default()), (src2.boxed(), Arc::default())],
+            &[
+                SourceEntry::new("id", src1.boxed(), ResolvedProcess::default()),
+                SourceEntry::new("id", src2.boxed(), ResolvedProcess::default()),
+            ],
             url.clone(),
         );
         assert_eq!(tj.tiles, vec![url]);

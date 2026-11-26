@@ -476,7 +476,7 @@ async fn copy_as_mlt_directly(src: &DynTileSource<'_>, xyz: TileCoord) -> Martin
     if src.accepted_format != Some(Format::Mlt) {
         return Ok(None);
     }
-    let [(source, process)] = src.sources.as_slice() else {
+    let [SourceEntry { source, process, .. }] = src.sources.as_slice() else {
         return Ok(None);
     };
     let MltConversion::Encode(cfg) = process.mlt else {
@@ -530,10 +530,10 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
 }
 
 fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
-    if let Some((source, _)) = src
+    if let Some(SourceEntry { source, .. }) = src
         .sources
         .iter()
-        .find(|(source, _)| !source.tile_grid().is_web_mercator())
+        .find(|SourceEntry { source, .. }| !source.tile_grid().is_web_mercator())
     {
         // TileJSON bounds are WGS84, which says nothing about where tiles sit on another grid
         let grid = source.tile_grid();
@@ -552,7 +552,7 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
         let mut source_bounds = src
             .sources
             .iter()
-            .map(|(source, _)| {
+            .map(|SourceEntry { source, .. }| {
                 let world = Bounds::MAX_TILED;
                 source
                     .get_tilejson()
@@ -771,13 +771,20 @@ where
 
     // Track in-flight postgres queries so ctrl+c can abort them.
     #[cfg(feature = "postgres")]
-    let registries: Vec<ActiveQueryRegistry> = src.sources.iter().filter_map(|(s, _)| s.cancel_registry()).collect();
+    let registries: Vec<ActiveQueryRegistry> = src
+        .sources
+        .iter()
+        .filter_map(|SourceEntry { source: s, .. }| s.cancel_registry())
+        .collect();
 
     // 2. Compute tile ranges on the grid the sources are served in
     let grid = src
         .sources
         .first()
-        .map_or(&martin_tile_utils::WEB_MERCATOR_QUAD, |(source, _)| source.tile_grid())
+        .map_or(
+            &martin_tile_utils::WEB_MERCATOR_QUAD,
+            |SourceEntry { source, .. }| source.tile_grid(),
+        )
         .clone();
     let inferred_bboxes = if args.bbox.is_empty() {
         default_bounds(&src)
@@ -819,7 +826,10 @@ where
     let consumer_task = write_tiles_to_mbtiles(rx, mbt.clone(), conn, mbt_type, on_duplicate, Arc::clone(&progress));
 
     // 5. Producer: concurrently fetch all tiles or stop early on interrupt.
-    let prune_empty_subtrees = src.sources.iter().all(|(s, _)| s.empty_tile_implies_empty_children());
+    let prune_empty_subtrees = src
+        .sources
+        .iter()
+        .all(|SourceEntry { source: s, .. }| s.empty_tile_implies_empty_children());
     // Boxed, not pinned on the stack, so that an interrupt can drop it below: its unfinished fetches
     // hold senders, which would keep the channel open, and the drain waiting, until this returns.
     let produce = Box::pin(produce_tiles(src, tiles, concurrency, tx.clone(), prune_empty_subtrees));
@@ -888,7 +898,7 @@ fn pin_mlt_wire_version(src: &mut DynTileSource<'_>, format: CopyFormat) {
         CopyFormat::MltV1 => WireVersion::V01,
         CopyFormat::MltV2 => WireVersion::V02,
     };
-    for (_, process) in &mut src.sources {
+    for SourceEntry { process, .. } in &mut src.sources {
         if let MltConversion::Encode(cfg) = &mut Arc::make_mut(process).mlt {
             *cfg = cfg.with_wire_version(wire);
         }
@@ -915,7 +925,7 @@ async fn init_schema(
             serde_json::Value::String(format!("martin cp v{VERSION}")),
         );
         // the merged TileJSON keeps only the spec's fields, so the grid is written on its own
-        if let Some((source, _)) = sources.first()
+        if let Some(SourceEntry { source, .. }) = sources.first()
             && !source.tile_grid().is_web_mercator()
         {
             tj.other.insert(

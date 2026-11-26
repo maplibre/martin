@@ -99,7 +99,7 @@ pub(super) fn tileset_source(
     tile_matrix_set: &str,
 ) -> ActixResult<(SourceEntry, String)> {
     let (entry, crs) = collection_source(manager, collection)?;
-    if entry.0.tile_grid().id() != tile_matrix_set {
+    if entry.source.tile_grid().id() != tile_matrix_set {
         return Err(map_error(&OgcApiError::UnknownTileset {
             collection: collection.to_owned(),
             tile_matrix_set: tile_matrix_set.to_owned(),
@@ -254,7 +254,7 @@ pub async fn get_tilesets(
 ) -> ActixResult<HttpResponse> {
     let id = path.into_inner();
     manager.wait_for_sources(&id).await;
-    let ((source, process), crs) = collection_source(&manager, &id)?;
+    let (SourceEntry { source, process, .. }, crs) = collection_source(&manager, &id)?;
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let tiled = Tiled {
         tiles_path: format!("/collections/{}/tiles", path_segment(&id)),
@@ -298,7 +298,7 @@ pub async fn get_tileset(
         tile_matrix_set_id: tms,
     } = path.into_inner();
     manager.wait_for_sources(&id).await;
-    let ((source, process), crs) = tileset_source(&manager, &id, &tms)?;
+    let (SourceEntry { source, process, .. }, crs) = tileset_source(&manager, &id, &tms)?;
     let grid = source.tile_grid();
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let format = process.advertised_tile_info(source.get_tile_info()).format;

@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use martin_core::SourceId;
 use martin_core::tiles::{BoxedSource, OptTileCache};
 #[cfg(feature = "ogcapi")]
 use martin_tile_utils::{TileGrid, WEB_MERCATOR_QUAD};
@@ -59,7 +60,11 @@ impl TileSourceManager {
         let map: DashMap<String, SourceEntry> = sources
             .into_iter()
             .flatten()
-            .map(|(src, pc)| (src.get_id().to_owned(), (src, Arc::new(pc))))
+            .map(|(src, pc)| {
+                let id = src.get_id().to_owned();
+                let entry = SourceEntry::new(&id, src, pc);
+                (id, entry)
+            })
             .collect();
         Self {
             tile_sources: Arc::new(map),
@@ -112,7 +117,7 @@ impl TileSourceManager {
         let sources = self.tile_sources();
         let mut grids = vec![WEB_MERCATOR_QUAD];
         for id in sources.source_names() {
-            let Ok((source, _)) = sources.get_source(&id) else {
+            let Ok(SourceEntry { source, .. }) = sources.get_source(&id) else {
                 continue;
             };
             let grid = source.tile_grid();
@@ -152,7 +157,8 @@ impl TileSourceManager {
         if let Some(p) = provenance {
             self.provenance.insert(id.clone(), p);
         }
-        self.tile_sources.insert(id, (src, Arc::new(process)));
+        let entry = SourceEntry::new(&id, src, process);
+        self.tile_sources.insert(id, entry);
     }
 }
 
@@ -189,7 +195,7 @@ impl Sink for TileSourceManager {
             match source {
                 Ok(src) => {
                     if let Some(cache) = &self.tile_cache {
-                        cache.invalidate_source(&id);
+                        cache.invalidate_source(SourceId::intern(&id));
                     }
                     info!(source.id = %id, "Updated source");
                     self.insert(id, src, process, provenance);
@@ -229,10 +235,10 @@ impl Sink for TileSourceManager {
 
         // 3. Removals: GC stale sources
         for deleted_source in &advisory.removals {
-            self.tile_sources.remove(&deleted_source.id);
+            let removed = self.tile_sources.remove(&deleted_source.id);
             self.provenance.remove(&deleted_source.id);
-            if let Some(cache) = &self.tile_cache {
-                cache.invalidate_source(&deleted_source.id);
+            if let (Some(cache), Some((_, entry))) = (&self.tile_cache, removed) {
+                cache.invalidate_source(entry.id);
             }
             info!(source.id = %deleted_source.id, "Removed source");
         }

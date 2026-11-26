@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use martin_core::SourceId;
 use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
 use martin_core::tiles::{AnySource, BoxedSource};
 use martin_tile_utils::TileInfo;
@@ -14,8 +15,28 @@ use crate::srv::TileError;
 /// composite tile request (`/{source_ids}/{z}/{x}/{y}`), or OGC dataset map.
 pub(crate) const MAX_SOURCE_IDS_PER_REQUEST: usize = 128;
 
-/// A source with its process config, which is shared so a request never copies it.
-pub type SourceEntry = (BoxedSource, Arc<ResolvedProcess>);
+/// A registered source with its interned id and its process config.
+#[derive(Clone)]
+pub struct SourceEntry {
+    /// The interned name the source is registered under.
+    pub id: SourceId,
+    /// The source itself.
+    pub source: BoxedSource,
+    /// The process config, shared so a request never copies it.
+    pub process: Arc<ResolvedProcess>,
+}
+
+impl SourceEntry {
+    /// Registers `source` under `id`; this interns `id`, so call it only with server-side names.
+    #[must_use]
+    pub fn new(id: &str, source: BoxedSource, process: ResolvedProcess) -> Self {
+        Self {
+            id: SourceId::intern(id),
+            source,
+            process: Arc::new(process),
+        }
+    }
+}
 
 /// The sources of one request, inline for the common single-source case.
 pub type SourceList = SmallVec<[SourceEntry; 1]>;
@@ -103,7 +124,11 @@ impl TileSources {
                 sources
                     .into_iter()
                     .flatten()
-                    .map(|(src, pc)| (src.get_id().to_owned(), (src, Arc::new(pc))))
+                    .map(|(src, pc)| {
+                        let id = src.get_id().to_owned();
+                        let entry = SourceEntry::new(&id, src, pc);
+                        (id, entry)
+                    })
                     .collect(),
             ),
             aliases: Arc::default(),
@@ -128,7 +153,11 @@ impl TileSources {
             .sources
             .iter()
             .map(|v| {
-                let (src, pc) = v.value();
+                let SourceEntry {
+                    source: src,
+                    process: pc,
+                    ..
+                } = v.value();
                 let mut entry = src.get_catalog_entry();
                 let info = pc.advertised_tile_info(src.get_tile_info());
                 info.format.content_type().clone_into(&mut entry.content_type);
@@ -140,7 +169,11 @@ impl TileSources {
             let Some(member) = alias.value().iter().find_map(|id| self.sources.get(id)) else {
                 continue;
             };
-            let (src, pc) = member.value();
+            let SourceEntry {
+                source: src,
+                process: pc,
+                ..
+            } = member.value();
             let info = pc.advertised_tile_info(src.get_tile_info());
             let mut entry = CatalogSourceEntry::default();
             info.format.content_type().clone_into(&mut entry.content_type);
@@ -175,6 +208,7 @@ impl TileSources {
                 max: MAX_SOURCE_IDS_PER_REQUEST,
             });
         }
+        let mut members = Vec::with_capacity(sources.len());
         for source in &sources {
             if self.aliases.contains_key(source) {
                 return Err(TileAliasError::AliasWithinAlias {
@@ -182,13 +216,16 @@ impl TileSources {
                     source_id: source.clone(),
                 });
             }
-            if !self.sources.contains_key(source) {
+            let Some(entry) = self.sources.get(source) else {
                 return Err(TileAliasError::AliasSourceNotFound {
                     alias: name,
                     source_id: source.clone(),
                 });
-            }
+            };
+            members.push(entry.id);
         }
+        // Interned so a request for the alias, or for the same list spelled out, shares one cache entry.
+        let _set = SourceId::intern_set(&members);
         if self.sources.contains_key(&name) {
             info!(
                 source.alias = %name,
@@ -276,7 +313,8 @@ impl TileSources {
         grid: &mut Option<BoxedSource>,
         use_url_query: &mut bool,
     ) -> Result<(), TileError> {
-        let (src, pc) = self.get_source(id)?;
+        let entry = self.get_source(id)?;
+        let (src, pc) = (&entry.source, &entry.process);
         let src_inf = pc.advertised_tile_info(src.get_tile_info());
         *use_url_query |= src.support_url_query();
 
@@ -302,16 +340,16 @@ impl TileSources {
                     right: src.tile_grid().id().to_owned(),
                 });
             }
-            None => *grid = Some(BoxedSource::clone(&src)),
+            None => *grid = Some(BoxedSource::clone(src)),
         }
 
         // TODO: Use chained-if-let once available
         if match zoom {
-            Some(zoom) if Self::check_zoom(&src, id, zoom) => true,
+            Some(zoom) if Self::check_zoom(src, id, zoom) => true,
             None => true,
             _ => false,
         } {
-            sources.push((src, pc));
+            sources.push(entry);
         }
         Ok(())
     }
@@ -338,7 +376,7 @@ impl TileSources {
     pub fn benefits_from_concurrent_scraping(&self) -> bool {
         self.sources
             .iter()
-            .any(|s| s.value().0.benefits_from_concurrent_scraping())
+            .any(|s| s.value().source.benefits_from_concurrent_scraping())
     }
 }
 
@@ -355,6 +393,19 @@ mod tests {
                 .with_format(martin_tile_utils::Format::Mvt)
                 .boxed(),
         ]])
+    }
+
+    #[test]
+    fn requesting_unknown_sources_interns_nothing() {
+        let sources = sources_with_one_valid();
+        sources
+            .add_alias("pair".to_owned(), vec!["valid".to_owned(), "valid".to_owned()])
+            .unwrap();
+        assert!(sources.get_sources("valid,request-only-name", None).is_err());
+        assert!(sources.get_sources("request-only-alias", None).is_err());
+
+        assert_eq!(SourceId::lookup("request-only-name"), None);
+        assert_eq!(SourceId::lookup("request-only-alias"), None);
     }
 
     #[test]

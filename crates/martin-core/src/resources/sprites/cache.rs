@@ -1,5 +1,6 @@
 use actix_web::web::Bytes;
 
+use crate::SourceId;
 use crate::cache::{CacheKey, Cacheable, ResourceCache};
 
 /// Sprite cache for storing generated sprite sheets.
@@ -38,8 +39,8 @@ impl SpriteCacheKey {
 impl CacheKey for SpriteCacheKey {
     const CACHE_NAME: &'static str = "sprite";
 
-    fn matches_source(&self, source_id: &str) -> bool {
-        self.ids.split(',').any(|s| s == source_id)
+    fn matches_source(&self, source: SourceId) -> bool {
+        source.name().is_some_and(|name| self.ids.split(',').any(|s| s == name))
     }
 
     fn record_outcome(&self, hit: bool) {

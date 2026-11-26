@@ -9,14 +9,16 @@ use martin_tile_utils::moka_entry_weight;
 use moka::future::Cache;
 use tracing::{info, trace};
 
+use crate::SourceId;
+
 /// A cache key for [`ResourceCache`].
 pub trait CacheKey: Hash + Eq + Send + Sync + Clone + Debug + 'static {
     /// Identifier used as the moka cache name, the trace-log prefix, and the
     /// metric label in [`Self::record_outcome`].
     const CACHE_NAME: &'static str;
 
-    /// Whether this key should be wiped when `source_id` is invalidated.
-    fn matches_source(&self, source_id: &str) -> bool;
+    /// Whether this key should be wiped when `source` is invalidated.
+    fn matches_source(&self, source: SourceId) -> bool;
 
     /// Records one hit or miss. Called exactly once per `get_or_insert`.
     fn record_outcome(&self, hit: bool);
@@ -107,17 +109,16 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         self.inner.insert(key, value).await;
     }
 
-    /// Invalidates entries whose key matches `source_id`.
+    /// Invalidates entries whose key matches `source`.
     /// Eviction is asynchronous.
     /// Flush the cache via [`Self::run_pending_tasks`].
-    pub fn invalidate_source(&self, source_id: &str) {
-        let source_id_owned = source_id.to_owned();
+    pub fn invalidate_source(&self, source: SourceId) {
         self.inner
-            .invalidate_entries_if(move |key, _| key.matches_source(&source_id_owned))
+            .invalidate_entries_if(move |key, _| key.matches_source(source))
             .expect("invalidate_entries_if predicate should not error");
         info!(
             cache.name = %K::CACHE_NAME,
-            source.id = %source_id,
+            source.id = %source,
             "Invalidated cache for source"
         );
     }
@@ -200,8 +201,8 @@ mod tests {
     impl CacheKey for TestKey {
         const CACHE_NAME: &'static str = "test";
 
-        fn matches_source(&self, source_id: &str) -> bool {
-            self.ids.split(',').any(|s| s == source_id)
+        fn matches_source(&self, source: SourceId) -> bool {
+            source.name().is_some_and(|name| self.ids.split(',').any(|s| s == name))
         }
 
         fn record_outcome(&self, _hit: bool) {}
@@ -264,7 +265,7 @@ mod tests {
         }
         cache.run_pending_tasks().await;
 
-        cache.invalidate_source(target);
+        cache.invalidate_source(SourceId::intern(target));
         cache.run_pending_tasks().await;
 
         for ids in entries {

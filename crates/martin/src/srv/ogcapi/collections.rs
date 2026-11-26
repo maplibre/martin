@@ -92,7 +92,7 @@ pub(super) fn covering_bounds(bounds: impl IntoIterator<Item = Option<Bounds>>) 
 /// The bounds covering every collection `manager` serves, see [`covering_bounds`].
 pub(super) fn dataset_bounds(manager: &TileSourceManager) -> [f64; 4] {
     covering_bounds(manager.tile_sources().source_names().iter().filter_map(|id| {
-        let ((source, process), _) = collection_source(manager, id).ok()?;
+        let (SourceEntry { source, process, .. }, _) = collection_source(manager, id).ok()?;
         Some(process.advertised_tilejson(source.get_tilejson().clone()).bounds)
     }))
 }
@@ -106,7 +106,7 @@ pub(super) fn collection_source(manager: &TileSourceManager, id: &str) -> ActixR
         .and_then(|resolved| {
             let mut sources = resolved.sources;
             let entry = sources.pop().filter(|_| sources.is_empty())?;
-            let crs = crs(entry.0.tile_grid())?.uri;
+            let crs = crs(entry.source.tile_grid())?.uri;
             Some((entry, crs))
         })
         .ok_or_else(|| map_error(&OgcApiError::UnknownCollection(id.to_owned())))
@@ -120,7 +120,7 @@ fn collection(
     entry: &SourceEntry,
     storage_crs: String,
 ) -> Collection {
-    let (source, process) = entry;
+    let SourceEntry { source, process, .. } = entry;
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let data_type = DataType::of(process.advertised_tile_info(source.get_tile_info()).format);
     let bounds = tilejson.bounds.unwrap_or_default();

@@ -85,7 +85,7 @@ pub(super) fn map_links(href: &str, title: &'static str) -> [Link; 2] {
 }
 
 /// Whether a generated style can draw the tiles of `entry` as a map.
-pub(super) fn can_draw((source, process): &SourceEntry) -> bool {
+pub(super) fn can_draw(SourceEntry { source, process, .. }: &SourceEntry) -> bool {
     source.tile_grid().is_web_mercator() && drawable(process.advertised_tile_info(source.get_tile_info()).format)
 }
 
@@ -580,7 +580,7 @@ pub async fn get_collection_map(
     if !can_draw(&entry) {
         return Err(map_error(&OgcApiError::NoCollectionMap { collection: id }));
     }
-    let (source, process) = &entry;
+    let SourceEntry { source, process, .. } = &entry;
     let tilejson = process.advertised_tilejson(source.get_tilejson().clone());
     let style = generated_style(
         &own_tiles_url(&req, &srv_config),
@@ -674,7 +674,9 @@ pub async fn get_dataset_map(
     let collections = dataset_collections(&manager, selection.collections.as_deref()).map_err(|e| map_error(&e))?;
     let described: Vec<_> = collections
         .iter()
-        .map(|(id, (source, process))| (id.as_str(), process.advertised_tilejson(source.get_tilejson().clone())))
+        .map(|(id, SourceEntry { source, process, .. })| {
+            (id.as_str(), process.advertised_tilejson(source.get_tilejson().clone()))
+        })
         .collect();
     let drawn: Vec<_> = described.iter().map(|(id, tilejson)| Drawn { id, tilejson }).collect();
     let style = generated_style(&own_tiles_url(&req, &srv_config), &drawn);
