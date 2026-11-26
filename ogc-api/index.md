@@ -73,7 +73,7 @@ With [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>
 | `scale-denominator` | scale of the map, instead of `width` and `height` with `bbox` |
 | `collections` | for `/ogc/map` only: comma-separated source IDs, or their `/ogc/collections/{sourceID}` URLs |
 
-Maps are always in web mercator, which the `Content-Crs` header states. The `Content-Bbox` header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for. PNGs always have an alpha channel, and TIFFs are GeoTIFFs placed at that area.
+Maps are always in Web Mercator, which the `Content-Crs` header states, even for a style that sets `"projection": {"type": "globe"}`. The `Content-Bbox` header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for. PNGs always have an alpha channel, and TIFFs are GeoTIFFs placed at that area.
 
 The map of all collections and the map of each style also come as map tiles on `WebMercatorQuad`, 256 pixels square, under `/ogc/map/tiles` and `/ogc/styles/{styleID}/map/tiles`. Their tilesets link the tile URL template, and `Accept` picks the format as for maps. Raster collections need no map tiles of their own: their tilesets under `/ogc/collections/{sourceID}/tiles` already are map tiles.
 

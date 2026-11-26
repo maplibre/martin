@@ -2240,7 +2240,7 @@ A map is in the format the <code>Accept</code> header weighs highest, ignoring <
 </tr>
 </tbody>
 </table>
-<p>Maps are always in web mercator, which the <code>Content-Crs</code> header states.
+<p>Maps are always in Web Mercator, which the <code>Content-Crs</code> header states, even for a style that sets <code>"projection": {"type": "globe"}</code>.
 The <code>Content-Bbox</code> header gives the area shown, in metres: when its shape differs from the image's, the map shows more than was asked for.
 PNGs always have an alpha channel, and TIFFs are GeoTIFFs placed at that area.</p>
 <p>The map of all collections and the map of each style also come as map tiles on <code>WebMercatorQuad</code>, 256 pixels square, under <code>/ogc/map/tiles</code> and <code>/ogc/styles/{styleID}/map/tiles</code>.

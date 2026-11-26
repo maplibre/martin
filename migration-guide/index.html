@@ -1093,6 +1093,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#rendering-uses-mln-rs-instead-of-maplibre-natives-c-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Rendering uses mln-rs instead of MapLibre Native's C++ core
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-images-follow-the-styles-projection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Static images follow the style's projection
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#x86_64-binaries-require-an-x86-64-v3-cpu" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1435,6 +1457,19 @@ Upgrade the database before upgrading Martin.</p>
 <p>For server-side style rendering on Linux, use the <code>-full</code> Docker image (<code>:latest-full</code> or <code>:&lt;version&gt;-full</code>), a <code>-full</code> Linux-gnu tarball, or <code>cargo install martin --features rendering</code>. The default builds no longer include rendering.</p>
 <p>Rendering is stable as of 2.0. The configuration is unchanged. Set <code>styles.rendering: true</code> to enable it, or keep your existing rendering options.</p>
 <p>See <a href="../sources-styles/rendering/">Server-side raster tile rendering</a> and <a href="../installation/">Installation</a>.</p>
+<h3 id="rendering-uses-mln-rs-instead-of-maplibre-natives-c-core">Rendering uses mln-rs instead of MapLibre Native's C++ core</h3>
+<p>Martin 2.0 renders with <a href="https://github.com/louwers/mln-rs">mln-rs</a>, a Rust rewrite of MapLibre Native.
+mln-rs brings static rendering to more platforms, renders more tiles per second with several workers, and uses less memory.
+Because mln-rs is written in Rust, memory-safety bugs are less likely to crash Martin.</p>
+<p>The main reason for the switch is <a href="https://github.com/maplibre/martin/security/advisories/GHSA-5xxm-54w8-h85j">GHSA-5xxm-54w8-h85j</a>:
+Martin 1.x rendered through Vulkan by default, and concurrent render requests could crash the server.
+Martin 2.0 renders through OpenGL ES by default.
+To pick another graphics backend, see <a href="../sources-styles/rendering/#graphics-backend">Graphics backend</a>.</p>
+<h3 id="static-images-follow-the-styles-projection">Static images follow the style's projection</h3>
+<p>Martin 2.0 draws a static image of a style that sets <code>"projection": {"type": "globe"}</code> as a globe, as MapLibre GL JS does.
+Martin 1.x drew every static image in Web Mercator.
+Raster tiles and <a href="../ogc-api/#maps">OGC API - Maps</a> images still draw in Web Mercator.</p>
+<p>To keep flat static images, remove <code>projection</code> from the style or set it to <code>{"type": "mercator"}</code>.</p>
 <h3 id="x86_64-binaries-require-an-x86-64-v3-cpu">x86_64 binaries require an x86-64-v3 CPU</h3>
 <p>The prebuilt x86_64 binaries, Debian package and Docker images are built for the x86-64-v3 feature level (AVX2, BMI2, FMA; Intel Haswell / AMD Excavator, 2015 or newer).
 On older CPUs they fail with an illegal instruction error. aarch64 builds are unaffected.</p>
