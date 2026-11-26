@@ -1,4 +1,4 @@
-use martin_tile_utils::{Encoding, Format, TileCoord};
+use martin_tile_utils::{Encoding, Format, PackedTileCoord, TileCoord};
 
 use crate::cache::{CacheKey, Cacheable, ResourceCache};
 use crate::tiles::Tile;
@@ -22,7 +22,7 @@ pub enum TileCacheKey {
         /// Source the tile belongs to, or the comma-separated sources of a composite.
         source_id: Box<str>,
         /// Tile coordinate.
-        xyz: TileCoord,
+        xyz: PackedTileCoord,
         /// Request query string, when the source consumes one.
         query: Option<Box<str>>,
         /// Format requested via the `Accept` header
@@ -38,7 +38,7 @@ pub enum TileCacheKey {
         /// Source the tile belongs to.
         source_id: Box<str>,
         /// Tile coordinate.
-        xyz: TileCoord,
+        xyz: PackedTileCoord,
     },
 }
 
@@ -54,7 +54,7 @@ impl TileCacheKey {
     ) -> Self {
         Self::Dynamic {
             source_id: source_id.into(),
-            xyz,
+            xyz: xyz.pack(),
             query,
             format,
             encoding,
@@ -66,7 +66,7 @@ impl TileCacheKey {
     pub fn new_request_static(source_id: impl Into<Box<str>>, xyz: TileCoord) -> Self {
         Self::Static {
             source_id: source_id.into(),
-            xyz,
+            xyz: xyz.pack(),
         }
     }
 
@@ -81,7 +81,7 @@ impl TileCacheKey {
     /// The coordinate this entry is for.
     pub const fn xyz(&self) -> TileCoord {
         match self {
-            Self::Dynamic { xyz, .. } | Self::Static { xyz, .. } => *xyz,
+            Self::Dynamic { xyz, .. } | Self::Static { xyz, .. } => xyz.unpack(),
         }
     }
 }

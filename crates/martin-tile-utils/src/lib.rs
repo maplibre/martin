@@ -34,7 +34,7 @@ pub use crate::grid::{
 mod rectangle;
 pub use crate::rectangle::{TileRect, append_rect};
 mod coordinate;
-pub use crate::coordinate::TileCoord;
+pub use crate::coordinate::{PackedTileCoord, TileCoord};
 
 pub type TileData = bytes::Bytes;
 pub type Tile = (TileCoord, Option<TileData>);
