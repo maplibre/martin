@@ -26,6 +26,7 @@ use osmflow::nodes::{FileStore as _, MemoryReader, MemoryStore, NodeRead as _, N
 use osmflow::{BlobRange, Block, GeometryError, Location, Locator, MemberType, PbfError, PbfReader, Select, TagKey};
 use tilejson::Bounds;
 use tracing::{debug, info};
+use xxhash_rust::xxh3::Xxh3DefaultBuilder;
 
 use crate::osm::condition::{Row, matches, may_be_in_block, may_have_type};
 use crate::osm::members::{FoundRelations, MemberKind, Members, SetFilters};
@@ -266,6 +267,8 @@ struct Scan {
     only: Option<(Kind, i64)>,
     /// The scanned columns: [`OSM_TYPE`], [`OSM_ID`] or a tag key, by position.
     columns: Vec<String>,
+    /// Column index by column name.
+    positions: ColumnPositions,
     /// Only objects touching this box, if set.
     bounds: Option<Rect>,
     store: Option<Arc<Store>>,
@@ -384,11 +387,13 @@ impl Scan {
             .nodes_where(block_test(&[GeometryType::Point]))
             .ways_where(block_test(&[GeometryType::Line, GeometryType::Polygon]));
         let sets = SetFilters::new(plan.relation_sets(index));
+        let positions = ColumnPositions::new(&columns);
         let pass = RelationPass {
             areas,
             condition: condition.as_ref(),
             only: only.map(|(_, id)| id),
             columns: &columns,
+            positions: &positions,
             sets: &sets,
         };
         let RelationsRead {
@@ -420,6 +425,7 @@ impl Scan {
             select,
             condition,
             only,
+            positions,
             columns,
             bounds: table.bounds.map(|b| Rect::new((b.left, b.bottom), (b.right, b.top))),
             store,
@@ -434,7 +440,7 @@ impl Scan {
     fn takes_outline<'t>(&self, id: i64, tag: &dyn Fn(usize) -> Option<&'t str>) -> bool {
         self.outlines.as_ref().is_none_or(|condition| {
             let row = ObjectRow {
-                columns: &self.columns,
+                columns: &self.positions,
                 kind: Kind::Way,
                 id,
                 tag,
@@ -455,7 +461,7 @@ impl Scan {
     fn takes<'t>(&self, kind: Kind, id: i64, geometry: GeometryType, tag: &dyn Fn(usize) -> Option<&'t str>) -> bool {
         self.condition.as_ref().is_none_or(|condition| {
             let row = ObjectRow {
-                columns: &self.columns,
+                columns: &self.positions,
                 kind,
                 id,
                 tag,
@@ -474,6 +480,27 @@ impl Scan {
             Kind::Way => self.members.is_member(MemberKind::Way, id, set),
             Kind::Relation => false,
         }
+    }
+}
+
+/// Column index by column name.
+struct ColumnPositions(HashMap<String, usize, Xxh3DefaultBuilder>);
+
+impl ColumnPositions {
+    /// The index of each of `columns`, by name.
+    fn new(columns: &[String]) -> Self {
+        Self(
+            columns
+                .iter()
+                .enumerate()
+                .map(|(pos, name)| (name.clone(), pos))
+                .collect(),
+        )
+    }
+
+    /// The index of the column called `name`.
+    fn get(&self, name: &str) -> Option<usize> {
+        self.0.get(name).copied()
     }
 }
 
@@ -531,6 +558,8 @@ struct RelationPass<'a> {
     only: Option<i64>,
     /// The scanned columns: [`OSM_TYPE`], [`OSM_ID`] or a tag key, by position.
     columns: &'a [String],
+    /// Column index by column name.
+    positions: &'a ColumnPositions,
     /// The table's relation sets.
     sets: &'a SetFilters<'a>,
 }
@@ -601,7 +630,7 @@ impl RelationPass<'_> {
             let tag = |pos: usize| relation.tag(keys[pos]?).filter(|v| !v.is_empty());
             if let Some(condition) = self.condition {
                 let row = ObjectRow {
-                    columns: self.columns,
+                    columns: self.positions,
                     kind: Kind::Relation,
                     id: relation.id(),
                     tag: &tag,
@@ -944,7 +973,8 @@ impl Kind {
 
 /// An object's tags as a [`Row`], through its block's keys of the scanned columns.
 struct ObjectRow<'s, 't> {
-    columns: &'s [String],
+    /// Column index by column name.
+    columns: &'s ColumnPositions,
     kind: Kind,
     /// The object's OSM id.
     id: i64,
@@ -960,8 +990,7 @@ impl Row for ObjectRow<'_, '_> {
         if name == OSM_TYPE {
             return Some(self.kind.name());
         }
-        let pos = self.columns.iter().position(|c| c == name)?;
-        (self.tag)(pos)
+        (self.tag)(self.columns.get(name)?)
     }
 
     fn id(&self) -> i64 {
