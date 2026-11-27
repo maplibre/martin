@@ -257,7 +257,7 @@ With far fewer packages, image scanners such as Trivy report far fewer vulnerabi
 | User             | `root`                                       | `nonroot`, uid and gid `65532`                           |
 | `HEALTHCHECK`    | `wget --spider http://127.0.0.1:3000/health` | `martin health`                                          |
 | Shell, `apt-get` | yes                                          | no                                                       |
-| Tags             | `:<version>`, `:latest`                      | also `:2` and `:2.0`, which every release moves forward |
+| Tags             | `:<version>`, `:latest`                      | also `:2` and `:2.0`, which every release moves forward  |
 
 The `-full` and `-legacycpu` variants get the same tags with their suffix, such as `:2-full`.
 Change your setup where it relies on the 1.x image:
@@ -272,7 +272,7 @@ Change your setup where it relies on the 1.x image:
     ```
 
 - **Files Martin writes** into a bind mount, such as the output of `martin cp` or `--save-config`, need a directory uid `65532` can write to.
-  Run the container as yourself with `--user "$(id -u):$(id -g)"`, or with `--user 0` to keep the 1.x behaviour.
+  Run the container as yourself with `--user "$(id -u):$(id -g)"`, or with `--user 0` to keep the 1.x behavior.
   Files Martin reads need to be readable by that user.
 - **Images built `FROM ghcr.io/maplibre/martin`** cannot `RUN` commands. Copy the binaries into your own base image instead:
 
