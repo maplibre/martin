@@ -4,6 +4,7 @@ mod branch;
 mod eval;
 mod filter;
 
+use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashSet};
 use std::num::NonZeroU32;
 use std::ops::{Range, RangeInclusive};
@@ -11,7 +12,12 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use eval::Keys;
-use geo::{Centroid as _, Coord, InteriorPoint as _, MultiLineString, MultiPoint, MultiPolygon, Polygon};
+use geo::coordinate_position::CoordPos;
+use geo::line_intersection::{LineIntersection, line_intersection};
+use geo::{
+    BoundingRect as _, Centroid as _, Coord, CoordinatePosition as _, CoordsIter as _, InteriorPoint as _, Line,
+    LinesIter as _, MultiLineString, MultiPoint, MultiPolygon, Polygon,
+};
 use map_tile_toolkit::ClipMode;
 use mlt_core::encoder::{EncoderConfig, Network, Profile};
 use tilejson::Bounds;
@@ -520,13 +526,109 @@ impl DerivedPoint {
             (Self::PointOnSurface, FeatureGeom::Points(points)) => MultiPoint::from(points.to_vec()).interior_point(),
             (Self::PointOnSurface, FeatureGeom::Lines([line])) => line.interior_point(),
             (Self::PointOnSurface, FeatureGeom::Lines(lines)) => MultiLineString::new(lines.to_vec()).interior_point(),
-            (Self::PointOnSurface, FeatureGeom::Polygons([polygon])) => polygon.interior_point(),
             (Self::PointOnSurface, FeatureGeom::Polygons(polygons)) => {
-                MultiPolygon::new(polygons.to_vec()).interior_point()
+                let mut found = Vec::with_capacity(polygons.len());
+                for polygon in polygons {
+                    match scan_interior_point(polygon) {
+                        Scanned::Point(point, length) => found.push((point, length)),
+                        Scanned::Empty => {}
+                        Scanned::OnScanLine => {
+                            return MultiPolygon::new(polygons.to_vec()).interior_point().map(|p| p.0);
+                        }
+                    }
+                }
+                found
+                    .into_iter()
+                    .min_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Less))
+                    .map(|(point, _)| geo::Point(point))
             }
         };
         point.map(|point| point.0)
     }
+}
+
+/// Result of scanning one polygon for an interior point.
+enum Scanned {
+    /// The point geo's `InteriorPoint` picks, and the width of its scan segment (0 on the boundary).
+    Point(Coord<f64>, f64),
+    /// No point found.
+    Empty,
+    /// A vertex or edge lies on the scan line.
+    OnScanLine,
+}
+
+/// geo's `InteriorPoint` of `polygon`, using `coordinate_position` instead of `relate`.
+#[expect(
+    clippy::float_cmp,
+    clippy::manual_midpoint,
+    reason = "the same arithmetic and exact comparisons as geo's InteriorPoint, so the point is the same"
+)]
+fn scan_interior_point(polygon: &Polygon<f64>) -> Scanned {
+    if polygon.exterior().0.len() == 1 {
+        return Scanned::Point(polygon.exterior().0[0], 0.0);
+    }
+    let Some(bounds) = polygon.bounding_rect() else {
+        return Scanned::Empty;
+    };
+    let mut y_mid = (bounds.min().y + bounds.max().y) / 2.0;
+    if polygon.coords_iter().any(|coord| coord.y == y_mid) {
+        let next_closest = polygon
+            .coords_iter()
+            .filter(|coord| coord.y != y_mid)
+            .map(|coord| (coord.y, (coord.y - y_mid).abs()))
+            .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Less));
+        if let Some((closest, _)) = next_closest {
+            y_mid = (y_mid + closest) / 2.0;
+        }
+    }
+    if polygon.coords_iter().any(|coord| coord.y == y_mid) {
+        return Scanned::OnScanLine;
+    }
+    let scan = Line::new(
+        Coord {
+            x: bounds.min().x,
+            y: y_mid,
+        },
+        Coord {
+            x: bounds.max().x,
+            y: y_mid,
+        },
+    );
+    let mut xs: Vec<f64> = Vec::new();
+    for edge in polygon.lines_iter() {
+        if (edge.start.y < y_mid) == (edge.end.y < y_mid) {
+            continue;
+        }
+        match line_intersection(edge, scan) {
+            Some(LineIntersection::SinglePoint { intersection, .. }) => xs.push(intersection.x),
+            Some(LineIntersection::Collinear { .. }) | None => return Scanned::OnScanLine,
+        }
+    }
+    xs.sort_by(f64::total_cmp);
+    let mut segments: Vec<(Coord<f64>, f64)> = xs
+        .windows(2)
+        .map(|pair| {
+            (
+                Coord {
+                    x: (pair[0] + pair[1]) / 2.0,
+                    y: y_mid,
+                },
+                pair[1] - pair[0],
+            )
+        })
+        .collect();
+    segments.sort_by(|a, b| b.1.total_cmp(&a.1));
+    for (midpoint, length) in segments {
+        match polygon.coordinate_position(&midpoint) {
+            CoordPos::Inside => return Scanned::Point(midpoint, length),
+            CoordPos::OnBoundary => return Scanned::Point(midpoint, 0.0),
+            CoordPos::Outside => {}
+        }
+    }
+    polygon
+        .coords_iter()
+        .next()
+        .map_or(Scanned::Empty, |coord| Scanned::Point(coord, 0.0))
 }
 
 /// Whether `ring` is convex as Planetiler's `GeoUtils.isConvex` decides it: the triangles of consecutive points keep
@@ -1913,4 +2015,45 @@ fn plan_computed(
         }
     }
     Ok((computed, banded))
+}
+
+#[cfg(test)]
+mod tests {
+    use geo::{LineString, wkt};
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::square(wkt! { MULTIPOLYGON(((0. 0.,4. 0.,4. 4.,0. 4.,0. 0.))) })]
+    #[case::hole(wkt! { MULTIPOLYGON(((0. 0.,10. 0.,10. 10.,0. 10.,0. 0.),(2. 2.,2. 8.,8. 8.,8. 2.,2. 2.))) })]
+    #[case::concave(wkt! { MULTIPOLYGON(((0. 0.,6. 0.,6. 6.,4. 6.,4. 2.,2. 2.,2. 6.,0. 6.,0. 0.))) })]
+    #[case::vertex_on_the_middle_line(wkt! { MULTIPOLYGON(((0. 0.,4. 0.,4. 2.,5. 3.,4. 4.,0. 4.,0. 0.))) })]
+    #[case::flat_ring(wkt! { MULTIPOLYGON(((0. 0.,1. 0.,2. 0.,0. 0.))) })]
+    #[case::flat_ring_beside_a_square(
+        wkt! { MULTIPOLYGON(((0. 0.,1. 0.,2. 0.,0. 0.)),((5. 5.,6. 5.,6. 6.,5. 6.,5. 5.))) }
+    )]
+    #[case::zero_area_ring(wkt! { MULTIPOLYGON(((0. 0.,2. 2.,0. 0.))) })]
+    #[case::zero_area_ring_beside_a_square(
+        wkt! { MULTIPOLYGON(((0. 0.,2. 2.,0. 0.)),((5. 5.,6. 5.,6. 6.,5. 6.,5. 5.))) }
+    )]
+    #[case::parts_of_equal_width(
+        wkt! { MULTIPOLYGON(((0. 0.,1. 0.,1. 1.,0. 1.,0. 0.)),((3. 0.,4. 0.,4. 1.,3. 1.,3. 0.))) }
+    )]
+    #[case::narrow_part_before_a_wide_one(
+        wkt! { MULTIPOLYGON(((0. 0.,1. 0.,1. 9.,0. 9.,0. 0.)),((3. 0.,9. 0.,9. 1.,3. 1.,3. 0.))) }
+    )]
+    #[case::one_point(MultiPolygon::new(vec![Polygon::new(LineString::from(vec![(1., 1.)]), vec![])]))]
+    #[case::empty_part_beside_a_square(MultiPolygon::new(vec![
+        Polygon::new(LineString::new(vec![]), vec![]),
+        wkt! { POLYGON((5. 5.,6. 5.,6. 6.,5. 6.,5. 5.)) },
+    ]))]
+    #[case::no_parts(MultiPolygon::new(vec![]))]
+    fn point_on_surface_is_geo_interior_point(#[case] polygons: MultiPolygon<f64>) {
+        let point = DerivedPoint::PointOnSurface.of(
+            &Geometry::Polygons(polygons.0.clone()),
+            FeatureGeom::Polygons(&polygons.0),
+        );
+        assert_eq!(point, polygons.interior_point().map(|p| p.0));
+    }
 }

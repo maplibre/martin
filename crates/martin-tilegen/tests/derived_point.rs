@@ -152,6 +152,77 @@ fn a_point_on_surface_of_a_concave_polygon_lies_inside_it() {
 }
 
 #[test]
+fn a_point_on_surface_of_a_polygon_with_a_hole_lies_beside_the_hole() {
+    let outer = LineString::from(vec![
+        (-1000.0 * UNIT, -1000.0 * UNIT),
+        (1000.0 * UNIT, -1000.0 * UNIT),
+        (1000.0 * UNIT, 1000.0 * UNIT),
+        (-1000.0 * UNIT, 1000.0 * UNIT),
+        (-1000.0 * UNIT, -1000.0 * UNIT),
+    ]);
+    let hole = LineString::from(vec![
+        (-500.0 * UNIT, -500.0 * UNIT),
+        (-500.0 * UNIT, 500.0 * UNIT),
+        (500.0 * UNIT, 500.0 * UNIT),
+        (500.0 * UNIT, -500.0 * UNIT),
+        (-500.0 * UNIT, -500.0 * UNIT),
+    ]);
+    let mut batches = vec![FeatureBatch {
+        table: 0,
+        partition: 0,
+        first_row: 0,
+        crs: Crs::WebMercator,
+        features: vec![SourceFeature {
+            id: Some(1),
+            geometry: Geometry::Polygons(vec![Polygon::new(outer, vec![hole])]),
+            props: vec![],
+            relations: Vec::new(),
+        }],
+    }];
+    let plan = Plan::new(vec![TableDef {
+        columns: vec![],
+        layers: vec![LayerDef {
+            geometry: vec![GeometryDef {
+                takes: Some(GeometryType::Polygon),
+                point: Some(DerivedPoint::PointOnSurface),
+            }],
+            ..LayerDef::new("labels", 0..=0, GRID)
+        }],
+    }])
+    .unwrap();
+    let (tiles, _) = render_block(
+        &plan,
+        &mut batches,
+        TileRect::new(0, 0, 0, 0, 0),
+        TileFormat::Mlt,
+        Encoding::Uncompressed,
+    )
+    .unwrap();
+    let layers = Parser::default().parse_layers(&tiles[0].data).unwrap();
+    let features: Vec<_> = layers
+        .into_iter()
+        .map(|layer| layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+        .flat_map(|layer| {
+            layer
+                .features()
+                .iter()
+                .map(|f| (f.id(), format!("{:?}", f.geometry())))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    insta::assert_debug_snapshot!(features, @r#"
+    [
+        (
+            Some(
+                1,
+            ),
+            "POINT(1298 2048)",
+        ),
+    ]
+    "#);
+}
+
+#[test]
 fn a_point_on_surface_of_a_multi_polygon_lies_in_its_widest_part() {
     let square = |w: f64, s: f64, e: f64, n: f64| {
         Polygon::new(
