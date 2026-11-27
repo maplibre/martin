@@ -389,10 +389,12 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository }}
-          flavor: suffix=-legacycpu,onlatest=true
+          flavor: latest=false,suffix=-legacycpu,onlatest=true
           tags: |
             type=raw,value=${{ steps.prepare_tag.outputs.short_tag }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
+            type=semver,pattern={{major}},value=${{ steps.prepare_tag.outputs.short_tag }},enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.prepare_tag.outputs.short_tag }},enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version={{version}}
@@ -453,12 +455,12 @@ jobs:
         include:
           - variant: base
             suffix: ''
-            flavor: ''
+            flavor: latest=false
             extra_packages: ''
             description: Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
           - variant: full
             suffix: '-full'
-            flavor: suffix=-full,onlatest=true
+            flavor: latest=false,suffix=-full,onlatest=true
             extra_packages: libegl1 libgles2 libegl-mesa0
             description: Martin tile server with server-side style rendering (batteries-included)
     permissions:
@@ -569,6 +571,8 @@ jobs:
           tags: |
             type=raw,value=${{ steps.prepare_tag.outputs.short_tag }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && !github.event.release.prerelease }}
+            type=semver,pattern={{major}},value=${{ steps.prepare_tag.outputs.short_tag }},enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && !github.event.release.prerelease }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.prepare_tag.outputs.short_tag }},enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && !github.event.release.prerelease }}
           labels: |
             org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
             org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
