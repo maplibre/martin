@@ -1,0 +1,106 @@
+name: Release PR
+
+# Each release PR update reruns the release PR's full CI, so it follows main once a night instead of on every push.
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  release-pr:
+    name: Propose the next version and changelog
+    if: github.repository_owner == 'maplibre' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: read
+    # shared with the release-plz job in release.yml, so a publish and a release PR update never overlap
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Decide whether main moved since the release PR was last updated
+        id: due
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          head=$(gh pr list --state open --json headRefName,headRefOid \
+            --jq '[.[] | select(.headRefName | startswith("release-plz-"))][0].headRefOid // ""')
+          if [[ "$EVENT_NAME" == 'schedule' && -n "$head" ]] \
+            && [[ "$(gh api "repos/$GH_REPO/compare/$head...$SHA" --jq .ahead_by)" == 0 ]]; then
+            echo "the release PR at $head already contains main at $SHA"
+            echo due=false >> "$GITHUB_OUTPUT"
+          else
+            echo due=true >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.due.outputs.due == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - if: steps.due.outputs.due == 'true'
+        uses: $/.github/actions/setup-rust
+        with: { tools: 'just,release-plz' }
+      - if: steps.due.outputs.due == 'true'
+        name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 26 }
+      # martin-ui publishes the built bundle, and its build.rs refuses a package without one.
+      - if: steps.due.outputs.due == 'true'
+        name: Build the web UI bundle
+        run: just ui::build
+      - if: steps.due.outputs.due == 'true'
+        name: Install uv
+        continue-on-error: true
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with: { enable-cache: false } # uv is a one-off tool runner here; no Python deps to cache
+      # release-pr commits what this generates along with the bump (`allow_dirty` in release-plz.toml),
+      # which autofix.yml otherwise pushes after it.
+      - if: steps.due.outputs.due == 'true'
+        name: Generate the files that follow martin's next version
+        id: generate
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          release-plz update --package martin
+          mapfile -t bumped < <(git diff --name-only)
+          # what the autofix.yml jobs push, in the order they push it
+          uvx prek@0.5.5 run --all-files || [ $? -eq 1 ] # 1 is a hook that changed files
+          just fmt-toml
+          npm --prefix demo/frontend install --package-lock-only --no-fund
+          npm --prefix crates/martin-ui install --package-lock-only --no-fund
+          just gen-schemas
+          uvx prek@0.5.5 run --files schemas/config.json crates/martin/openapi.json crates/martin-ui/src/lib/types.gen.ts || [ $? -eq 1 ]
+          # release-pr bumps these itself
+          if (( ${#bumped[@]} )); then git checkout -- "${bumped[@]}"; fi
+          just update-lockfile
+          git status --short
+      - if: steps.generate.outcome == 'failure'
+        name: Hand release-pr a clean tree
+        run: git reset --hard && git clean -fd
+      # A GitHub App token, so that the release PR's pushes trigger its CI. Events created with GITHUB_TOKEN start no workflow.
+      - if: steps.due.outputs.due == 'true'
+        name: Generate GitHub token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        id: generate-token
+        with:
+          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - if: steps.due.outputs.due == 'true'
+        name: Create or update the PR proposing the next version and changelog
+        uses: release-plz/action@66b324fd6c72d05d2a08568492ecdd62bfb8a62b # v0.5.148
+        with: { command: release-pr }
+        env:
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
