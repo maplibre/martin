@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use martin_tile_utils::Encoding;
 
+use crate::SourceId;
 use crate::cache::{CacheKey, ResourceCache};
 
 /// Font cache for storing generated font ranges (PBF glyph data).
@@ -53,8 +54,8 @@ impl FontCacheKey {
 impl CacheKey for FontCacheKey {
     const CACHE_NAME: &'static str = "font";
 
-    fn matches_source(&self, source_id: &str) -> bool {
-        self.ids.split(',').any(|s| s == source_id)
+    fn matches_source(&self, source: SourceId) -> bool {
+        source.name().is_some_and(|name| self.ids.split(',').any(|s| s == name))
     }
 
     fn record_outcome(&self, hit: bool) {

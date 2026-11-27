@@ -18,6 +18,7 @@ use super::link::path_segment;
 use super::map::{MapFormat, Viewport, WEB_MERCATOR, dataset_collections, own_tiles_url, render_failure, renders_maps};
 use super::tilesets::{Tiled, tile_matrix_set_limits};
 use crate::config::file::srv::SrvConfig;
+use crate::source::SourceEntry;
 use crate::srv::server::map_error;
 use crate::tile_source_manager::TileSourceManager;
 
@@ -104,7 +105,9 @@ fn dataset_style(req: &HttpRequest, srv_config: &SrvConfig, manager: &TileSource
     let collections = dataset_collections(manager, None).unwrap_or_default();
     let described: Vec<(&str, TileJSON)> = collections
         .iter()
-        .map(|(id, (source, process))| (id.as_str(), process.advertised_tilejson(source.get_tilejson().clone())))
+        .map(|(id, SourceEntry { source, process, .. })| {
+            (id.as_str(), process.advertised_tilejson(source.get_tilejson().clone()))
+        })
         .collect();
     let drawn: Vec<_> = described.iter().map(|(id, tilejson)| Drawn { id, tilejson }).collect();
     let style = generated_style(&own_tiles_url(req, srv_config), &drawn);

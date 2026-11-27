@@ -108,12 +108,12 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
 #[must_use]
 pub fn source(mock: &MockSource, name: &str) -> BoxedSource {
     let (sources, _) = mock;
-    let (src, _process_config) = sources
+    sources
         .tile_manager
         .tile_sources()
         .get_source(name)
-        .expect("source can be found");
-    src
+        .expect("source can be found")
+        .source
 }
 
 #[cfg(feature = "test-pg")]

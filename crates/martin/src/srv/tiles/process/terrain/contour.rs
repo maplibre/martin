@@ -6,6 +6,7 @@ use std::sync::LazyLock;
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use compact_str::CompactString;
+use martin_core::SourceId;
 use martin_core::tiles::contour::{ContourError, trace_contours};
 use martin_core::tiles::neighbourhood::{InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag};
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache};
@@ -64,6 +65,7 @@ static TRACE_PERMITS: LazyLock<Semaphore> = LazyLock::new(|| {
 /// Where the source holds no tile at `xyz`, the contours are traced from the nearest ancestor that it does hold.
 pub async fn trace_contour(
     source: &BoxedSource,
+    id: SourceId,
     settings: ResolvedContour,
     xyz: TileCoord,
     cache: Option<&TileCache>,
@@ -74,7 +76,7 @@ pub async fn trace_contour(
             .await
             // The only way to fail is a closed semaphore, which happens at shutdown.
             .map_err(|_closed| ContourTraceError::ShuttingDown)?;
-        gather_nearest(source, xyz, cache).await.map_err(|e| {
+        gather_nearest(source, id, xyz, cache).await.map_err(|e| {
             if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) {
                 ContourTraceError::SourceNeedsReload
             } else {

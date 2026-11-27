@@ -2,12 +2,14 @@
 
 use std::hash::{BuildHasher as _, RandomState};
 use std::hint::black_box;
+use std::sync::LazyLock;
 
 use criterion::async_executor::FuturesExecutor;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use martin::TileSourceManager;
 use martin::config::file::{OnInvalid, ResolvedProcess};
 use martin::srv::{DynTileSource, TileRequestHeaders};
+use martin_core::SourceId;
 use martin_core::tiles::testing::{Behaviour, TestSource};
 use martin_core::tiles::{NO_TILE_CACHE, Source as _, Tile, TileCache, TileCacheKey};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
@@ -122,13 +124,15 @@ const CACHE_KEY_SOURCE_ID: &str = "osm_planet_vector_tiles";
 const CACHE_KEY_QUERY: &str = "filter=highway&year=2026&simplify=true";
 const CACHE_KEY_COORD: TileCoord = TileCoord::new_unchecked(14, 8523, 5606);
 
+static CACHE_KEY_SOURCE: LazyLock<SourceId> = LazyLock::new(|| SourceId::intern(CACHE_KEY_SOURCE_ID));
+
 fn static_cache_key(xyz: TileCoord) -> TileCacheKey {
-    TileCacheKey::new_request_static(CACHE_KEY_SOURCE_ID, xyz)
+    TileCacheKey::new_request_static(*CACHE_KEY_SOURCE, xyz)
 }
 
 fn dynamic_cache_key(xyz: TileCoord) -> TileCacheKey {
     TileCacheKey::new_request_dynamic(
-        CACHE_KEY_SOURCE_ID,
+        std::slice::from_ref(&*CACHE_KEY_SOURCE),
         xyz,
         Some(CACHE_KEY_QUERY.into()),
         Some(Format::Mvt),

@@ -12,7 +12,7 @@ use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
 use compact_str::CompactString;
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
-use itertools::Itertools as _;
+use martin_core::SourceId;
 use martin_core::cache::CacheKey as _;
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey, UrlQuery};
 use martin_tile_utils::{
@@ -314,8 +314,12 @@ struct TranscodeTargets {
 impl TranscodeTargets {
     fn of(sources: &[SourceEntry]) -> Self {
         Self {
-            to_mlt: sources.iter().all(|(_, pc)| matches!(pc.mlt, MltConversion::Encode(_))),
-            to_mvt: sources.iter().all(|(_, pc)| pc.mvt == MvtConversion::Encode),
+            to_mlt: sources
+                .iter()
+                .all(|SourceEntry { process: pc, .. }| matches!(pc.mlt, MltConversion::Encode(_))),
+            to_mvt: sources
+                .iter()
+                .all(|SourceEntry { process: pc, .. }| pc.mvt == MvtConversion::Encode),
         }
     }
 }
@@ -354,7 +358,7 @@ impl<'a> DynTileSource<'a> {
                 .expand_ids(source_ids)
                 .iter()
                 .filter_map(|id| {
-                    let (src, _) = tile_sources.get_source(id).ok()?;
+                    let SourceEntry { source: src, .. } = tile_sources.get_source(id).ok()?;
                     let tj = src.get_tilejson();
                     Some(match (tj.minzoom, tj.maxzoom) {
                         (Some(lo), Some(hi)) => format!("{id} supports zoom {lo}-{hi}"),
@@ -433,10 +437,10 @@ impl<'a> DynTileSource<'a> {
         err(Debug),
     )]
     pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
-        if let Some((source, _)) = self
+        if let Some(SourceEntry { source, .. }) = self
             .sources
             .iter()
-            .find(|(source, _)| !source.tile_grid().is_valid(xyz.z(), xyz.x(), xyz.y()))
+            .find(|SourceEntry { source, .. }| !source.tile_grid().is_valid(xyz.z(), xyz.x(), xyz.y()))
         {
             return Err(TileError::OutsideGrid {
                 xyz,
@@ -486,7 +490,10 @@ impl<'a> DynTileSource<'a> {
 
     /// The per-source `Cache-Control` value, when every source of this request agrees on one.
     fn cache_control_header(&self) -> Option<HeaderValue> {
-        let mut configured = self.sources.iter().map(|(_, pc)| &pc.cache_control);
+        let mut configured = self
+            .sources
+            .iter()
+            .map(|SourceEntry { process: pc, .. }| &pc.cache_control);
         let first = configured.next()?.as_ref()?;
         configured
             .all(|c| c.as_ref() == Some(first))
@@ -518,8 +525,15 @@ impl<'a> DynTileSource<'a> {
         // `buffered()` costs a `FuturesOrdered` task node per request for no
         // concurrency. Await it directly instead; with a single tile `merge_tiles`
         // has nothing to join, so only its empty-tile and `recompress` steps apply.
-        let (produced, tile) = if let [(s, pc)] = self.sources.as_slice() {
-            let tile = self.get_tile_content_from_one_source(s, pc, xyz).await?;
+        let (produced, tile) = if let [
+            SourceEntry {
+                id,
+                source: s,
+                process: pc,
+            },
+        ] = self.sources.as_slice()
+        {
+            let tile = self.get_tile_content_from_one_source(*id, s, pc, xyz).await?;
             let produced = Some(tile.info.encoding);
             let tile = if tile.is_empty() {
                 Tile::new_hash_etag(Vec::new(), self.info)
@@ -529,7 +543,13 @@ impl<'a> DynTileSource<'a> {
             (produced, tile)
         } else {
             let tiles: Vec<Tile> = stream::iter(&self.sources)
-                .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz))
+                .map(
+                    |SourceEntry {
+                         id,
+                         source: s,
+                         process: pc,
+                     }| self.get_tile_content_from_one_source(*id, s, pc, xyz),
+                )
                 .buffered(MAX_CONCURRENT_TILE_FETCHES)
                 .try_collect()
                 .await?;
@@ -549,14 +569,21 @@ impl<'a> DynTileSource<'a> {
     /// The key of this request's response in the encoding the client receives.
     /// `None` when the response is stitched after the cache, or not cached at all.
     fn served_key(&self, xyz: TileCoord) -> Option<(&'a TileCache, TileCacheKey)> {
-        if self.sources.iter().any(|(_, pc)| pc.is_post_processed()) {
+        if self
+            .sources
+            .iter()
+            .any(|SourceEntry { process: pc, .. }| pc.is_post_processed())
+        {
             return None;
         }
-        let cache = self
-            .cache
-            .filter(|_| self.sources.iter().all(|(s, _)| s.cache_zoom().contains(xyz.z())))?;
+        let cache = self.cache.filter(|_| {
+            self.sources
+                .iter()
+                .all(|SourceEntry { source: s, .. }| s.cache_zoom().contains(xyz.z()))
+        })?;
+        let ids: SmallVec<[SourceId; 4]> = self.sources.iter().map(|entry| entry.id).collect();
         let key = TileCacheKey::new_request_dynamic(
-            self.sources.iter().map(|(s, _)| s.get_id()).join(","),
+            &ids,
             xyz,
             self.source_query().map(|q| q.0.into()),
             self.accepted_format,
@@ -577,16 +604,17 @@ impl<'a> DynTileSource<'a> {
 
     async fn get_tile_content_from_one_source(
         &self,
+        id: SourceId,
         s: &BoxedSource,
         pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> Result<Tile, TileError> {
         #[cfg(feature = "processing")]
         if let Some(settings) = self.resolve_hillshade(pc)? {
-            return match bake_hillshade(s, settings, xyz, self.cache).await {
+            return match bake_hillshade(s, id, settings, xyz, self.cache).await {
                 Err(HillshadeBakeError::SourceNeedsReload) => {
                     let fresh_src = self.reload_source(s, pc).await?;
-                    Ok(bake_hillshade(&fresh_src, settings, xyz, self.cache).await?)
+                    Ok(bake_hillshade(&fresh_src, id, settings, xyz, self.cache).await?)
                 }
                 result => Ok(result?),
             };
@@ -594,19 +622,19 @@ impl<'a> DynTileSource<'a> {
 
         #[cfg(feature = "processing")]
         if let Some(settings) = self.resolve_contour(pc)? {
-            let traced = match trace_contour(s, settings.clone(), xyz, self.cache).await {
+            let traced = match trace_contour(s, id, settings.clone(), xyz, self.cache).await {
                 Err(ContourTraceError::SourceNeedsReload) => {
                     let fresh_src = self.reload_source(s, pc).await?;
-                    trace_contour(&fresh_src, settings, xyz, self.cache).await?
+                    trace_contour(&fresh_src, id, settings, xyz, self.cache).await?
                 }
                 result => result?,
             };
             return Ok(apply_pre_cache_processors(traced, pc, self.accepted_format)?);
         }
 
-        match self.fetch_tile_content_with_cache(s, pc, xyz).await {
+        match self.fetch_tile_content_with_cache(id, s, pc, xyz).await {
             Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
-                self.reload_source_and_retry_get_tile(s, pc, xyz).await
+                self.reload_source_and_retry_get_tile(id, s, pc, xyz).await
             }
             result => result.map_err(TileError::from),
         }
@@ -635,18 +663,20 @@ impl<'a> DynTileSource<'a> {
 
     async fn reload_source_and_retry_get_tile(
         &self,
+        id: SourceId,
         s: &BoxedSource,
         pc: &ResolvedProcess,
         xyz: TileCoord,
     ) -> Result<Tile, TileError> {
         let fresh_src = self.reload_source(s, pc).await?;
-        self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
+        self.fetch_tile_content_with_cache(id, &fresh_src, pc, xyz)
             .await
             .map_err(TileError::from)
     }
 
     async fn fetch_tile_content_with_cache(
         &self,
+        id: SourceId,
         s: &BoxedSource,
         pc: &ResolvedProcess,
         xyz: TileCoord,
@@ -655,7 +685,7 @@ impl<'a> DynTileSource<'a> {
         let src = Arc::clone(s);
         let key = |xyz| {
             TileCacheKey::new_request_dynamic(
-                s.get_id(),
+                std::slice::from_ref(&id),
                 xyz,
                 self.source_query().map(|q| q.0.into()),
                 self.accepted_format,
@@ -1219,7 +1249,8 @@ mod tests {
         let cache = mgr.tile_cache().as_ref().unwrap();
         cache.run_pending_tasks().await;
         assert_eq!(cache.entry_count(), entries);
-        let served_key = TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, Some(served));
+        let served_key =
+            TileCacheKey::new_request_dynamic(&[SourceId::intern("src")], ORIGIN, None, None, Some(served));
         assert_eq!(
             cache.contains_key(&served_key),
             entries == 2,
@@ -1259,12 +1290,46 @@ mod tests {
         let cache = mgr.tile_cache().as_ref().unwrap();
         cache.run_pending_tasks().await;
         assert_eq!(cache.entry_count(), entries);
-        let composite_key = TileCacheKey::new_request_dynamic("a,b", ORIGIN, None, None, Some(Encoding::Gzip));
+        let composite_key = TileCacheKey::new_request_dynamic(
+            &[SourceId::intern("a"), SourceId::intern("b")],
+            ORIGIN,
+            None,
+            None,
+            Some(Encoding::Gzip),
+        );
         assert_eq!(
             cache.contains_key(&composite_key),
             entries == 3,
             "a merge is cached iff it is served in the negotiated encoding"
         );
+    }
+
+    #[actix_rt::test]
+    async fn an_alias_and_the_same_list_spelled_out_share_one_cached_tile() {
+        let mgr = cached_test_manager(vec![
+            mvt_source("shared_a", b"aaa", Encoding::Uncompressed),
+            mvt_source("shared_b", b"bbb", Encoding::Uncompressed),
+        ]);
+        mgr.tile_sources()
+            .add_alias("shared".to_owned(), vec!["shared_a".to_owned(), "shared_b".to_owned()])
+            .unwrap();
+        let cache = mgr.tile_cache().as_ref().unwrap();
+
+        DynTileSource::new(&mgr, "shared", None, "", accept(Some("gzip")))
+            .unwrap()
+            .get_tile_content(ORIGIN)
+            .await
+            .unwrap();
+        cache.run_pending_tasks().await;
+        let after_alias = cache.entry_count();
+        DynTileSource::new(&mgr, "shared_a,shared_b", None, "", accept(Some("gzip")))
+            .unwrap()
+            .get_tile_content(ORIGIN)
+            .await
+            .unwrap();
+        cache.run_pending_tasks().await;
+
+        assert_eq!(cache.entry_count(), after_alias);
     }
 
     #[actix_rt::test]
@@ -1277,10 +1342,16 @@ mod tests {
         src.get_tile_content(ORIGIN).await.unwrap();
 
         let cache = mgr.tile_cache().as_ref().unwrap();
-        let composite_key = TileCacheKey::new_request_dynamic("a,b", ORIGIN, None, None, Some(Encoding::Gzip));
+        let composite_key = TileCacheKey::new_request_dynamic(
+            &[SourceId::intern("a"), SourceId::intern("b")],
+            ORIGIN,
+            None,
+            None,
+            Some(Encoding::Gzip),
+        );
         assert!(cache.contains_key(&composite_key));
 
-        cache.invalidate_source("b");
+        cache.invalidate_source(SourceId::intern("b"));
         cache.run_pending_tasks().await;
         assert!(!cache.contains_key(&composite_key));
         assert_eq!(cache.entry_count(), 1, "the produced entry of a stays");
@@ -1532,7 +1603,8 @@ mod tests {
             .iter()
             .enumerate()
             .map(|(i, on)| {
-                let src = TestSource::new(if i == 0 { "a" } else { "b" }, TileData::from_static(&[1, 2, 3]));
+                let id = if i == 0 { "a" } else { "b" };
+                let src = TestSource::new(id, TileData::from_static(&[1, 2, 3]));
                 let pc = if *on {
                     ResolvedProcess::default()
                 } else {
@@ -1541,7 +1613,7 @@ mod tests {
                         ..Default::default()
                     }
                 };
-                (src.boxed(), Arc::new(pc))
+                SourceEntry::new(id, src.boxed(), pc)
             })
             .collect();
         assert_eq!(TranscodeTargets::of(&sources).to_mlt, expected);

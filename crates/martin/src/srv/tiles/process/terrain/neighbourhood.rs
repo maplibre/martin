@@ -7,6 +7,7 @@ use std::sync::{Arc, LazyLock};
 
 use compact_str::CompactString;
 use futures::stream::{self, StreamExt as _};
+use martin_core::SourceId;
 use martin_core::tiles::neighbourhood::{AncestorWindow, NEIGHBOURHOOD_LEN, Neighbourhood};
 use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, TileCacheKey};
 use martin_tile_utils::{TileCoord, TileData, TileGrid};
@@ -55,6 +56,7 @@ pub fn neighbour_coord(centre: TileCoord, dx: i32, dy: i32, grid: &TileGrid) -> 
 /// Reads one tile as its source produced it.
 async fn fetch_raw(
     source: &BoxedSource,
+    id: SourceId,
     xyz: TileCoord,
     cache: Option<&TileCache>,
 ) -> Result<Tile, Arc<MartinCoreError>> {
@@ -65,7 +67,7 @@ async fn fetch_raw(
     match (cache, cacheable) {
         (Some(cache), true) => {
             cache
-                .get_or_insert(TileCacheKey::new_request_static(source.get_id(), xyz), compute)
+                .get_or_insert(TileCacheKey::new_request_static(id, xyz), compute)
                 .await
         }
         _ => compute().await.map_err(Arc::new),
@@ -78,10 +80,11 @@ async fn fetch_raw(
 /// one seam, which the assembler covers by clamping the centre's edge over it.
 pub async fn gather(
     source: &BoxedSource,
+    id: SourceId,
     xyz: TileCoord,
     cache: Option<&TileCache>,
 ) -> Result<[Slot; NEIGHBOURHOOD_LEN], Arc<MartinCoreError>> {
-    gather_around(source, xyz, cache, None).await
+    gather_around(source, id, xyz, cache, None).await
 }
 
 /// A neighbourhood read for a requested tile, and where that tile sits inside its centre.
@@ -99,10 +102,11 @@ pub struct Gathered {
 /// When no zoom down to it holds data, the slots read at `xyz` come back with an empty centre.
 pub async fn gather_nearest(
     source: &BoxedSource,
+    id: SourceId,
     xyz: TileCoord,
     cache: Option<&TileCache>,
 ) -> Result<Gathered, Arc<MartinCoreError>> {
-    let slots = gather(source, xyz, cache).await?;
+    let slots = gather(source, id, xyz, cache).await?;
     if slots[Neighbourhood::CENTRE].is_some() {
         return Ok(Gathered {
             window: AncestorWindow::NATIVE,
@@ -112,7 +116,7 @@ pub async fn gather_nearest(
     let floor = source.get_tilejson().minzoom.unwrap_or(0);
     for levels in 1..=xyz.z().saturating_sub(floor) {
         let (ancestor, window) = AncestorWindow::above(xyz, levels);
-        let centre = fetch_raw(source, ancestor, cache).await?;
+        let centre = fetch_raw(source, id, ancestor, cache).await?;
         if centre.data.is_empty() {
             continue;
         }
@@ -122,7 +126,7 @@ pub async fn gather_nearest(
             ancestor = %ancestor,
             "No elevation tile at this zoom; reading its nearest ancestor instead"
         );
-        let slots = gather_around(source, ancestor, cache, Some((centre.data, centre.etag))).await?;
+        let slots = gather_around(source, id, ancestor, cache, Some((centre.data, centre.etag))).await?;
         return Ok(Gathered { window, slots });
     }
     Ok(Gathered {
@@ -134,6 +138,7 @@ pub async fn gather_nearest(
 /// Reads the 3x3 neighbourhood centred on `xyz`, reusing `centre` instead of reading it again when the caller already has it.
 async fn gather_around(
     source: &BoxedSource,
+    id: SourceId,
     xyz: TileCoord,
     cache: Option<&TileCache>,
     centre: Slot,
@@ -147,7 +152,7 @@ async fn gather_around(
             let Some(coord) = neighbour_coord(xyz, dx, dy, grid) else {
                 return (index, Ok(None));
             };
-            let result = fetch_raw(source, coord, cache).await;
+            let result = fetch_raw(source, id, coord, cache).await;
             (index, result.map(Some))
         });
 

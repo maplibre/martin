@@ -5,6 +5,7 @@
 use std::convert::Infallible;
 use std::time::Duration;
 
+use martin_core::SourceId;
 use martin_core::tiles::{Tile, TileCache, TileCacheKey};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
@@ -111,7 +112,7 @@ async fn wait_and_flush(cache: &TileCache, duration: Duration) {
 }
 
 fn key(source: &str, xyz: TileCoord, query: Option<&str>, format: Option<Format>) -> TileCacheKey {
-    TileCacheKey::new_request_dynamic(source, xyz, query.map(Into::into), format, None)
+    TileCacheKey::new_request_dynamic(&[SourceId::intern(source)], xyz, query.map(Into::into), format, None)
 }
 
 async fn insert(cache: &TileCache, source: &str, xyz: TileCoord, query: Option<&str>, data: &[u8]) -> Tile {
@@ -205,8 +206,8 @@ async fn cache_differentiates_by_format() {
 #[tokio::test]
 async fn raw_and_rendered_entries_never_collide() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
-    let raw = TileCacheKey::new_request_static("src", ORIGIN);
-    let rendered = TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, None);
+    let raw = TileCacheKey::new_request_static(SourceId::intern("src"), ORIGIN);
+    let rendered = TileCacheKey::new_request_dynamic(&[SourceId::intern("src")], ORIGIN, None, None, None);
 
     assert_ne!(raw, rendered, "the discriminator must distinguish the keys");
 
@@ -242,18 +243,22 @@ async fn raw_and_rendered_entries_never_collide() {
 async fn raw_entries_ignore_request_shape() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
     cache
-        .get_or_insert(TileCacheKey::new_request_static("src", ORIGIN), async || {
-            Ok::<_, Infallible>(test_tile(b"normals"))
-        })
+        .get_or_insert(
+            TileCacheKey::new_request_static(SourceId::intern("src"), ORIGIN),
+            async || Ok::<_, Infallible>(test_tile(b"normals")),
+        )
         .await
         .unwrap();
 
     // A second raw request for the same tile hits, whatever the caller was
     // asked for, because a raw key cannot express a request shape at all.
     let hit = cache
-        .get_or_insert::<_, _, Infallible>(TileCacheKey::new_request_static("src", ORIGIN), async || {
-            panic!("raw entries must be shared across request shapes");
-        })
+        .get_or_insert::<_, _, Infallible>(
+            TileCacheKey::new_request_static(SourceId::intern("src"), ORIGIN),
+            async || {
+                panic!("raw entries must be shared across request shapes");
+            },
+        )
         .await
         .unwrap();
     assert_eq!(hit.data, b"normals".as_slice());
@@ -263,14 +268,15 @@ async fn raw_entries_ignore_request_shape() {
 async fn invalidation_reaches_raw_and_rendered_entries() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
     cache
-        .get_or_insert(TileCacheKey::new_request_static("src", ORIGIN), async || {
-            Ok::<_, Infallible>(test_tile(b"normals"))
-        })
+        .get_or_insert(
+            TileCacheKey::new_request_static(SourceId::intern("src"), ORIGIN),
+            async || Ok::<_, Infallible>(test_tile(b"normals")),
+        )
         .await
         .unwrap();
     cache
         .get_or_insert(
-            TileCacheKey::new_request_dynamic("src", ORIGIN, None, None, None),
+            TileCacheKey::new_request_dynamic(&[SourceId::intern("src")], ORIGIN, None, None, None),
             async || Ok::<_, Infallible>(test_tile(b"baked")),
         )
         .await
@@ -278,7 +284,63 @@ async fn invalidation_reaches_raw_and_rendered_entries() {
     cache.run_pending_tasks().await;
     assert_eq!(cache.entry_count(), 2);
 
-    cache.invalidate_source("src");
+    cache.invalidate_source(SourceId::intern("src"));
     cache.run_pending_tasks().await;
     assert_eq!(cache.entry_count(), 0, "both entries must be invalidated");
+}
+
+#[test]
+fn alias_and_the_same_explicit_list_share_a_key() {
+    let a = SourceId::intern("shared-a");
+    let b = SourceId::intern("shared-b");
+    let alias = SourceId::intern_set(&[a, b]);
+
+    let key = TileCacheKey::new_request_dynamic(&[a, b], ORIGIN, None, None, None);
+
+    assert_eq!(
+        key,
+        TileCacheKey::Dynamic {
+            sources: alias,
+            xyz: ORIGIN.pack(),
+            query: None,
+            format: None,
+            encoding: None,
+        }
+    );
+}
+
+#[test]
+fn a_list_no_alias_defines_stays_ad_hoc() {
+    let a = SourceId::intern("adhoc-a");
+    let b = SourceId::intern("adhoc-b");
+
+    let key = TileCacheKey::new_request_dynamic(&[b, a], ORIGIN, None, None, None);
+
+    assert!(matches!(key, TileCacheKey::AdHoc { .. }));
+    assert_eq!(SourceId::find_set(&[b, a]), None);
+}
+
+#[tokio::test]
+async fn invalidating_a_member_reaches_alias_and_ad_hoc_entries() {
+    let cache = TileCache::new(CACHE_SIZE, None, None);
+    let a = SourceId::intern("member-a");
+    let b = SourceId::intern("member-b");
+    let c = SourceId::intern("member-c");
+    let _alias = SourceId::intern_set(&[a, b]);
+    for sources in [&[a, b][..], &[b, a], &[c]] {
+        cache
+            .get_or_insert(
+                TileCacheKey::new_request_dynamic(sources, ORIGIN, None, None, None),
+                async || Ok::<_, Infallible>(test_tile(b"tile")),
+            )
+            .await
+            .unwrap();
+    }
+    cache.run_pending_tasks().await;
+    assert_eq!(cache.entry_count(), 3);
+
+    cache.invalidate_source(a);
+    cache.run_pending_tasks().await;
+
+    assert_eq!(cache.entry_count(), 1);
 }

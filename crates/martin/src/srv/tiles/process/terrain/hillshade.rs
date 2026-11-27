@@ -6,6 +6,7 @@ use std::sync::LazyLock;
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use compact_str::CompactString;
+use martin_core::SourceId;
 use martin_core::tiles::hillshade::{Canvas, HillshadeError, bake_with_light};
 use martin_core::tiles::neighbourhood::{
     AncestorWindow, InputEtag, NEIGHBOURHOOD_LEN, Neighbourhood, neighbourhood_etag,
@@ -64,6 +65,7 @@ static BAKE_PERMITS: LazyLock<Semaphore> = LazyLock::new(|| {
 /// Bakes the hillshade tile for `xyz` from `source`'s normal tiles.
 pub async fn bake_hillshade(
     source: &BoxedSource,
+    id: SourceId,
     settings: ResolvedHillshade,
     xyz: TileCoord,
     cache: Option<&TileCache>,
@@ -74,7 +76,7 @@ pub async fn bake_hillshade(
             .await
             // The only way to fail is a closed semaphore, which happens at shutdown.
             .map_err(|_closed| HillshadeBakeError::ShuttingDown)?;
-        gather(source, xyz, cache).await.map_err(|e| {
+        gather(source, id, xyz, cache).await.map_err(|e| {
             if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) {
                 HillshadeBakeError::SourceNeedsReload
             } else {

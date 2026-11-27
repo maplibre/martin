@@ -261,7 +261,11 @@ mod e2e {
 
     /// The fields the published source advertises (its table's non-geometry columns).
     fn advertised_fields(tsm: &TileSourceManager) -> BTreeMap<String, String> {
-        let (source, _process) = tsm.tile_sources().get_source("reload_e2e").expect("source present");
+        let source = tsm
+            .tile_sources()
+            .get_source("reload_e2e")
+            .expect("source present")
+            .source;
         source
             .get_tilejson()
             .vector_layers
