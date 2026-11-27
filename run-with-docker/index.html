@@ -2067,7 +2067,9 @@
 <p class="admonition-title">Image variants</p>
 <p>The default image (<code>:latest</code>, <code>:&lt;version&gt;</code>) is lean and does <strong>not</strong> include server-side style <a href="../sources-styles/rendering/">rendering</a>.
 The batteries-included <code>-full</code> variant (<code>:latest-full</code>, <code>:&lt;version&gt;-full</code>) bundles the EGL and Mesa libraries rendering needs and enables it.
-Use <code>-full</code> only if you need rendering; it is a larger image.</p>
+Use <code>-full</code> only if you need rendering; it is a larger image.
+The <code>-legacycpu</code> variant runs on x86_64 CPUs without AVX2.
+To follow every release of one major or minor version, use a tag such as <code>:2</code> or <code>:2.0</code>, plus the variant suffix if you need one, such as <code>:2-full</code>.</p>
 </div>
 <h3 id="using-non-local-postgresql">Using Non-Local PostgreSQL</h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>

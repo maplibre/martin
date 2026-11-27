@@ -6,7 +6,7 @@ You can use official Docker image [`ghcr.io/maplibre/martin`](<https://ghcr.io/m
 >
 > **Image variants**
 >
-> The default image (`:latest`, `:<version>`) is lean and does **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). The batteries-included `-full` variant (`:latest-full`, `:<version>-full`) bundles the EGL and Mesa libraries rendering needs and enables it. Use `-full` only if you need rendering; it is a larger image.
+> The default image (`:latest`, `:<version>`) is lean and does **not** include server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>). The batteries-included `-full` variant (`:latest-full`, `:<version>-full`) bundles the EGL and Mesa libraries rendering needs and enables it. Use `-full` only if you need rendering; it is a larger image. The `-legacycpu` variant runs on x86\_64 CPUs without AVX2. To follow every release of one major or minor version, use a tag such as `:2` or `:2.0`, plus the variant suffix if you need one, such as `:2-full`.
 
 ### Using Non-Local PostgreSQL
 
