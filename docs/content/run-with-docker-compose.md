@@ -51,5 +51,13 @@ docker compose up -d martin
 By default, Martin will be available at [localhost:3000](http://localhost:3000/)
 
 Official Docker image includes a `HEALTHCHECK` instruction which will be used by Docker Compose.
+If Martin listens on another port, set `MARTIN_HEALTH_URL` to `http://127.0.0.1:<port>/health`.
+The image has no shell, so a `healthcheck.test` of your own must use the exec form:
+
+```yml
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/martin", "health", "--url", "http://127.0.0.1:8080/health"]
+```
+
 Note that Compose won't restart unhealthy containers.
 To monitor and restart unhealthy containers you can use [Docker Autoheal](https://github.com/willfarrell/docker-autoheal).

@@ -94,14 +94,6 @@
       enabled: false,
     },
     {
-      // ubuntu:26.04 breaks the docker image build (#3017); fixing it needs upstream
-      // changes we don't have capacity to contribute right now.
-      matchDatasources: ['docker'],
-      matchPackageNames: ['ubuntu'],
-      matchUpdateTypes: ['major'],
-      enabled: false,
-    },
-    {
       // Pinned to an unreleased Node 24 commit after v2.0.0, which renovate reads as a
       // v2.0.0 prerelease and tries to "update" back to the Node 20 tag.
       matchManagers: ['github-actions'],

@@ -393,6 +393,8 @@ jobs:
           tags: |
             type=raw,value=${{ steps.prepare_tag.outputs.short_tag }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' && !github.event.release.prerelease }}
+            type=semver,pattern={{major}},value=${{ steps.prepare_tag.outputs.short_tag }},enable=${{ github.event_name == 'release' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.prepare_tag.outputs.short_tag }},enable=${{ github.event_name == 'release' }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version={{version}}
@@ -400,6 +402,17 @@ jobs:
             org.opencontainers.image.description=Martin tile server built for x86_64 CPUs without x86-64-v3 (AVX2)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build the Docker image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: .github/files/multi-platform.Dockerfile
+          target: static
+          load: true
+          tags: ${{ github.repository }}:linux-legacycpu
+          platforms: linux/amd64
+      - name: The image's HEALTHCHECK reports healthy
+        run: .github/files/docker-healthcheck.sh ${{ github.repository }}:linux-legacycpu
       - name: Login to GitHub Docker registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -414,6 +427,7 @@ jobs:
           sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
+          target: static
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
@@ -444,12 +458,12 @@ jobs:
           - variant: base
             suffix: ''
             flavor: ''
-            extra_packages: ''
+            target: glibc
             description: Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
           - variant: full
             suffix: '-full'
             flavor: suffix=-full,onlatest=true
-            extra_packages: libegl1 libgles2 libegl-mesa0
+            target: full
             description: Martin tile server with server-side style rendering (batteries-included)
     permissions:
       id-token: write
@@ -559,6 +573,8 @@ jobs:
           tags: |
             type=raw,value=${{ steps.prepare_tag.outputs.short_tag }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') && !github.event.release.prerelease }}
+            type=semver,pattern={{major}},value=${{ steps.prepare_tag.outputs.short_tag }},enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.prepare_tag.outputs.short_tag }},enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
           labels: |
             org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
             org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
@@ -595,7 +611,7 @@ jobs:
           sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
-          build-args: EXTRA_PACKAGES=${{ matrix.extra_packages }}
+          target: ${{ matrix.target }}
           push: false
           load: true
           tags: ${{ github.repository }}:linux${{ matrix.suffix }}
@@ -626,6 +642,9 @@ jobs:
           TMPDIR: /tmp
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
+      - name: The linux/amd64 image's HEALTHCHECK reports healthy
+        run: .github/files/docker-healthcheck.sh ${{ github.repository }}:linux${{ matrix.suffix }}
+
       - name: Login to GitHub Docker registry
         if: github.event_name == 'schedule' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
@@ -644,7 +663,7 @@ jobs:
           sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
-          build-args: EXTRA_PACKAGES=${{ matrix.extra_packages }}
+          target: ${{ matrix.target }}
           push: true
           load: false
           tags: ${{ steps.docker_meta.outputs.tags }}

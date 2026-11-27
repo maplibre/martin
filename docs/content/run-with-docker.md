@@ -14,6 +14,29 @@ You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/ma
     The default image (`:latest`, `:<version>`) is lean and does **not** include server-side style [rendering](sources-styles/rendering.md).
     The batteries-included `-full` variant (`:latest-full`, `:<version>-full`) bundles the EGL and Mesa libraries rendering needs and enables it.
     Use `-full` only if you need rendering; it is a larger image.
+    The `-legacycpu` variant runs on x86_64 CPUs without AVX2.
+    `:2`, `:2-full` and `:2-legacycpu` (and `:2.0`, ...) follow the newest release of that major or minor version.
+
+The images hold only Martin and the [Wolfi](https://wolfi.dev) packages it loads: there is no shell or package manager.
+They run as the `nonroot` user (uid and gid `65532`), so a directory Martin writes to, such as the output of `martin cp`, must be writable by that user.
+Run as yourself with `--user "$(id -u):$(id -g)"` to write into your own directories.
+
+### Health check
+
+The images check their health with `martin health`, which asks `http://127.0.0.1:3000/health` and exits `0` on success.
+If Martin listens on another port, set `MARTIN_HEALTH_URL` to the URL to ask instead:
+
+```bash
+docker run \
+  -p 8080:8080 \
+  -e MARTIN_HEALTH_URL=http://127.0.0.1:8080/health \
+  -v /path/to/local/files:/files \
+  ghcr.io/maplibre/martin:2.0.0-beta.8 \
+  --listen-addresses 0.0.0.0:8080 \
+  /files
+```
+
+`docker run --health-cmd` always runs its command through a shell, which the images do not have.
 
 ### Using Non-Local PostgreSQL
 

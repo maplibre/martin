@@ -14,7 +14,7 @@ Use this guide to update an existing Martin setup after a major release. See the
 
 Martin 2.0 removes deprecated options and changes several defaults. Existing routes and legacy URL redirects remain available when their Cargo features are enabled. The configuration file format is unchanged apart from the keys and substitution syntax below.
 
-Review the [database versions](#postgresql-sources-need-postgresql-15-and-postgis-35), [`martin cp`](#martin-cp-is-now-martin-cp), the [terminal dashboard](#the-terminal-dashboard-is-on-by-default), the [web UI](#the-web-ui-is-served-to-localhost-by-default), [archive tile caching](#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default), [cache keys](#cache-sizes-have-one-spelling) and the [MBTiles schema](#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data) even if 1.x showed no deprecation warnings.
+Review the [database versions](#postgresql-sources-need-postgresql-15-and-postgis-35), [`martin cp`](#martin-cp-is-now-martin-cp), the [terminal dashboard](#the-terminal-dashboard-is-on-by-default), the [web UI](#the-web-ui-is-served-to-localhost-by-default), [archive tile caching](#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default), [cache keys](#cache-sizes-have-one-spelling), the [MBTiles schema](#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data) and the [Docker images](#docker-images-have-no-shell-and-run-as-a-non-root-user) even if 1.x showed no deprecation warnings.
 
 ### `martin-cp` is now `martin cp`
 
@@ -245,6 +245,45 @@ The prebuilt x86_64 binaries, Debian package and Docker images are built for the
 On older CPUs they fail with an illegal instruction error. aarch64 builds are unaffected.
 
 To run Martin on an older CPU, use the `martin-x86_64-unknown-linux-musl-legacycpu.tar.gz` release asset or the `:latest-legacycpu` Docker image, or [build it from source](development/index.md) without `-C target-cpu=x86-64-v3`.
+
+### Docker images have no shell and run as a non-root user
+
+The Docker images hold only Martin and the [Wolfi](https://wolfi.dev) packages it loads, on an empty base: no shell and no package manager.
+With far fewer packages, image scanners such as Trivy report far fewer vulnerabilities, and Wolfi ships fixes quickly.
+
+|                  | 1.x                                          | 2.0                                                      |
+|------------------|----------------------------------------------|----------------------------------------------------------|
+| Base             | Ubuntu 24.04                                 | Wolfi packages on `scratch`                              |
+| User             | `root`                                       | `nonroot`, uid and gid `65532`                           |
+| `HEALTHCHECK`    | `wget --spider http://127.0.0.1:3000/health` | `martin health`                                          |
+| Shell, `apt-get` | yes                                          | no                                                       |
+| Tags             | `:<version>`, `:latest`                      | also `:2` and `:2.0`, which every release moves forward |
+
+The `-full` and `-legacycpu` variants get the same tags with their suffix, such as `:2-full`.
+Change your setup where it relies on the 1.x image:
+
+- **Health checks** that run a shell command, such as `wget --spider ...`, fail with `exec: "/bin/sh": ... no such file or directory`.
+  Rely on the image's own `HEALTHCHECK`, and set `MARTIN_HEALTH_URL=http://127.0.0.1:<port>/health` when Martin listens on another port.
+  A check of your own must run `martin health` in exec form:
+
+    ```yaml
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/martin", "health", "--url", "http://127.0.0.1:8080/health"]
+    ```
+
+- **Files Martin writes** into a bind mount, such as the output of `martin cp` or `--save-config`, need a directory uid `65532` can write to.
+  Run the container as yourself with `--user "$(id -u):$(id -g)"`, or with `--user 0` to keep the 1.x behaviour.
+  Files Martin reads need to be readable by that user.
+- **Images built `FROM ghcr.io/maplibre/martin`** cannot `RUN` commands. Copy the binaries into your own base image instead:
+
+    ```dockerfile
+    FROM your-base-image
+    COPY --from=ghcr.io/maplibre/martin:2 /usr/local/bin/martin /usr/local/bin/
+    ```
+
+    The binaries need glibc 2.39 or newer, and the `-full` binary also needs Mesa's `libEGL.so.1`. The `-legacycpu` binaries are static and need no libraries.
+
+- **`docker exec <container> sh`** has no shell to start. Use `docker debug <container>` instead.
 
 ### Cargo features were merged
 
