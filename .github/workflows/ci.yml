@@ -153,7 +153,8 @@ jobs:
         env:
           ACTIONS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true' }}
           JS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' || steps.filter.outputs.demo == 'true' }}
-          RUST: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+          # Rust analysis extracts and queries the whole workspace on every run (~15 min), so it runs on the main push that cuts a release.
+          RUST: ${{ github.event_name == 'workflow_dispatch' || steps.release-pending.outputs.pending == 'true' }}
         run: |
           languages=()
           if [[ "$ACTIONS" == 'true' ]]; then languages+=('"actions"'); fi
