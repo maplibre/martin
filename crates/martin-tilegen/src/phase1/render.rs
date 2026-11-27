@@ -513,10 +513,32 @@ impl Renderer {
             if size < ctx.layer.pixels(zoom, ctx.feature.min_size) {
                 break;
             }
+            if Self::misses_kept_tiles(ctx, zoom, bbox) {
+                continue;
+            }
             let result = render(self, zoom, bbox, out);
             self.skip_unrenderable(ctx, zoom, result)?;
         }
         Ok(())
+    }
+
+    /// Whether `bbox`, widened by one grid unit, surely misses every kept tile of `zoom`.
+    fn misses_kept_tiles(ctx: &Ctx<'_>, zoom: u8, bbox: Rect<f64>) -> bool {
+        let grid = ctx.layer.grid;
+        let shift = world_shift(bbox);
+        let world = scale(zoom) * f64::from(grid.extent);
+        if quantize(bbox.min(), shift, world).is_err() || quantize(bbox.max(), shift, world).is_err() {
+            return false;
+        }
+        let lo = to_grid(bbox.min(), shift, world);
+        let hi = to_grid(bbox.max(), shift, world);
+        let Ok(columns) = tiles_meeting(lo.x - 1.0, hi.x + 1.0, grid) else {
+            return false;
+        };
+        let Ok(rows) = tiles_meeting(lo.y - 1.0, hi.y + 1.0, grid) else {
+            return false;
+        };
+        matches!(ctx.layer.window(zoom, columns, rows), Ok(None))
     }
 
     /// Records a feature that could not be quantized or sliced at `zoom` and lets rendering go on;
@@ -2974,6 +2996,60 @@ mod tests {
             (Seq::new(4, 7).unwrap(), Some(42), 2)
         );
         assert!(matches!(first.error, GeometryError::CoordOverflow));
+    }
+
+    #[test]
+    fn lines_beyond_the_grid_are_counted_as_unrenderable() {
+        let layer = RenderLayer::new(0, 0..=0, GRID).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let sorter = Sorter::new(SortConfig {
+            temp_dirs: vec![dir.path().to_path_buf()],
+            buffer_bytes: 1 << 20,
+            max_fan_in: 8,
+        })
+        .unwrap();
+        let mut buffer = sorter.buffer();
+        let mut renderer = Renderer::default();
+        renderer
+            .render(
+                TileOrder::Tms,
+                &layer,
+                Seq::new(0, 0).unwrap(),
+                &Feature {
+                    id: Some(42),
+                    geom: FeatureGeom::Lines(&[LineString::from(vec![(0.5, 1e7), (0.6, 1e7 + 1.0)])]),
+                    props: &EncodedProps::default(),
+                    bands: &[],
+                    sort: None,
+                    zooms: 0..=0,
+                    simplify: PixelThreshold::DEFAULT_SIMPLIFY,
+                    min_size: PixelThreshold::ZERO,
+                    thinning_grid: &[],
+                },
+                &mut buffer,
+            )
+            .unwrap();
+        buffer.finish().unwrap();
+
+        insta::assert_debug_snapshot!(renderer.slice_errors, @"
+        [
+            SliceErrors {
+                count: 1,
+                first: Some(
+                    SliceError {
+                        seq: Seq(
+                            0,
+                        ),
+                        id: Some(
+                            42,
+                        ),
+                        zoom: 0,
+                        error: CoordOverflow,
+                    },
+                ),
+            },
+        ]
+        ");
     }
 
     #[test]
