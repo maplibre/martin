@@ -2,7 +2,7 @@ use martin_tile_utils::{Encoding, Format, PackedTileCoord, TileCoord};
 use thin_vec::ThinVec;
 
 use crate::SourceId;
-use crate::cache::{CacheKey, Cacheable, ResourceCache};
+use crate::cache::{CacheKey, Cacheable, ResourceCache, thin_vec_heap_size};
 use crate::tiles::Tile;
 
 /// Tile cache for storing rendered tile data, keyed by source ID, tile
@@ -144,15 +144,6 @@ impl CacheKey for TileCacheKey {
             Self::AdHoc { sources, query, .. } => thin_vec_heap_size(sources) + query.as_deref().map_or(0, str::len),
             Self::Static { .. } => 0,
         }
-    }
-}
-
-/// Bytes a [`ThinVec`] owns: its length and capacity header, then the items; nothing while empty.
-fn thin_vec_heap_size<T>(items: &ThinVec<T>) -> usize {
-    if items.capacity() == 0 {
-        0
-    } else {
-        2 * size_of::<usize>() + items.capacity() * size_of::<T>()
     }
 }
 

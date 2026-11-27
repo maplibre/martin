@@ -6,6 +6,7 @@ use std::convert::Infallible;
 use std::time::Duration;
 
 use actix_web::web::Bytes;
+use martin_core::SourceId;
 use martin_core::sprites::{SpriteCache, SpriteCacheKey};
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
@@ -108,7 +109,7 @@ async fn wait_and_flush(cache: &SpriteCache, duration: Duration) {
 }
 
 fn key(ids: &str, as_sdf: bool, as_json: bool) -> SpriteCacheKey {
-    SpriteCacheKey::new(ids.into(), as_sdf, as_json)
+    SpriteCacheKey::new(ids.split(',').map(SourceId::intern).collect(), false, as_sdf, as_json)
 }
 
 async fn insert(cache: &SpriteCache, ids: &str, as_sdf: bool, as_json: bool, data: &[u8]) -> Bytes {

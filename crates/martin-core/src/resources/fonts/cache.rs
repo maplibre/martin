@@ -1,8 +1,9 @@
 use bytes::Bytes;
 use martin_tile_utils::Encoding;
+use thin_vec::ThinVec;
 
 use crate::SourceId;
-use crate::cache::{CacheKey, ResourceCache};
+use crate::cache::{CacheKey, ResourceCache, thin_vec_heap_size};
 
 /// Font cache for storing generated font ranges (PBF glyph data).
 pub type FontCache = ResourceCache<FontCacheKey, Bytes>;
@@ -15,14 +16,12 @@ pub const NO_FONT_CACHE: OptFontCache = None;
 
 /// Cache key for a font glyph range.
 ///
-/// `ids` is the [`crate::fonts::normalize_font_ids`]-normalized font stack
-/// from the request path, with aliases already expanded to their member fonts
+/// Build it with [`crate::fonts::FontSources::cache_key`], which expands aliases to their member fonts,
 /// so invalidating a font also evicts entries reached through an alias.
-/// Invalidation by font ID matches by token (not substring): invalidating
-/// `"Open Sans"` does not invalidate entries keyed against `"Open Sans Bold"`.
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct FontCacheKey {
-    ids: String,
+    /// The fonts of the stack, in fallback order without repeats.
+    ids: ThinVec<SourceId>,
     start: u32,
     end: u32,
     /// The content encoding the range is cached in, `None` for the glyphs as generated.
@@ -32,7 +31,7 @@ pub struct FontCacheKey {
 impl FontCacheKey {
     /// Build a key for the given font stack and glyph range.
     #[must_use]
-    pub const fn new(ids: String, start: u32, end: u32) -> Self {
+    pub const fn new(ids: ThinVec<SourceId>, start: u32, end: u32) -> Self {
         Self {
             ids,
             start,
@@ -55,7 +54,7 @@ impl CacheKey for FontCacheKey {
     const CACHE_NAME: &'static str = "font";
 
     fn matches_source(&self, source: SourceId) -> bool {
-        source.name().is_some_and(|name| self.ids.split(',').any(|s| s == name))
+        self.ids.contains(&source)
     }
 
     fn record_outcome(&self, hit: bool) {
@@ -72,6 +71,6 @@ impl CacheKey for FontCacheKey {
     }
 
     fn heap_size(&self) -> usize {
-        self.ids.capacity()
+        thin_vec_heap_size(&self.ids)
     }
 }

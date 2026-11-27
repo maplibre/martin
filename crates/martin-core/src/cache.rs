@@ -7,6 +7,8 @@ use std::time::Duration;
 
 use martin_tile_utils::moka_entry_weight;
 use moka::future::Cache;
+#[cfg(any(feature = "resources", feature = "_tiles"))]
+use thin_vec::ThinVec;
 use tracing::{info, trace};
 
 use crate::SourceId;
@@ -25,6 +27,16 @@ pub trait CacheKey: Hash + Eq + Send + Sync + Clone + Debug + 'static {
 
     /// Bytes the key owns on the heap.
     fn heap_size(&self) -> usize;
+}
+
+/// Bytes a [`ThinVec`] owns: its length and capacity header, then the items; nothing while empty.
+#[cfg(any(feature = "resources", feature = "_tiles"))]
+pub(crate) fn thin_vec_heap_size<T>(items: &ThinVec<T>) -> usize {
+    if items.capacity() == 0 {
+        0
+    } else {
+        2 * size_of::<usize>() + items.capacity() * size_of::<T>()
+    }
 }
 
 /// A value type storable in [`ResourceCache`].
