@@ -36,8 +36,9 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          head=$(gh pr list --state open --json headRefName,headRefOid \
-            --jq '[.[] | select(.headRefName | startswith("release-plz-"))][0].headRefOid // ""')
+          heads=$(gh api --paginate "repos/$GH_REPO/pulls?state=open&per_page=100" \
+            --jq '.[] | select(.head.repo.full_name == .base.repo.full_name and (.head.ref | startswith("release-plz-"))) | .head.sha')
+          head=${heads%%$'\n'*}
           if [[ "$EVENT_NAME" == 'schedule' && -n "$head" ]] \
             && [[ "$(gh api "repos/$GH_REPO/compare/$head...$SHA" --jq .ahead_by)" == 0 ]]; then
             echo "the release PR at $head already contains main at $SHA"
