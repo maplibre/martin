@@ -10871,7 +10871,7 @@ In a terminal, `generate` opens a review. `--accept` writes every case instead. 
 
 Martin includes `mbtiles` utility to interact with the [`*.mbtiles` files](<https://maplibre.org/martin/mbtiles-schema/index.md>) from the command line. It allows users to [examine](<https://maplibre.org/martin/mbtiles-meta/index.md>), [copy](<https://maplibre.org/martin/mbtiles-copy/index.md>), [validate](<https://maplibre.org/martin/mbtiles-validation/index.md>) or [compare and apply diffs between them](<https://maplibre.org/martin/mbtiles-diff/index.md>).
 
-This tool can be installed with `cargo binstall mbtiles`, by compiling the latest released version with `cargo install mbtiles --locked`, or by downloading a pre-built `mbtiles-<target>` archive from the latest [`mbtiles-v*` release](<https://github.com/maplibre/martin/releases?q=mbtiles-v&amp;expanded=true>). The Martin archives and Debian package do not include it.
+This tool can be installed with `cargo binstall mbtiles`, by compiling the latest released version with `cargo install mbtiles --locked`, or by downloading a pre-built `mbtiles-<target>` archive from the latest [`mbtiles-v*` release](<https://github.com/maplibre/martin/releases?q=mbtiles-v&expanded=true>). The Martin archives and Debian package do not include it.
 
 Use `mbtiles --help` to see a list of available commands:
 
@@ -12502,7 +12502,7 @@ See [Generating Tiles in Bulk](<https://maplibre.org/martin/martin-cp/index.md>)
 
 ### `mbtiles` is released separately
 
-The Martin release archives and Debian package contain only `martin`. Get `mbtiles` from the `mbtiles-<target>` archives on the [`mbtiles-v*` releases](<https://github.com/maplibre/martin/releases?q=mbtiles-v&amp;expanded=true>), with `cargo binstall mbtiles`, or from the Docker image, which still includes it.
+The Martin release archives and Debian package contain only `martin`. Get `mbtiles` from the `mbtiles-<target>` archives on the [`mbtiles-v*` releases](<https://github.com/maplibre/martin/releases?q=mbtiles-v&expanded=true>), with `cargo binstall mbtiles`, or from the Docker image, which still includes it.
 
 See [MBTiles tool](<https://maplibre.org/martin/mbtiles/index.md>).
 

@@ -23,7 +23,7 @@ See [Generating Tiles in Bulk](<https://maplibre.org/martin/martin-cp/index.md>)
 
 ### `mbtiles` is released separately
 
-The Martin release archives and Debian package contain only `martin`. Get `mbtiles` from the `mbtiles-<target>` archives on the [`mbtiles-v*` releases](<https://github.com/maplibre/martin/releases?q=mbtiles-v&amp;expanded=true>), with `cargo binstall mbtiles`, or from the Docker image, which still includes it.
+The Martin release archives and Debian package contain only `martin`. Get `mbtiles` from the `mbtiles-<target>` archives on the [`mbtiles-v*` releases](<https://github.com/maplibre/martin/releases?q=mbtiles-v&expanded=true>), with `cargo binstall mbtiles`, or from the Docker image, which still includes it.
 
 See [MBTiles tool](<https://maplibre.org/martin/mbtiles/index.md>).
 
