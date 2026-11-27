@@ -5975,6 +5975,7 @@ dependencies = [
  "prometheus",
  "quantizr",
  "ratatui",
+ "reqwest",
  "rstest",
  "rustls",
  "schemars 1.2.3",

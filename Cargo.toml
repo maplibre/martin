@@ -109,7 +109,7 @@ bytes = "1"
 bytesize = "2.7.0"
 bytestring = "1.5"
 cel = { version = "0.16", default-features = false }
-clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
+clap = { version = "4", features = ["derive", "env", "unstable-markdown", "wrap_help"] }
 cog-tiles = { path = "crates/cog-tiles", version = "0.3.1", default-features = false, features = ["fs", "png"] }
 compact_str = "0.10"
 contour = { version = "0.13.1", features = ["f32"] }
@@ -192,7 +192,7 @@ ratatui = "0.30.2"
 rayon = "1.11.0"
 rcgen = "0.14"
 regex = "1"
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
+reqwest = { version = "0.13", default-features = false }
 roxmltree = "0.21"
 rstest = "0.29.0"
 rustix = { version = "1.1.5", default-features = false }

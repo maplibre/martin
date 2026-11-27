@@ -161,7 +161,7 @@ postgres = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
-reqwest = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true, features = ["rustls", "http2"] }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }

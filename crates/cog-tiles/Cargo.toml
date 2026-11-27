@@ -49,7 +49,7 @@ martin-tile-utils.workspace = true
 moka = { workspace = true, features = ["future"] }
 object_store = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
-reqwest = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true, features = ["rustls", "http2"] }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 sqlx = { workspace = true, optional = true }

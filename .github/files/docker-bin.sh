@@ -18,6 +18,6 @@ if [[ -t 0 ]]; then
 fi
 
 exec docker run --rm --net host --platform "$platform" --user "$(id -u):$(id -g)" \
-  -e DATABASE_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -e HOME="$tmp" -e MESA_SHADER_CACHE_DIR="$tmp/mesa-shader-cache" \
+  -e DATABASE_URL -e MARTIN_HEALTH_URL -e AWS_REGION=eu-central-1 -e RUST_LOG_FORMAT=bare -e RUST_LOG -e HOME="$tmp" -e MESA_SHADER_CACHE_DIR="$tmp/mesa-shader-cache" \
   -v "$workspace:$workspace" -v "$tmp:$tmp" -w "$PWD" "${terminal[@]}" \
   --entrypoint "$binary" "$image" "$@"

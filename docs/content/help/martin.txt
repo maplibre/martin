@@ -4,8 +4,10 @@ Usage: martin [OPTIONS] [CONNECTION]...
        martin <COMMAND>
 
 Commands:
-  cp    Bulk copy tiles from any Martin-supported sources into an mbtiles file
-  help  Print this message or the help of the given subcommand(s)
+  cp      Bulk copy tiles from any Martin-supported sources into an mbtiles file
+  test    Generate and check specs of what table source layers make of real rows
+  health  Exit 0 if a running Martin answers its health endpoint, for container health checks
+  help    Print this message or the help of the given subcommand(s)
 
 Arguments:
   [CONNECTION]...
