@@ -38,7 +38,7 @@ object_store.workspace = true
 pmtiles = { workspace = true, features = ["tilejson", "object-store", "mmap-async-tokio", "write"] }
 portable-pty.workspace = true
 regex.workspace = true
-reqwest.workspace = true
+reqwest = { workspace = true, features = ["rustls", "http2"] }
 roxmltree.workspace = true
 serde_json.workspace = true
 sqlx = { workspace = true, features = ["postgres", "tls-rustls-ring-webpki"] }

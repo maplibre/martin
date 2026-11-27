@@ -262,6 +262,7 @@ postgres-protocol = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 quantizr = { workspace = true, optional = true }
 ratatui = { workspace = true, optional = true }
+reqwest.workspace = true
 rustls.workspace = true
 schemars = { workspace = true, optional = true }
 serde.workspace = true

@@ -15,7 +15,6 @@ use std::sync::Arc;
 use clap::Parser as _;
 use martin::StartupResult;
 use martin::config::args::Args;
-#[cfg(feature = "mbtiles")]
 use martin::config::args::Command;
 #[cfg(feature = "webui")]
 use martin::config::args::WebUiMode;
@@ -225,6 +224,21 @@ where
 fn main() -> ExitCode {
     // Parsed first: clap exits on `--help` or a bad argument without dropping a private shader cache directory.
     let args = Args::parse();
+    if let Some(Command::Health(health)) = &args.command {
+        return match martin::health::check(health) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                let mut msg = e.to_string();
+                let mut source = std::error::Error::source(&e);
+                while let Some(cause) = source {
+                    msg = format!("{msg}: {cause}");
+                    source = cause.source();
+                }
+                eprintln!("{msg}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     let mesa_shader_cache = MesaShaderCache::detect();
     #[cfg(all(feature = "rendering", target_os = "linux"))]
