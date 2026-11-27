@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-#[cfg(feature = "mbtiles")]
 use clap::Subcommand;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
@@ -32,6 +31,7 @@ use crate::config::file::{Config, OnInvalid};
 use crate::cp::CopierArgs;
 #[cfg(feature = "postgres")]
 use crate::generate::spec::TestArgs;
+use crate::health::HealthArgs;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -50,7 +50,6 @@ const HELP_STYLES: Styles = Styles::styled()
     styles = HELP_STYLES
 )]
 pub struct Args {
-    #[cfg(feature = "mbtiles")]
     #[command(subcommand)]
     pub command: Option<Command>,
     #[command(flatten)]
@@ -64,7 +63,6 @@ pub struct Args {
     pub pg: Option<PostgresArgs>,
 }
 
-#[cfg(feature = "mbtiles")]
 #[derive(Subcommand, Debug, PartialEq)]
 #[cfg_attr(
     feature = "postgres",
@@ -72,10 +70,13 @@ pub struct Args {
 )]
 pub enum Command {
     /// Bulk copy tiles from any Martin-supported sources into an mbtiles file
+    #[cfg(feature = "mbtiles")]
     Cp(CopierArgs),
     /// Generate and check specs of what table source layers make of real rows
     #[cfg(feature = "postgres")]
     Test(TestArgs),
+    /// Exit 0 if a running Martin answers its health endpoint, for container health checks
+    Health(HealthArgs),
 }
 
 // None of these params will be transferred to the config

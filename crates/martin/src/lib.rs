@@ -9,6 +9,7 @@ pub mod config;
 pub mod cp;
 #[cfg(feature = "postgres")]
 pub mod generate;
+pub mod health;
 pub mod logging;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod mesa_shader_cache;
