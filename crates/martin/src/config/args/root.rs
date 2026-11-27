@@ -65,7 +65,7 @@ pub struct Args {
 
 #[derive(Subcommand, Debug, PartialEq)]
 #[cfg_attr(
-    feature = "postgres",
+    any(feature = "mbtiles", feature = "postgres"),
     expect(clippy::large_enum_variant, reason = "parsed once at startup")
 )]
 pub enum Command {
