@@ -22,11 +22,11 @@ static EMPTY_PARENS: LazyLock<Regex> =
 static WHITESPACE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[ \t\n\x0B\x0C\r]+").expect("the whitespace pattern compiles"));
 
-/// How many compiled patterns each thread keeps for `regex.replace`.
-const PATTERN_CACHE_SIZE: usize = 64;
+/// How many compiled patterns each thread keeps for `matches` and `regex.replace`.
+const PATTERN_CACHE_SIZE: usize = 256;
 
 thread_local! {
-    /// The patterns `regex.replace` compiled on this thread, by their source.
+    /// The patterns `matches` and `regex.replace` compiled on this thread, by their source.
     static PATTERNS: RefCell<HashMap<String, Regex>> = RefCell::new(HashMap::new());
 }
 
@@ -48,6 +48,22 @@ pub(super) fn remove_latin(text: &str) -> Option<String> {
     let result = WHITESPACE.replace_all(result, " ");
     let result = java_trim(&result);
     (!result.chars().all(is_java_whitespace)).then(|| result.to_owned())
+}
+
+/// Whether `pattern` matches anywhere in `text`.
+pub(super) fn is_match(text: &str, pattern: &str) -> Result<bool, String> {
+    PATTERNS.with_borrow_mut(|patterns| {
+        if let Some(compiled) = patterns.get(pattern) {
+            return Ok(compiled.is_match(text));
+        }
+        let compiled = Regex::new(pattern).map_err(|e| format!("'{pattern}' not a valid regex:\n{e}"))?;
+        let matched = compiled.is_match(text);
+        if patterns.len() >= PATTERN_CACHE_SIZE {
+            patterns.clear();
+        }
+        patterns.insert(pattern.to_owned(), compiled);
+        Ok(matched)
+    })
 }
 
 /// `text` with each match of `pattern` replaced by `replacement`, where `\1` to `\9` insert a group,

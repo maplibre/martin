@@ -1845,7 +1845,6 @@ dependencies = [
  "lazy_static",
  "nom",
  "pastey",
- "regex",
  "serde",
  "thiserror 2.0.21",
 ]

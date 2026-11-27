@@ -21,8 +21,10 @@ const IS_LATIN: &str = "isLatin";
 const REMOVE_LATIN: &str = "removeLatin";
 /// A string with each match of a pattern replaced, e.g. `regex.replace(ref, '[^0-9]', '')`.
 const REGEX_REPLACE: &str = "regex.replace";
+/// Whether a string matches a pattern, e.g. `ref.matches('^[0-9]+$')`.
+const MATCHES: &str = "matches";
 /// The functions Martin adds to CEL's standard library.
-const ADDED: [&str; 7] = [COALESCE, MAX, MIN, AREA, IS_LATIN, REMOVE_LATIN, REGEX_REPLACE];
+const ADDED: [&str; 8] = [COALESCE, MAX, MIN, AREA, IS_LATIN, REMOVE_LATIN, REGEX_REPLACE, MATCHES];
 
 type Function =
     Box<dyn for<'c, 'v> Fn(&mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 'v>, ExecutionError> + Send + Sync>;
@@ -39,6 +41,12 @@ impl Shared {
         let mut env = Env::stdlib();
         env.add_extension(extensions::strings)
             .expect("the strings extension registers on the standard library");
+        #[expect(clippy::mixed_read_write_in_expression, reason = "inside cel's overload macro")]
+        cel::add_overload!(env, fn matches: (CelString, CelString) -> Result<CelBool>, id = "matches")
+            .expect("the standard library has no matches without its regex feature");
+        #[expect(clippy::mixed_read_write_in_expression, reason = "inside cel's overload macro")]
+        cel::add_member_overload!(env, fn matches: (CelString, CelString) -> Result<CelBool>)
+            .expect("the standard library has no string.matches without its regex feature");
         let env = Arc::new(env);
         let mut root = Context::with_env(Arc::clone(&env));
         root.add_function(COALESCE, Box::new(coalesce) as Function)
@@ -144,6 +152,13 @@ fn remove_latin<'c, 'v>(ftx: &mut FunctionContext<'c, 'v>) -> Result<CowVal<'c, 
         Some(rest) => CowVal::owned(CelString::from(rest)),
         None => CowVal::Borrowed(&NULL),
     })
+}
+
+/// Whether `pattern` matches anywhere in `text`.
+fn matches(text: &CelString<'_>, pattern: &CelString<'_>) -> Result<CelBool, ExecutionError> {
+    text::is_match(text.inner(), pattern.inner())
+        .map(CelBool::from)
+        .map_err(|message| ExecutionError::function_error(MATCHES, message))
 }
 
 /// `regex.replace(text, pattern, replacement)`: `text` with each match replaced, `null` for a `null` text.
@@ -264,6 +279,38 @@ mod tests {
             ^
         error: unclosed group
         ");
+    }
+
+    #[test]
+    fn matches_with_an_invalid_pattern_fails() {
+        let expr = CompiledExpr::compile("ref.matches('(B')", &["ref"], false).unwrap();
+        let keys = ExprKeys::columns(&["ref"]);
+        let props = vec![(KeyId::new(0), Prop::Str("B 39".to_owned()))];
+        let mut slots = PropSlots::default();
+        let view = slots.bind(&keys, &props);
+        insta::assert_snapshot!(expr.eval(&view).unwrap_err(), @"
+        Error executing function 'matches': '(B' not a valid regex:
+        regex parse error:
+            (B
+            ^
+        error: unclosed group
+        ");
+    }
+
+    #[test]
+    fn matches_gives_each_text_its_own_answer_for_one_pattern() {
+        let expr = CompiledExpr::compile("ref.matches('^B [0-9]+$')", &["ref"], false).unwrap();
+        let keys = ExprKeys::columns(&["ref"]);
+        let mut slots = PropSlots::default();
+        let answers: Vec<Value> = ["B 39", "B 39A", "B 1"]
+            .into_iter()
+            .map(|text| {
+                let props = vec![(KeyId::new(0), Prop::Str(text.to_owned()))];
+                let view = slots.bind(&keys, &props);
+                expr.eval(&view).unwrap()
+            })
+            .collect();
+        assert_eq!(answers, [Value::Bool(true), Value::Bool(false), Value::Bool(true)]);
     }
 
     #[test]
