@@ -36,6 +36,16 @@ pub(super) enum Pred {
     All(Box<[Self]>),
     /// `a || b || ...`, none of whose parts is itself an `Any`.
     Any(Box<[Self]>),
+    /// `operand in [literals]`, or its negation.
+    In(Box<In>),
+}
+
+/// `operand in [values]`, inverted when `negated`.
+#[derive(Debug)]
+pub(super) struct In {
+    operand: Operand,
+    values: Box<[Scalar]>,
+    negated: bool,
 }
 
 /// A literal, a property, or a converted property.
@@ -185,6 +195,29 @@ impl Pred {
             (operators::LOGICAL_NOT, 1) => part(0)?.negate(),
             (operators::LOGICAL_AND, 2) => Self::all(part(0)?, part(1)?),
             (operators::LOGICAL_OR, 2) => Self::any(part(0)?, part(1)?),
+            (operators::IN, 2) => {
+                let Expr::List(list) = &call.args[1].expr else {
+                    return None;
+                };
+                if !list.optional_indices.is_empty() {
+                    return None;
+                }
+                let values = list
+                    .elements
+                    .iter()
+                    .map(|element| {
+                        let Expr::Literal(literal) = &element.expr else {
+                            return None;
+                        };
+                        Scalar::new(literal)
+                    })
+                    .collect::<Option<Box<[Scalar]>>>()?;
+                Self::In(Box::new(In {
+                    operand: operand(0)?,
+                    values,
+                    negated: false,
+                }))
+            }
             (name, 2) => Self::Compare(name.parse().ok()?, Box::new([operand(0)?, operand(1)?])),
             _ => return None,
         })
@@ -224,6 +257,10 @@ impl Pred {
             Self::False(operand) => Self::True(operand),
             Self::All(parts) => Self::Any(parts.into_iter().map(Self::negate).collect()),
             Self::Any(parts) => Self::All(parts.into_iter().map(Self::negate).collect()),
+            Self::In(mut test) => {
+                test.negated = !test.negated;
+                Self::In(test)
+            }
         }
     }
 
@@ -248,6 +285,15 @@ impl Pred {
                     }
                 }
                 Some(false)
+            }
+            Self::In(test) => {
+                let value = test.operand.eval(view)?;
+                for literal in &test.values {
+                    if compare(Op::Eq, value, literal.value())? {
+                        return Some(!test.negated);
+                    }
+                }
+                Some(test.negated)
             }
         }
     }
@@ -531,6 +577,9 @@ mod tests {
     #[case::not("!{a}")]
     #[case::not_twice("!!{a}")]
     #[case::key_comparison("feature['a'] == {a}")]
+    #[case::in_an_empty_list("{a} in []")]
+    #[case::in_literals_of_mixed_types("{a} in ['place', 8, -1, 0.5, true, null, '8', 8u]")]
+    #[case::not_in_literals("!({a} in ['place', 8])")]
     fn logic_of_one_operand_matches_the_interpreter(
         #[case] shape: &str,
         #[values(
@@ -551,6 +600,8 @@ mod tests {
     #[case::and_of_ors("(a == {a} || b == {b}) && (a != {b} || b != {a})")]
     #[case::comparison_and_null_check("({a} == {b}) && a != null")]
     #[case::choice("{a} ? {b} : 3")]
+    #[case::in_a_list_with_an_operand("{a} in [{b}, 'place']")]
+    #[case::in_and_comparison("{a} in ['place', 8] && b == {b}")]
     fn logic_of_two_operands_matches_the_interpreter(
         #[case] shape: &str,
         #[values(
