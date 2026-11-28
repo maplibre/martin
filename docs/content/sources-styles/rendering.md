@@ -20,7 +20,7 @@ as XYZ tiles, or as a single static image at a chosen camera.
     We only ship it where we control the runtime environment.
     You get it by either:
 
-    - using the **`-full` Docker image** variant, tagged `:latest-full`, or the matching `-full` Linux-gnu release tarball, or
+    - using the **`-full` Docker image** variant, tagged `:latest-full`, or the matching `-full` release archive for Linux-gnu, macOS or Windows, or
     - building from source with the `rendering` feature enabled on Linux, macOS or Windows: `cargo install martin --features rendering`.
 
     The default Docker image, the default release binaries, and `cargo install martin` do **not** include rendering.

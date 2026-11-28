@@ -326,7 +326,7 @@ pgo-train binary:
     wait "$server"
     trap - EXIT
 
-# Build `-full` binaries (adds rendering). Linux gnu only.
+# Build `-full` binaries (adds rendering). Linux gnu, macOS and Windows only.
 build-release-full target: fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
@@ -600,7 +600,7 @@ package-assets target:
             {{ just }} sbom-mbtiles '{{ target }}'
             mv ../mbtiles-{{ target }}.spdx.json mbtiles.spdx.json
         fi
-        if [[ '{{ target }}' == 'x86_64-pc-windows-msvc' ]]; then
+        if [[ '{{ target }}' == x86_64-pc-windows-msvc* ]]; then
             7z a "../files/$bin-{{ target }}.zip" "$bin.exe" "$bin.spdx.json"
         else
             chmod +x "$bin"
