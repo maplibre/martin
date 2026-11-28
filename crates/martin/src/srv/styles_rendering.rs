@@ -1,8 +1,7 @@
 mod png_palette;
 
 use std::io::Cursor;
-use std::num::NonZero;
-use std::num::NonZeroU8;
+use std::num::{NonZero, NonZeroU8};
 use std::sync::LazyLock;
 
 use actix_web::http::header::{ContentType, LOCATION};

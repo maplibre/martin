@@ -10,19 +10,16 @@ use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
 use martin_core::overlay::OverlaySpec;
-use martin_core::styles::RenderParams;
-use martin_core::styles::{PixelRatios, StyleSources};
+use martin_core::styles::{PixelRatios, RenderParams, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
-use tracing::error;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 #[cfg(feature = "unstable-schemas")]
 use crate::srv::overlay_body::StaticStyleOverlay;
 use crate::srv::overlay_body::parse_overlay;
 use crate::srv::server::DebouncedWarning;
-use crate::srv::styles_rendering::ImageFormatRequest;
-use crate::srv::styles_rendering::encode_image_response;
+use crate::srv::styles_rendering::{ImageFormatRequest, encode_image_response};
 
 #[derive(Deserialize, Debug)]
 #[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
