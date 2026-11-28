@@ -44,13 +44,13 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 | Platform | x64                                                                                                                                          | ARM-64                                                                                                               |
 |----------|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-full] (gnu, full)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-full] (gnu, full)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
-| macOS    |                                                                                                                                              | [.tar.gz][rl-macos-a64]                                                                                              |
-| Windows  | [.zip][rl-win64-zip]                                                                                                                         |                                                                                                                      |
+| macOS    |                                                                                                                                              | [.tar.gz][rl-macos-a64]<br>[.tar.gz][rl-macos-a64-full] (full)                                                       |
+| Windows  | [.zip][rl-win64-zip]<br>[.zip][rl-win64-full-zip] (full)                                                                                     |                                                                                                                      |
 | FreeBSD  | [.tar.gz][rl-freebsd-x64]                                                                                                                    | [.tar.gz][rl-freebsd-a64]                                                                                            |
 
 !!! note
     The standard binaries do **not** include server-side style [rendering](sources-styles/rendering.md).
-    The `-full` Linux-gnu tarballs do.
+    The `-full` archives do.
     They add the `rendering` feature and its bundled native libraries.
 
 [rl-linux-x64]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz
@@ -69,7 +69,11 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 
 [rl-macos-a64]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz
 
+[rl-macos-a64-full]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin-full.tar.gz
+
 [rl-win64-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip
+
+[rl-win64-full-zip]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc-full.zip
 
 [rl-freebsd-x64]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-freebsd.tar.gz
 

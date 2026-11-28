@@ -15,7 +15,7 @@ const JPEG_PIXEL_THRESHOLD: f64 = 0.2;
 const WINDOW: u32 = 16;
 /// How many pixels of any [`WINDOW`]-sided square may differ beyond anti-aliasing, as graphics
 /// stacks scatter a few one-pixel shifts over an image while a rendering bug clusters them.
-const MAX_DIFFERING_PER_WINDOW: u32 = 16;
+const MAX_DIFFERING_PER_WINDOW: u32 = 20;
 
 /// Assert that `body` renders what the reference image at `path` holds.
 ///

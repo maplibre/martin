@@ -185,6 +185,10 @@ jobs:
           rendering: true
           cache: true
           coverage: ${{ matrix.os == 'ubuntu-26.04' }}
+      # Direct3D 12 compiles its shaders with DXC, which Windows does not ship, but the runner's SDK does.
+      - name: Put the Windows SDK's DXC on the PATH
+        if: runner.os == 'Windows'
+        run: echo 'C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64' >> "$GITHUB_PATH"
       - name: Run rendering tests
         run: just test-rendering
       - name: Upload the renders that differed from their reference
@@ -740,7 +744,7 @@ jobs:
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
       pgo: ${{ github.event_name == 'schedule' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')) }}
 
-  # `-full` builds (adds rendering) for the `-full` image and Linux-gnu tarballs.
+  # `-full` builds (adds rendering) for the `-full` image and the `-full` release archives.
   build-x86_64-unknown-linux-gnu-full:
     uses: $/.github/workflows/build-binary.yml
     with:
@@ -756,6 +760,24 @@ jobs:
     with:
       target: aarch64-unknown-linux-gnu
       os: ubuntu-24.04-arm
+      full: true
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
+
+  build-aarch64-apple-darwin-full:
+    if: inputs.run-heavy && inputs.run-release-builds
+    uses: $/.github/workflows/build-binary.yml
+    with:
+      target: aarch64-apple-darwin
+      os: macos-latest # M-series CPU
+      full: true
+      release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
+
+  build-x86_64-pc-windows-msvc-full:
+    if: inputs.run-heavy && inputs.run-release-builds
+    uses: $/.github/workflows/build-binary.yml
+    with:
+      target: x86_64-pc-windows-msvc
+      os: windows-latest
       full: true
       release_mode: ${{ inputs.run-release-builds && github.event_name != 'pull_request' }}
 

@@ -17,7 +17,7 @@ on:
         type: boolean
         default: false
       full:
-        description: 'Build the batteries-included `-full` variant (adds the rendering feature). Linux gnu only.'
+        description: 'Build the batteries-included `-full` variant (adds the rendering feature). Linux gnu, macOS and Windows only.'
         required: false
         type: boolean
         default: false
