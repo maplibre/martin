@@ -1520,7 +1520,7 @@ async fn a_webp_quality_outside_1_to_100_fails_startup() {
         panic!("expected an early exit, got: {error}");
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
-    insta::with_settings!({filters => vec![(r"/\S*/config\.yaml", "[CONFIG]")]}, {
+    insta::with_settings!({filters => vec![(r"[^\s\[]*\.tmp\w+[/\\]config\.yaml", "[CONFIG]")]}, {
         insta::assert_snapshot!(log, @r#"
         ERROR martin::config::yaml (https://maplibre.org/martin/config-file/)
 
