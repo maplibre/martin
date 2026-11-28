@@ -1,6 +1,6 @@
 //! The OGC API - Maps conformance suite, run by its own test engine against a rendered `maplibre_demo` style
 //! and the raster collections `png` and `toner`, as only rasters have collection maps.
-#![cfg(all(feature = "test-ogc-maps", target_os = "linux"))]
+#![cfg(feature = "test-ogc-maps")]
 
 use indoc::formatdoc;
 use martin_e2e_tests::{Cassette, Martin, TeamEngine, fixture};

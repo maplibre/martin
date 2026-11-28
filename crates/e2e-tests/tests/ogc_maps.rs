@@ -1,5 +1,5 @@
 //! OGC API - Maps rendered from `MapLibre` styles, off a [`Cassette`] of what the styles point at.
-#![cfg(all(feature = "test-ogc-maps", target_os = "linux"))]
+#![cfg(feature = "test-ogc-maps")]
 
 use indoc::formatdoc;
 use martin_e2e_tests::{Cassette, Martin, TestResponse, assert_image_matches, fixture, mbtiles_fixture, temp_dir};

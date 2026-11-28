@@ -88,7 +88,7 @@ pub async fn get_landing_page(
         "http://www.opengis.net/def/rel/ogc/1.0/styles",
         "Styles",
     ));
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     if super::map::renders_maps(&req) {
         links.extend(super::map::map_links(
             &ogc_url(&req, &srv_config, "/map"),

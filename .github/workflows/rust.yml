@@ -180,6 +180,27 @@ jobs:
         run: just test-rendering
       - uses: $/.github/actions/upload-coverage
         with: { suite: rendering }
+  test-rendering-platforms:
+    name: Style rendering tests (${{ matrix.os }})
+    if: inputs.run-heavy
+    permissions:
+      contents: read
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    needs:
+      - lint-rust
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ macos-latest, windows-latest ]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: $/.github/actions/setup-rust
+        with: { tools: 'just,nextest', cache: true }
+      - name: Run rendering tests
+        run: just test-rendering
   test-ogc:
     name: OGC API - Tiles conformance
     permissions:

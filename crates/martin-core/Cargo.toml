@@ -120,9 +120,6 @@ _neighbourhood = ["_raster", "_tiles"]
 test-pg = ["postgres"]
 unstable-schemas = ["dep:schemars", "dep:utoipa"]
 
-[target.'cfg(target_os = "linux")'.dependencies]
-mln-rs = { workspace = true, optional = true }
-
 [dependencies]
 actix-web = { workspace = true, optional = true }
 arc-swap.workspace = true
@@ -152,6 +149,7 @@ jxl-oxide = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 martin-tilegen = { workspace = true, optional = true }
 mbtiles = { workspace = true, optional = true }
+mln-rs = { workspace = true, optional = true }
 mlt-core = { workspace = true, optional = true }
 moka = { workspace = true, features = ["future", "quanta"] }
 object_store = { workspace = true, optional = true }

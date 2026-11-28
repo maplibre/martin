@@ -1,18 +1,8 @@
-#![cfg_attr(
-    not(target_os = "linux"),
-    expect(
-        dead_code,
-        reason = "the routes are registered on Linux only, the module is compiled so utoipa can describe them"
-    )
-)]
-
 mod png_palette;
 
 use std::io::Cursor;
-#[cfg(target_os = "linux")]
 use std::num::NonZero;
 use std::num::NonZeroU8;
-#[cfg(target_os = "linux")]
 use std::sync::LazyLock;
 
 use actix_web::http::header::{ContentType, LOCATION};
@@ -62,7 +52,6 @@ impl ImageFormatRequest {
 }
 
 /// Bounds concurrent encodes across the process, given that this is CPU bound.
-#[cfg(target_os = "linux")]
 static ENCODE_PERMITS: LazyLock<Semaphore> = LazyLock::new(|| {
     let cores = std::thread::available_parallelism().map_or(4, NonZero::get);
     Semaphore::new(cores)
@@ -88,7 +77,6 @@ enum EncodeError {
 /// Encode `image` into `format` and wrap it in a successful [`HttpResponse`].
 /// A PNG is indexed with at most `png_max_colors` colours if set, and RGBA otherwise.
 /// A WebP and a JPEG are encoded at their `quality`.
-#[cfg(target_os = "linux")]
 pub(super) async fn encode_image_response(
     image: martin_core::styles::StaticImage,
     format: ImageFormatRequest,
@@ -111,7 +99,7 @@ pub(super) async fn encode_image_response(
 }
 
 /// Run `encode` under the limit image encodes share, and answer its bytes as `content_type`.
-#[cfg(all(feature = "ogcapi", target_os = "linux"))]
+#[cfg(feature = "ogcapi")]
 pub(super) async fn encode_response<E: std::error::Error + Send + Sync + 'static>(
     content_type: &'static str,
     encode: impl FnOnce() -> Result<Vec<u8>, E> + Send + 'static,
@@ -242,8 +230,7 @@ pub async fn get_rendered_tile_style(path: Path<StyleRenderRequest>, styles: Dat
         "Rendering style"
     );
 
-    #[cfg(target_os = "linux")]
-    let response = {
+    {
         use martin_core::styles::StyleError;
 
         match styles
@@ -261,10 +248,7 @@ pub async fn get_rendered_tile_style(path: Path<StyleRenderRequest>, styles: Dat
                     .body("Failed to render style")
             }
         }
-    };
-    #[cfg(not(target_os = "linux"))]
-    let response = rendering_disabled(style_id, zxy);
-    response
+    }
 }
 
 fn rendering_disabled(style_id: &str, zxy: TileCoord) -> HttpResponse {
