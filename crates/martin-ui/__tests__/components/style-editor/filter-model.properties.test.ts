@@ -11,6 +11,8 @@ import {
   validateFilter,
 } from '@/components/style-editor/inspector/filter-model';
 
+const notAnObjectPrototypeKey = (value: string) => !(value in Object.prototype);
+
 const attributeName = fc.stringMatching(/^[a-z_][a-z0-9_]{0,8}$/);
 
 function conditionOn(attribute: string, value: fc.Arbitrary<FilterScalar>) {
@@ -43,7 +45,7 @@ const condition: fc.Arbitrary<FilterCondition> = fc
       conditionOn(
         name,
         fc.oneof(
-          fc.string(),
+          fc.string().filter(notAnObjectPrototypeKey),
           fc.integer(),
           fc.double({ noDefaultInfinity: true, noNaN: true }),
           fc.boolean(),

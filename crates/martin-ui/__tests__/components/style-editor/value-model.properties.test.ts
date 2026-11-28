@@ -8,6 +8,8 @@ import {
   serializeValue,
 } from '@/components/style-editor/value-model';
 
+const notAnObjectPrototypeKey = (label: string) => !(label in Object.prototype);
+
 const width = fc.double({ max: 64, min: 0, noNaN: true });
 const stopInputs = fc
   .uniqueArray(fc.integer({ max: 24, min: 0 }), { maxLength: 5, minLength: 1 })
@@ -43,7 +45,10 @@ const match: fc.Arbitrary<EditableValue> = fc
   .record({
     attribute,
     fallback: width,
-    labels: fc.uniqueArray(fc.string({ minLength: 1 }), { maxLength: 6, minLength: 1 }),
+    labels: fc.uniqueArray(fc.string({ minLength: 1 }).filter(notAnObjectPrototypeKey), {
+      maxLength: 6,
+      minLength: 1,
+    }),
     outputs: fc.array(width, { maxLength: 6, minLength: 6 }),
   })
   .map(({ attribute, fallback, labels, outputs }) => ({
