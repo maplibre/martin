@@ -152,7 +152,7 @@ jobs:
         working-directory: crates/martin-ui
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
+        run: just apt-install sqlite3-tools
       - name: Install rendering dependencies
         run: just install-dependencies
       - name: Install uv

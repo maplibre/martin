@@ -263,8 +263,8 @@ async fn a_renderer_whose_still_image_fails_is_replaced() {
         "a fresh renderer asks for the glyphs again"
     );
 
-    martin.assert_log_contains("Failed to render style");
     martin.stop().await;
+    martin.assert_log_contains("Failed to render style");
 }
 
 #[rstest]

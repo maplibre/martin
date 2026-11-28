@@ -264,8 +264,7 @@ pgo-install target:
     target={{ quote(target) }}
     rustup component add llvm-tools-preview
     cargo install cargo-pgo --version 0.3.0 --locked
-    sudo apt-get update
-    sudo apt-get install -y sqlite3 postgresql-client
+    {{ just }} apt-install sqlite3 postgresql-client
     if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
         llvm_major=$(rustc -vV | sed -n 's/^LLVM version: \([0-9]*\).*/\1/p')
         source /etc/os-release
@@ -340,7 +339,7 @@ build-release-full target: fetch ui::build
 # Build debian package
 # Note: the rendering feature is not packaged yet.
 build-deb output: fetch ui::build (cargo-install 'cargo-deb')
-    sudo apt-get install -y dpkg dpkg-dev liblzma-dev
+    {{ just }} apt-install dpkg dpkg-dev liblzma-dev
     RUSTFLAGS='-C strip=symbols {{ x86_cpu_flag }}' cargo deb -v -p martin {{ if release_mode == '1' { '' } else { '--profile dev' } }} --output {{ output }} -- --no-default-features --features {{ stable_features }} {{ extra_features }}
 
 # Cross-compile for a musl or FreeBSD target using zigbuild
@@ -534,9 +533,33 @@ help:
 # Install what rendering needs at runtime (Ubuntu/Debian): EGL, OpenGL ES, and Mesa's drivers, whose llvmpipe renders without a GPU.
 # Building needs nothing extra; mln-rs loads them when the first renderer starts.
 [linux]
-install-dependencies:
+install-dependencies: (apt-install 'libegl1' 'libgles2' 'libegl-mesa0')
+
+# Update apt and install Ubuntu/Debian packages; some GitHub runners boot without the Ubuntu archive source, so it is added first.
+[linux]
+apt-install +packages:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source /etc/os-release
+    if [[ "${GITHUB_ACTIONS:-}" == true && "$ID" == ubuntu ]] &&
+        ! grep -qsE 'apt-mirrors\.txt|(archive|ports|security)\.ubuntu\.com' /etc/apt/sources.list /etc/apt/sources.list.d/*; then
+        echo "::warning::apt has no Ubuntu archive source on this runner, adding one"
+        if [[ "$(dpkg --print-architecture)" == amd64 ]]; then
+            archive=http://archive.ubuntu.com/ubuntu
+            security=http://security.ubuntu.com/ubuntu
+        else
+            archive=http://ports.ubuntu.com/ubuntu-ports
+            security=$archive
+        fi
+        printf '%s\n' \
+            'Types: deb' "URIs: $archive" "Suites: $VERSION_CODENAME $VERSION_CODENAME-updates $VERSION_CODENAME-backports" \
+            'Components: main restricted universe multiverse' 'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' '' \
+            'Types: deb' "URIs: $security" "Suites: $VERSION_CODENAME-security" \
+            'Components: main restricted universe multiverse' 'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' \
+            | sudo tee /etc/apt/sources.list.d/ubuntu-archive.sources > /dev/null
+    fi
     sudo apt-get update
-    sudo apt-get install -y libegl1 libgles2 libegl-mesa0
+    sudo apt-get install -y {{ packages }}
 
 [macos]
 install-dependencies:
