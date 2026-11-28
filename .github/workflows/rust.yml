@@ -185,6 +185,10 @@ jobs:
           rendering: true
           cache: true
           coverage: ${{ matrix.os == 'ubuntu-26.04' }}
+      # Direct3D 12 compiles its shaders with DXC, which Windows does not ship, but the runner's SDK does.
+      - name: Put the Windows SDK's DXC on the PATH
+        if: runner.os == 'Windows'
+        run: echo 'C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64' >> "$GITHUB_PATH"
       - name: Run rendering tests
         run: just test-rendering
       - name: Upload the renders that differed from their reference
