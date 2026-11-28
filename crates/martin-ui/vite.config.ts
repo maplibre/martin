@@ -4,6 +4,12 @@ import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+/** Martin server that `vite preview` forwards non-UI requests to, as martin does when it embeds the UI. */
+const martinProxyTarget = process.env.MARTIN_PROXY_TARGET;
+
+/** Every path except the page itself and `/_/assets/`, which the UI bundle owns. */
+const MARTIN_PATHS = '^/(?!(?:index\\.html)?(?:[?#]|$)|_/assets/)';
+
 // https://vitejs.dev/config/
 export default defineConfig({
   base: './', // A relative path supports the `route-prefix` config
@@ -31,6 +37,9 @@ export default defineConfig({
     }),
     tailwindcss(),
   ],
+  preview: martinProxyTarget
+    ? { proxy: { [MARTIN_PATHS]: { changeOrigin: false, target: martinProxyTarget } } }
+    : undefined,
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

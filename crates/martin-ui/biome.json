@@ -4,9 +4,11 @@
   "files": {
     "includes": [
       "*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
-      "{__tests__,__mocks__,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
+      "{__tests__,__mocks__,e2e,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
       "!node_modules",
       "!dist",
+      "!playwright-report",
+      "!test-results",
       "!src/lib/types.gen.ts"
     ]
   },
@@ -17,5 +19,15 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["e2e/**"],
+      "linter": {
+        "domains": {
+          "playwright": "all"
+        }
+      }
+    }
+  ],
   "root": false
 }

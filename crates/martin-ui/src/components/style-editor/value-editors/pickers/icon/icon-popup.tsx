@@ -16,7 +16,7 @@ export interface IconPopupProps {
   onPick: (name: string) => void;
 }
 
-function describe(icon: SpriteIcon): string {
+function iconTitle(icon: SpriteIcon): string {
   const w = Math.round(icon.width / icon.pixelRatio);
   const h = Math.round(icon.height / icon.pixelRatio);
   return `${icon.name} · ${w}×${h} px${icon.sdf ? ' · SDF' : ''}`;
@@ -89,7 +89,7 @@ export function IconPopup({ sprite, current, onPick }: IconPopupProps) {
           onMouseMove={() => setActive(i)}
           ref={i === cursor ? setActiveEl : undefined}
           tabIndex={-1}
-          title={describe(icon)}
+          title={iconTitle(icon)}
           type="button"
         >
           <IconThumb box={28} icon={icon} />
