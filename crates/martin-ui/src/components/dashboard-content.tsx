@@ -49,7 +49,6 @@ export function DashboardContent() {
     showErrorToast: false,
   });
 
-  // The catalogs show the failure and offer Try Again, so the rejection needs no handling here.
   const loadCatalog = () => catalogOperation.execute().catch(() => undefined);
   const retryCatalog = () => {
     catalogOperation.reset();

@@ -80,9 +80,7 @@ describe('useAsyncOperation', () => {
 
     await act(async () => {
       // Advance timers to simulate backoff delays
-      // First retry after 500ms plus up to 20% jitter
       await vi.advanceTimersByTimeAsync(601);
-      // Second retry after 1000ms plus up to 20% jitter
       await vi.advanceTimersByTimeAsync(1201);
       // Wait for the promise to reject
       if (executePromise) {
@@ -133,7 +131,6 @@ describe('useAsyncOperation', () => {
     });
 
     await act(async () => {
-      // Wait for the first backoff period plus up to 20% jitter
       await vi.advanceTimersByTimeAsync(601);
       if (promise) {
         await promise;
