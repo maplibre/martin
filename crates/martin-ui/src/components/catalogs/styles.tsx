@@ -151,8 +151,10 @@ export function StylesCatalog({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
         {filteredStyles.map(([name, style]) => (
           <Card
+            aria-label={name}
             className="flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
             key={name}
+            role="article"
           >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-3">

@@ -14,7 +14,9 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
       class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5"
     >
       <div
+        aria-label="map-icons"
         class="rounded-xl border bg-card text-card-foreground shadow-card flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
+        role="article"
       >
         <div
           class="flex flex-col gap-1.5 p-5 pb-3"
@@ -122,7 +124,9 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
         </div>
       </div>
       <div
+        aria-label="transportation"
         class="rounded-xl border bg-card text-card-foreground shadow-card flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
+        role="article"
       >
         <div
           class="flex flex-col gap-1.5 p-5 pb-3"
@@ -242,7 +246,9 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
         </div>
       </div>
       <div
+        aria-label="ui-elements"
         class="rounded-xl border bg-card text-card-foreground shadow-card flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
+        role="article"
       >
         <div
           class="flex flex-col gap-1.5 p-5 pb-3"

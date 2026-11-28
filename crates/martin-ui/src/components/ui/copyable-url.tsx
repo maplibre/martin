@@ -8,8 +8,8 @@ interface CopyableUrlProps {
 
 export function CopyableUrl({ label, url }: CopyableUrlProps) {
   return (
-    <div className="min-w-0">
-      <div className="mb-1 text-sm font-medium">{label}</div>
+    <fieldset className="m-0 min-w-0 border-0 p-0">
+      <legend className="mb-1 p-0 text-sm font-medium">{label}</legend>
       <div className="flex min-w-0 items-center gap-1 rounded-md border bg-sunken pl-3">
         <code className="min-w-0 flex-1 [overflow-wrap:anywhere] py-2 text-xs leading-relaxed">
           <Breakable text={url} />
@@ -22,6 +22,6 @@ export function CopyableUrl({ label, url }: CopyableUrlProps) {
           variant="ghost"
         />
       </div>
-    </div>
+    </fieldset>
   );
 }

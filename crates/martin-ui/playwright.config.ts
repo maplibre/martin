@@ -14,6 +14,7 @@ export default defineConfig({
   testDir: 'e2e',
   use: {
     baseURL: uiUrl,
+    permissions: ['clipboard-read', 'clipboard-write'],
     trace: 'retain-on-failure',
   },
   webServer: [

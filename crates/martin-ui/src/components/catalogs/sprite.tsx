@@ -79,8 +79,10 @@ export function SpriteCatalog({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
           {filteredSpriteCollections.map(([name, sprite]) => (
             <Card
+              aria-label={name}
               className="flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
               key={name}
+              role="article"
             >
               <CardHeader className="pb-3">
                 <CardTitle>
