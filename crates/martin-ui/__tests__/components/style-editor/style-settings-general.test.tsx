@@ -2,7 +2,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { Map as MapLibre } from 'maplibre-gl';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { StyleSettings } from '@/components/style-editor/style-settings/style-settings';
 
 function setup(style: StyleSpecification, map: MapLibre | null = null) {
