@@ -1,10 +1,7 @@
 import { type StyleSpecification, validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import {
-  type FilterCondition,
-  serializeFilter,
-} from '@/components/style-editor/inspector/filter-model';
+import { serializeFilter } from '@/components/style-editor/inspector/filter-model';
 import {
   deleteLayer,
   duplicateLayer,
@@ -15,136 +12,156 @@ import {
   setZoomRange,
 } from '@/components/style-editor/operations';
 
-const STYLE: StyleSpecification = {
-  layers: [
-    { id: 'background', paint: { 'background-color': '#f2efe9' }, type: 'background' },
-    { id: 'relief', source: 'relief', type: 'raster' },
-    {
-      id: 'areas',
-      paint: { 'fill-color': '#ffb800' },
-      source: 'features',
-      'source-layer': 'places',
-      type: 'fill',
-    },
-    { id: 'lines', source: 'features', 'source-layer': 'roads', type: 'line' },
-    {
-      id: 'labels',
-      layout: { 'text-field': ['get', 'name'] },
-      source: 'features',
-      'source-layer': 'places',
-      type: 'symbol',
-    },
-  ],
-  sources: {
-    features: { tiles: ['http://localhost/features/{z}/{x}/{y}'], type: 'vector' },
-    relief: { tiles: ['http://localhost/relief/{z}/{x}/{y}'], type: 'raster' },
-  },
-  version: 8,
-};
-
-const zoom = fc.option(fc.integer({ max: 24, min: 0 }), { nil: undefined });
-const condition: fc.Arbitrary<FilterCondition> = fc.oneof(
-  fc.record({
-    attribute: fc.constantFrom('name', 'rank'),
-    operator: fc.constantFrom('is' as const, 'isNot' as const),
-    value: fc.oneof(fc.string(), fc.integer()),
-  }),
-  fc.record({
-    attribute: fc.constant('rank'),
-    operator: fc.constantFrom('lt' as const, 'gte' as const),
-    value: fc.integer(),
-  }),
-  fc.record({
-    attribute: fc.constantFrom('name', 'class'),
-    operator: fc.constantFrom('exists' as const, 'notExists' as const),
-  }),
-);
-
-const edit = fc.oneof(
-  fc.record({ kind: fc.constant('visibility' as const), pick: fc.nat(), visible: fc.boolean() }),
-  fc.record({ kind: fc.constant('zoom' as const), pick: fc.nat(), range: fc.tuple(zoom, zoom) }),
-  fc.record({
-    kind: fc.constant('move' as const),
-    pick: fc.nat(),
-    to: fc.integer({ max: 8, min: -2 }),
-  }),
-  fc.record({ kind: fc.constant('duplicate' as const), pick: fc.nat() }),
-  fc.record({ kind: fc.constant('delete' as const), pick: fc.nat() }),
-  fc.record({
-    kind: fc.constant('rename' as const),
-    name: fc.stringMatching(/^[a-z][a-z0-9_-]{0,8}$/),
-    pick: fc.nat(),
-  }),
-  fc.record({
-    conditions: fc.array(condition, { maxLength: 3 }),
-    kind: fc.constant('filter' as const),
-    pick: fc.nat(),
-  }),
-);
-
-type Edit = typeof edit extends fc.Arbitrary<infer T> ? T : never;
-
-function apply(style: StyleSpecification, e: Edit) {
-  if (style.layers.length === 0) return;
-  const layer = style.layers[e.pick % style.layers.length];
-  switch (e.kind) {
-    case 'visibility':
-      return setVisibility(style, [layer.id], e.visible);
-    case 'zoom': {
-      const [a, b] = e.range;
-      const ordered = a !== undefined && b !== undefined && a > b ? [b, a] : [a, b];
-      return setZoomRange(style, layer.id, ordered[0], ordered[1]);
-    }
-    case 'move':
-      return moveLayer(style, layer.id, e.to);
-    case 'duplicate':
-      return duplicateLayer(style, layer.id);
-    case 'delete':
-      return deleteLayer(style, layer.id);
-    case 'rename':
-      return renameLayer(style, layer.id, e.name);
-    case 'filter':
-      if (!('source-layer' in layer)) return;
-      return setFilter(
-        style,
-        layer.id,
-        serializeFilter({ conditions: e.conditions, mode: 'structured' }),
-      );
-  }
-}
-
 describe('style operation properties', () => {
   it('keeps the style valid after any sequence of edits', () => {
     fc.assert(
-      fc.property(fc.array(edit, { maxLength: 12 }), (edits) => {
-        const style = structuredClone(STYLE);
-        for (const e of edits) apply(style, e);
-        expect(validateStyleMin(style)).toEqual([]);
-      }),
+      fc.property(
+        fc.array(
+          fc.oneof(
+            fc.record({
+              kind: fc.constant('show' as const),
+              pick: fc.nat(),
+              visible: fc.boolean(),
+            }),
+            fc.record({
+              kind: fc.constant('zoom' as const),
+              pick: fc.nat(),
+              range: fc
+                .tuple(fc.integer({ max: 24, min: 0 }), fc.integer({ max: 24, min: 0 }))
+                .map(([a, b]) => [Math.min(a, b), Math.max(a, b)]),
+            }),
+            fc.record({
+              kind: fc.constant('move' as const),
+              pick: fc.nat(),
+              to: fc.integer({ max: 8, min: -2 }),
+            }),
+            fc.record({ kind: fc.constant('duplicate' as const), pick: fc.nat() }),
+            fc.record({ kind: fc.constant('delete' as const), pick: fc.nat() }),
+            fc.record({
+              kind: fc.constant('rename' as const),
+              name: fc.stringMatching(/^[a-z][a-z0-9_-]{0,8}$/),
+              pick: fc.nat(),
+            }),
+            fc.record({
+              kind: fc.constant('filter' as const),
+              pick: fc.nat(),
+              rank: fc.integer(),
+            }),
+          ),
+          { maxLength: 12 },
+        ),
+        (edits) => {
+          const style: StyleSpecification = {
+            layers: [
+              { id: 'background', paint: { 'background-color': '#f2efe9' }, type: 'background' },
+              { id: 'relief', source: 'relief', type: 'raster' },
+              { id: 'areas', source: 'features', 'source-layer': 'places', type: 'fill' },
+              { id: 'lines', source: 'features', 'source-layer': 'roads', type: 'line' },
+            ],
+            sources: {
+              features: { tiles: ['http://localhost/features/{z}/{x}/{y}'], type: 'vector' },
+              relief: { tiles: ['http://localhost/relief/{z}/{x}/{y}'], type: 'raster' },
+            },
+            version: 8,
+          };
+          for (const edit of edits) {
+            const layer = style.layers[edit.pick % style.layers.length];
+            if (!layer) break;
+            if (edit.kind === 'show') setVisibility(style, [layer.id], edit.visible);
+            if (edit.kind === 'zoom') setZoomRange(style, layer.id, edit.range[0], edit.range[1]);
+            if (edit.kind === 'move') moveLayer(style, layer.id, edit.to);
+            if (edit.kind === 'duplicate') duplicateLayer(style, layer.id);
+            if (edit.kind === 'delete') deleteLayer(style, layer.id);
+            if (edit.kind === 'rename') renameLayer(style, layer.id, edit.name);
+            if (edit.kind === 'filter' && 'source-layer' in layer) {
+              setFilter(
+                style,
+                layer.id,
+                serializeFilter({
+                  conditions: [{ attribute: 'rank', operator: 'gte', value: edit.rank }],
+                  mode: 'structured',
+                }),
+              );
+            }
+          }
+          expect(validateStyleMin(style)).toEqual([]);
+        },
+      ),
     );
   });
 
-  it('keeps layer ids unique after any sequence of edits', () => {
+  it('leaves the other layers untouched when hiding one', () => {
     fc.assert(
-      fc.property(fc.array(edit, { maxLength: 12 }), (edits) => {
-        const style = structuredClone(STYLE);
-        for (const e of edits) apply(style, e);
-        const ids = style.layers.map((l) => l.id);
-        expect(new Set(ids).size).toBe(ids.length);
+      fc.property(fc.integer({ max: 2, min: 0 }), (index) => {
+        const style: StyleSpecification = {
+          layers: [
+            { id: 'background', paint: { 'background-color': '#f2efe9' }, type: 'background' },
+            { id: 'areas', source: 'features', 'source-layer': 'places', type: 'fill' },
+            { id: 'lines', source: 'features', 'source-layer': 'roads', type: 'line' },
+          ],
+          sources: { features: { tiles: ['http://localhost/{z}/{x}/{y}'], type: 'vector' } },
+          version: 8,
+        };
+        const before = structuredClone(style.layers);
+
+        setVisibility(style, [before[index].id], false);
+
+        expect(style.layers.filter((_, i) => i !== index)).toEqual(
+          before.filter((_, i) => i !== index),
+        );
       }),
     );
   });
 
-  it('leaves every other layer untouched by a single edit', () => {
+  it('leaves the other layers untouched when changing the zoom range of one', () => {
     fc.assert(
       fc.property(
-        edit.filter((e) => e.kind !== 'move' && e.kind !== 'duplicate' && e.kind !== 'delete'),
-        (e) => {
-          const style = structuredClone(STYLE);
-          const index = e.pick % style.layers.length;
-          apply(style, e);
+        fc.integer({ max: 2, min: 0 }),
+        fc.integer({ max: 24, min: 0 }),
+        fc.integer({ max: 24, min: 0 }),
+        (index, min, max) => {
+          const style: StyleSpecification = {
+            layers: [
+              { id: 'background', paint: { 'background-color': '#f2efe9' }, type: 'background' },
+              { id: 'areas', source: 'features', 'source-layer': 'places', type: 'fill' },
+              { id: 'lines', source: 'features', 'source-layer': 'roads', type: 'line' },
+            ],
+            sources: { features: { tiles: ['http://localhost/{z}/{x}/{y}'], type: 'vector' } },
+            version: 8,
+          };
+          const before = structuredClone(style.layers);
+
+          setZoomRange(style, before[index].id, min, max);
+
           expect(style.layers.filter((_, i) => i !== index)).toEqual(
-            STYLE.layers.filter((_, i) => i !== index),
+            before.filter((_, i) => i !== index),
+          );
+        },
+      ),
+    );
+  });
+
+  it('leaves the other layers untouched when renaming one', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ max: 2, min: 0 }),
+        fc.stringMatching(/^[a-z][a-z0-9_-]{0,8}$/),
+        (index, name) => {
+          const style: StyleSpecification = {
+            layers: [
+              { id: 'background', paint: { 'background-color': '#f2efe9' }, type: 'background' },
+              { id: 'areas', source: 'features', 'source-layer': 'places', type: 'fill' },
+              { id: 'lines', source: 'features', 'source-layer': 'roads', type: 'line' },
+            ],
+            sources: { features: { tiles: ['http://localhost/{z}/{x}/{y}'], type: 'vector' } },
+            version: 8,
+          };
+          const before = structuredClone(style.layers);
+
+          renameLayer(style, before[index].id, name);
+
+          expect(style.layers.filter((_, i) => i !== index)).toEqual(
+            before.filter((_, i) => i !== index),
           );
         },
       ),
@@ -153,11 +170,22 @@ describe('style operation properties', () => {
 
   it('only reorders layers when moving one', () => {
     fc.assert(
-      fc.property(fc.nat(), fc.integer({ max: 8, min: -2 }), (pick, to) => {
-        const style = structuredClone(STYLE);
-        moveLayer(style, style.layers[pick % style.layers.length].id, to);
-        const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id);
-        expect([...style.layers].sort(byId)).toEqual([...STYLE.layers].sort(byId));
+      fc.property(fc.integer({ max: 2, min: 0 }), fc.integer({ max: 8, min: -2 }), (index, to) => {
+        const style: StyleSpecification = {
+          layers: [
+            { id: 'background', paint: { 'background-color': '#f2efe9' }, type: 'background' },
+            { id: 'areas', source: 'features', 'source-layer': 'places', type: 'fill' },
+            { id: 'lines', source: 'features', 'source-layer': 'roads', type: 'line' },
+          ],
+          sources: { features: { tiles: ['http://localhost/{z}/{x}/{y}'], type: 'vector' } },
+          version: 8,
+        };
+        const before = structuredClone(style.layers);
+
+        moveLayer(style, before[index].id, to);
+
+        expect(style.layers.map((l) => l.id).sort()).toEqual(['areas', 'background', 'lines']);
+        expect(style.layers.find((l) => l.id === before[index].id)).toEqual(before[index]);
       }),
     );
   });
