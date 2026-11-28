@@ -13,24 +13,45 @@ test('the chosen theme survives a reload', async ({ page }) => {
 });
 
 test('server activity counts the tiles martin has served', async ({ page, request }) => {
-  expect((await request.get('/png/0/0/0')).ok()).toBe(true);
+  expect((await request.get('/png/0/0/0')).status()).toBe(200);
 
   await page.goto('/');
 
   await expect(page.getByText(/^[\d,]+ requests$/).first()).toBeVisible();
 });
 
-test('every tab is reachable from the tab bar and lands in the url', async ({ page }) => {
+test('clicking the Styles tab selects it and puts tab=styles in the url', async ({ page }) => {
   await page.goto('/');
 
-  for (const [label, tab] of [
-    ['Styles', 'styles'],
-    ['Fonts', 'fonts'],
-    ['Sprites', 'sprites'],
-    ['Tiles', 'tiles'],
-  ]) {
-    await page.getByRole('tab', { name: label }).click();
-    await expect(page.getByRole('tab', { name: label })).toHaveAttribute('aria-selected', 'true');
-    await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe(tab);
-  }
+  await page.getByRole('tab', { name: 'Styles' }).click();
+
+  await expect(page.getByRole('tab', { name: 'Styles' })).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('styles');
+});
+
+test('clicking the Fonts tab selects it and puts tab=fonts in the url', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('tab', { name: 'Fonts' }).click();
+
+  await expect(page.getByRole('tab', { name: 'Fonts' })).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('fonts');
+});
+
+test('clicking the Sprites tab selects it and puts tab=sprites in the url', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('tab', { name: 'Sprites' }).click();
+
+  await expect(page.getByRole('tab', { name: 'Sprites' })).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('sprites');
+});
+
+test('clicking the Tiles tab selects it and puts tab=tiles in the url', async ({ page }) => {
+  await page.goto('/?tab=styles');
+
+  await page.getByRole('tab', { name: 'Tiles' }).click();
+
+  await expect(page.getByRole('tab', { name: 'Tiles' })).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('tiles');
 });
