@@ -80,10 +80,8 @@ describe('useAsyncOperation', () => {
 
     await act(async () => {
       // Advance timers to simulate backoff delays
-      // First retry after ~500ms
-      await vi.advanceTimersByTimeAsync(501);
-      // Second retry after ~1000ms
-      await vi.advanceTimersByTimeAsync(1001);
+      await vi.advanceTimersByTimeAsync(601);
+      await vi.advanceTimersByTimeAsync(1201);
       // Wait for the promise to reject
       if (executePromise) {
         await expect(executePromise).rejects.toThrow('Failed');
@@ -95,6 +93,23 @@ describe('useAsyncOperation', () => {
     expect(result.current.error).toEqual(error);
     expect(mockAsyncFunction).toHaveBeenCalledTimes(3);
     expect(onError).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps showing the error once every attempt has failed', async () => {
+    const { result } = renderHook(() =>
+      useAsyncOperation<unknown>(vi.fn().mockRejectedValue(new Error('down')), {
+        maxRetries: 1,
+        showErrorToast: false,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.execute().catch(() => undefined);
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(result.current.error).toEqual(new Error('down'));
+    expect(result.current.isLoading).toBe(false);
   });
 
   it('should succeed on the second attempt', async () => {
@@ -116,8 +131,7 @@ describe('useAsyncOperation', () => {
     });
 
     await act(async () => {
-      // Wait for the first backoff period
-      await vi.advanceTimersByTimeAsync(501);
+      await vi.advanceTimersByTimeAsync(601);
       if (promise) {
         await promise;
       }
