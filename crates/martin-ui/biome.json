@@ -13,11 +13,24 @@
     ]
   },
   "linter": {
+    "domains": {
+      "playwright": "none"
+    },
     "rules": {
       "style": {
         "useComponentExportOnlyModules": "off"
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["e2e/**"],
+      "linter": {
+        "domains": {
+          "playwright": "recommended"
+        }
+      }
+    }
+  ],
   "root": false
 }
