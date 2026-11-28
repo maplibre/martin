@@ -4,8 +4,6 @@ import { ColorField } from '@/components/style-editor/color-field';
 import { Color, colorKey } from '@/components/style-editor/colors';
 import { StylePaletteProvider } from '@/components/style-editor/style-palette';
 
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
-
 describe('ColorField', () => {
   afterEach(cleanup);
 

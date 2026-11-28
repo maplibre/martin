@@ -3,8 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StyleResourcesProvider } from '@/components/style-editor/style-resources';
 import { IconPicker } from '@/components/style-editor/value-editors/pickers/icon-picker';
 
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
-
 function stubSprite() {
   vi.stubGlobal(
     'fetch',

@@ -5,8 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { colorKey, writeColorSites } from '@/components/style-editor/colors';
 import { PalettePanel } from '@/components/style-editor/palette/palette-panel';
 
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
-
 function ControlledPalette({ initial }: { initial: StyleSpecification }) {
   const [style, setStyle] = useState(initial);
   const [selected, setSelected] = useState<string | null>('#ff0000');

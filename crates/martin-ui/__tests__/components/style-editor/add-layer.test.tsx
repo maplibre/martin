@@ -4,8 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AddLayerDialog } from '@/components/style-editor/add-layer/dialog';
 import { StyleResourcesProvider } from '@/components/style-editor/style-resources';
 
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
-
 const style: StyleSpecification = {
   layers: [
     {

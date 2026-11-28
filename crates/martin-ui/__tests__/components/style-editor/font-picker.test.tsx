@@ -3,8 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StyleResourcesProvider } from '@/components/style-editor/style-resources';
 import { FontStackPicker } from '@/components/style-editor/value-editors/pickers/font-picker';
 
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
-
 function renderPicker(value: string[], onChange = vi.fn()) {
   render(
     <StyleResourcesProvider

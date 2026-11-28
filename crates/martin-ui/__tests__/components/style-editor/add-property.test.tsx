@@ -3,8 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AddProperty } from '@/components/style-editor/inspector/add-property';
 import { layerProperties } from '@/components/style-editor/style-spec';
 
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
-
 describe('AddProperty', () => {
   afterEach(cleanup);
 

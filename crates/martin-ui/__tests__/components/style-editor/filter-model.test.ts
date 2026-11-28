@@ -199,6 +199,15 @@ describe('serializeFilter', () => {
     expect(serializeFilter({ conditions: [], mode: 'structured' })).toBeUndefined();
   });
 
+  it('writes integers beyond the safe range as a literal list, not match labels', () => {
+    const model = {
+      conditions: [{ attribute: 'id', operator: 'oneOf' as const, values: [2 ** 53] }],
+      mode: 'structured' as const,
+    };
+    expect(serializeFilter(model)).toEqual(['in', ['get', 'id'], ['literal', [2 ** 53]]]);
+    expect(validateFilter(serializeFilter(model))).toEqual([]);
+  });
+
   it('serializes one condition without an all', () => {
     expect(
       serializeFilter({

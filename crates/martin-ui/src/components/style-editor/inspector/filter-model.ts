@@ -268,7 +268,7 @@ function serializeCondition(condition: FilterCondition): unknown {
     const { values } = condition;
     const yes = operator === 'oneOf';
     const strings = values.every((v) => typeof v === 'string');
-    const numbers = values.every((v) => typeof v === 'number' && Number.isInteger(v));
+    const numbers = values.every((v) => typeof v === 'number' && Number.isSafeInteger(v));
     if (strings || numbers) return ['match', reads(attribute), values, yes, !yes];
     const inside = ['in', reads(attribute), ['literal', values]];
     return yes ? inside : ['!', inside];
