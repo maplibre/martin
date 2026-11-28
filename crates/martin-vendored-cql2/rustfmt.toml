@@ -1,1 +1,3 @@
 imports_granularity = "Crate"
+# Leaves the vendored code formatted as upstream has it, under nightly rustfmt that `just fmt` runs.
+ignore = ["src"]

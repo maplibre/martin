@@ -74,9 +74,9 @@ repos:
     hooks:
       - id: cargo-fmt
         name: Rust Format
-        description: "Automatically format Rust code with cargo fmt"
-        entry: sh -c "cargo fmt --all"
-        language: rust
+        description: "Automatically format Rust code with `just fmt`, which groups imports when nightly rustfmt is installed"
+        entry: just fmt
+        language: system
         pass_filenames: false
 
       - id: just-fmt
