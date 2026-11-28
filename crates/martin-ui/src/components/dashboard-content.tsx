@@ -44,14 +44,22 @@ export function DashboardContent() {
 
   // Catalog operation
   const catalogOperation = useAsyncOperation<Catalog>(fetchCatalog, {
+    maxRetries: 3,
     onError: (error: Error) => console.error('Catalog fetch failed:', error),
     showErrorToast: false,
   });
 
+  // The catalogs show the failure and offer Try Again, so the rejection needs no handling here.
+  const loadCatalog = () => catalogOperation.execute().catch(() => undefined);
+  const retryCatalog = () => {
+    catalogOperation.reset();
+    loadCatalog();
+  };
+
   const handleSearchChange = (query: string) => updateParam('search', query);
 
   useEffect(() => {
-    catalogOperation.execute();
+    loadCatalog();
   }, []);
 
   // If editing a style, show the editor
@@ -105,6 +113,7 @@ export function DashboardContent() {
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
             onInspectTile={(tileName) => updateParam('inspect', tileName)}
+            onRetry={retryCatalog}
             searchQuery={params.search ?? ''}
             selectedTileForInspection={params.inspect}
             tileSources={catalogOperation.data?.tiles}
@@ -116,6 +125,7 @@ export function DashboardContent() {
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
             onEditStyle={(styleName) => updateParam('style', styleName)}
+            onRetry={retryCatalog}
             onStyleGuide={(styleName) => updateParam('guide', styleName)}
             searchQuery={params.search ?? ''}
             selectedStyleForGuide={params.guide}
@@ -128,6 +138,7 @@ export function DashboardContent() {
             error={catalogOperation.error}
             fonts={catalogOperation.data?.fonts}
             isLoading={catalogOperation.isLoading}
+            onRetry={retryCatalog}
             searchQuery={params.search ?? ''}
           />
         </TabsContent>
@@ -139,6 +150,7 @@ export function DashboardContent() {
             isLoading={catalogOperation.isLoading}
             onDownloadSprite={(spriteName) => updateParam('download', spriteName)}
             onPreviewSprite={(spriteName) => updateParam('preview', spriteName)}
+            onRetry={retryCatalog}
             searchQuery={params.search ?? ''}
             selectedSprite={params.preview}
             spriteCollections={catalogOperation.data?.sprites}

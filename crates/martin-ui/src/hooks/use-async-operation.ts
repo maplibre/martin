@@ -89,6 +89,7 @@ export function useAsyncOperation<T>(
         onError?.(err, attempt);
 
         if (attempt >= maxRetries) {
+          clearTimeout(timeout);
           setState({ data: undefined, error: err, isLoading: false });
 
           if (showErrorToast) {
@@ -102,7 +103,7 @@ export function useAsyncOperation<T>(
           throw err;
         }
 
-        const backoffDelay = initialBackoffDelay ** (attempt - 1);
+        const backoffDelay = initialBackoffDelay * 2 ** (attempt - 1);
         const jitter = backoffDelay * 0.2 * Math.random();
         console.log(`retrying in ${backoffDelay}ms with jitter ${jitter}ms`);
         await sleep(backoffDelay + jitter);
