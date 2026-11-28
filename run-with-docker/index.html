@@ -981,10 +981,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#using-non-local-postgresql" class="md-nav__link">
+  <a href="#image-tags" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Using Non-Local PostgreSQL
+        Image tags
       </span>
     </span>
   </a>
@@ -996,6 +996,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Exposing Local Files
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-non-local-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Using Non-Local PostgreSQL
       </span>
     </span>
   </a>
@@ -1029,6 +1040,39 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Accessing Local PostgreSQL on Windows
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-files-to-a-bind-mount" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Writing Files to a Bind Mount
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Health Check
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#image-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Image Contents
       </span>
     </span>
   </a>
@@ -2062,61 +2106,174 @@
 
 
 <h1 id="running-with-docker">Running with Docker</h1>
-<p>You can use official Docker image <a href="https://ghcr.io/maplibre/martin"><code>ghcr.io/maplibre/martin</code></a></p>
-<div class="admonition note">
-<p class="admonition-title">Image variants</p>
-<p>The default image (<code>:latest</code>, <code>:&lt;version&gt;</code>) is lean and does <strong>not</strong> include server-side style <a href="../sources-styles/rendering/">rendering</a>.
-The batteries-included <code>-full</code> variant (<code>:latest-full</code>, <code>:&lt;version&gt;-full</code>) bundles the EGL and Mesa libraries rendering needs and enables it.
-Use <code>-full</code> only if you need rendering; it is a larger image.
-The <code>-legacycpu</code> variant runs on x86_64 CPUs without AVX2.
-To follow every release of one major or minor version, use a tag such as <code>:2</code> or <code>:2.0</code>, plus the variant suffix if you need one, such as <code>:2-full</code>.</p>
-</div>
-<h3 id="using-non-local-postgresql">Using Non-Local PostgreSQL</h3>
+<p>The official image is <a href="https://ghcr.io/maplibre/martin"><code>ghcr.io/maplibre/martin</code></a>.
+Its entrypoint is <code>martin</code>, so everything after the image name in <code>docker run</code> is passed to Martin as <a href="../run-with-cli/">CLI arguments</a>.</p>
+<h2 id="image-tags">Image tags</h2>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Contents</th>
+<th>Platforms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>:&lt;version&gt;</code>, <code>:latest</code></td>
+<td>Martin without server-side style <a href="../sources-styles/rendering/">rendering</a></td>
+<td><code>linux/amd64</code>, <code>linux/arm64</code></td>
+</tr>
+<tr>
+<td><code>:&lt;version&gt;-full</code>, <code>:latest-full</code></td>
+<td>Martin with rendering, plus the EGL and Mesa libraries it needs</td>
+<td><code>linux/amd64</code>, <code>linux/arm64</code></td>
+</tr>
+<tr>
+<td><code>:&lt;version&gt;-legacycpu</code>, <code>:latest-legacycpu</code></td>
+<td>Static Martin for x86_64 CPUs without AVX2, without rendering</td>
+<td><code>linux/amd64</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>-full</code> only if you need rendering, because it is a larger image.</p>
+<p>Every stable release also moves a major and a minor tag, such as <code>:2</code> and <code>:2.0</code>, with the variant suffix if there is one, such as <code>:2-full</code>.
+Use them to follow every release of one major or minor version.
+Prereleases, such as <code>2.0.0-beta.8</code>, publish only their own <code>:&lt;version&gt;</code> tags.</p>
+<h2 id="exposing-local-files">Exposing Local Files</h2>
+<p>Mount the directory that holds your files with <code>-v</code> and pass its path inside the container to Martin:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>postgres://postgres@postgres.example.org/db
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>-v<span class="w"> </span>/path/to/local/files:/files<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>/files
 </span></code></pre></div>
-<h3 id="exposing-local-files">Exposing Local Files</h3>
-<p>You can expose local files to the Docker container using the <code>-v</code> flag.</p>
+<p>Martin is now available at <a href="http://localhost:3000/">localhost:3000</a>.</p>
+<p>Pass any other <a href="../run-with-cli/">CLI flags</a> after the image name.
+For example, <code>--webui enable-for-all</code> serves the built-in web UI to all clients.
+By default, Martin serves the web UI only to connections from localhost, which inside a container excludes the host.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>-v<span class="w"> </span>/path/to/local/files:/files<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>/files
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--webui<span class="w"> </span>enable-for-all<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>/files
 </span></code></pre></div>
-<p>You can also pass any <a href="../run-with-cli/">CLI flags</a> after the image name, for example <code>--webui enable-for-all</code> to serve the built-in web UI to all clients (by default it is only served to connections from localhost, which inside a container excludes the host):</p>
+<div class="admonition note">
+<p class="admonition-title">File permissions</p>
+<p>Martin runs as the <code>nonroot</code> user, uid and gid <code>65532</code>.
+The files that Martin serves must be readable by that user, or by the user you set with <code>--user</code>.</p>
+</div>
+<h2 id="using-non-local-postgresql">Using Non-Local PostgreSQL</h2>
+<p>Pass the connection string after the image name:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>-v<span class="w"> </span>/path/to/local/files:/files<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>--webui<span class="w"> </span>enable-for-all<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>/files
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>postgres://postgres@postgres.example.org/db
 </span></code></pre></div>
-<h3 id="accessing-local-postgresql-on-linux">Accessing Local PostgreSQL on Linux</h3>
-<p>If you are running PostgreSQL instance on <code>localhost</code>, you have to change network settings to allow the Docker container
-to access the <code>localhost</code> network.</p>
-<p>For Linux, add the <code>--net=host</code> flag to access the <code>localhost</code> PostgreSQL service.
-You would not need to export ports with <code>-p</code> because the container is already using the host network.</p>
+<h2 id="accessing-local-postgresql-on-linux">Accessing Local PostgreSQL on Linux</h2>
+<p>Inside a container, <code>localhost</code> is the container itself, not your machine.
+On Linux, add <code>--net=host</code> so the container shares the host network and reaches a PostgreSQL server on <code>localhost</code>.
+You do not need <code>-p</code>, because Martin listens on the host network directly.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--net<span class="o">=</span>host<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>postgres://postgres@localhost/db
 </span></code></pre></div>
-<h3 id="accessing-local-postgresql-on-macos">Accessing Local PostgreSQL on macOS</h3>
-<p>For macOS, use <code>host.docker.internal</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
+<h2 id="accessing-local-postgresql-on-macos">Accessing Local PostgreSQL on macOS</h2>
+<p>On macOS, use <code>host.docker.internal</code> as the hostname of a PostgreSQL server on <code>localhost</code>:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>postgres://postgres@host.docker.internal/db
 </span></code></pre></div>
-<h3 id="accessing-local-postgresql-on-windows">Accessing Local PostgreSQL on Windows</h3>
-<p>For Windows, use <code>docker.for.win.localhost</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
+<h2 id="accessing-local-postgresql-on-windows">Accessing Local PostgreSQL on Windows</h2>
+<p>On Windows, use <code>docker.for.win.localhost</code> as the hostname of a PostgreSQL server on <code>localhost</code>:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">3000</span>:3000<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>postgres://postgres@docker.for.win.localhost/db
 </span></code></pre></div>
+<h2 id="writing-files-to-a-bind-mount">Writing Files to a Bind Mount</h2>
+<p>Martin runs as uid <code>65532</code>, so it can only write to directories that this uid can write to.
+This affects the output of <code>martin cp</code> and <code>--save-config</code>.
+To write files that you own into a bind mount, run the container as your own user with <code>--user</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--user<span class="w"> </span><span class="s2">"</span><span class="k">$(</span>id<span class="w"> </span>-u<span class="k">)</span><span class="s2">:</span><span class="k">$(</span>id<span class="w"> </span>-g<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">:/data"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>cp<span class="w"> </span>--source<span class="w"> </span>world<span class="w"> </span>--max-zoom<span class="w"> </span><span class="m">10</span><span class="w"> </span>--output-file<span class="w"> </span>/data/world.mbtiles<span class="w"> </span>/data/world.pmtiles
+</span></code></pre></div>
+<p>This example copies zoom levels 0 to 10 of <code>./world.pmtiles</code> into <code>./world.mbtiles</code>.
+Without <code>--user</code>, it fails with a permission error unless uid <code>65532</code> can write to the current directory.</p>
+<h2 id="health-check">Health Check</h2>
+<p>The image's <code>HEALTHCHECK</code> runs <code>martin health</code>, which needs no shell.</p>
+<table>
+<thead>
+<tr>
+<th>Behavior</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Request</td>
+<td>One <code>GET</code> to <code>http://127.0.0.1:3000/health</code>, ignoring <code>HTTP_PROXY</code> and similar variables</td>
+</tr>
+<tr>
+<td>Change URL</td>
+<td><code>--url &lt;url&gt;</code> or the <code>MARTIN_HEALTH_URL</code> environment variable</td>
+</tr>
+<tr>
+<td>Exit code <code>0</code></td>
+<td>The server answered with a <code>2xx</code> status</td>
+</tr>
+<tr>
+<td>Exit code <code>1</code></td>
+<td>Any other status, a connection error, or no answer within 5 seconds. The reason is printed to stderr.</td>
+</tr>
+</tbody>
+</table>
+<p>Martin answers <code>/health</code> only after all sources have loaded.
+While sources load, each check times out after 5 seconds and fails.</p>
+<p>If Martin listens on a port other than <code>3000</code>, set <code>MARTIN_HEALTH_URL</code> to the health URL on that port:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">8080</span>:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>-e<span class="w"> </span><span class="nv">MARTIN_HEALTH_URL</span><span class="o">=</span>http://127.0.0.1:8080/health<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>-v<span class="w"> </span>/path/to/local/files:/files<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>ghcr.io/maplibre/martin:2.0.0-beta.8<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span>--listen-addresses<span class="w"> </span><span class="m">0</span>.0.0.0:8080<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span>/files
+</span></code></pre></div>
+<p>To see the result of the checks, read the container's health status. It is <code>starting</code>, <code>healthy</code> or <code>unhealthy</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docker<span class="w"> </span>inspect<span class="w"> </span>--format<span class="w"> </span><span class="s1">'{{.State.Health.Status}}'</span><span class="w"> </span>&lt;container&gt;
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Slow startup</p>
+<p>If loading your sources takes longer than about a minute, Docker can mark the container <code>unhealthy</code> before Martin is ready.
+Add <code>--health-start-period 5m</code>, or the time your sources need, so that failed checks during startup do not count.
+The <code>--health-interval</code>, <code>--health-timeout</code>, <code>--health-retries</code> and <code>--health-start-period</code> flags keep the image's check command.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Do not use <code>--health-cmd</code></p>
+<p>Docker runs a <code>--health-cmd</code> command through <code>/bin/sh</code>, which the images do not have.
+Every check then fails, and Docker marks the container <code>unhealthy</code>.
+Use <code>MARTIN_HEALTH_URL</code> to change what the image's check requests.</p>
+</div>
+<h2 id="image-contents">Image Contents</h2>
+<p>The images contain Martin and the <a href="https://wolfi.dev">Wolfi</a> packages Martin loads, on an empty <code>scratch</code> base.
+They have no shell and no package manager, and run as the <code>nonroot</code> user, uid and gid <code>65532</code>.</p>
+<p><code>docker exec</code> still works for commands that are binaries in the image.
+For example, to run a health check by hand:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>&lt;container&gt;<span class="w"> </span>/usr/local/bin/martin<span class="w"> </span>health
+</span></code></pre></div>
+<p><code>docker exec &lt;container&gt; sh</code> fails because the image has no shell.
+To inspect a running container with a shell, use <code>docker debug &lt;container&gt;</code>, which needs Docker Desktop.</p>
+<div class="admonition note">
+<p class="admonition-title">Derived images</p>
+<p>A Dockerfile that starts <code>FROM ghcr.io/maplibre/martin</code> cannot <code>RUN</code> commands.
+To add tools, copy the Martin binary into a base image of your own.
+See the <a href="../migration-guide/#docker-images-have-no-shell-and-run-as-a-non-root-user">migration guide</a> for the libraries each variant needs.</p>
+</div>
 
 
   <nav class="md-tags" >

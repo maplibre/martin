@@ -1990,6 +1990,10 @@ Martin itself reacts to the following variables.</p>
 <td><code>AWS_CONTAINER_CREDENTIALS_RELATIVE_URI</code><br/><code>AWS_CONTAINER_CREDENTIALS_FULL_URI</code><br/><code>AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE</code><br/><code>AWS_WEB_IDENTITY_TOKEN_FILE</code><br/><code>AWS_ROLE_ARN</code><br/><code>AWS_ROLE_SESSION_NAME</code><br/><code>AWS_ENDPOINT_URL_STS</code></td>
 <td>Injected by ECS, Fargate and EKS to say where the task role's credentials come from. Used for S3-backed PMTiles sources unless <code>pmtiles.profile</code> or the matching <code>pmtiles.*</code> setting is configured. See <a href="../sources-pmtiles/">PMTiles sources</a></td>
 </tr>
+<tr>
+<td><code>MARTIN_HEALTH_URL</code></td>
+<td>URL that <code>martin health</code> requests. Default: <code>http://127.0.0.1:3000/health</code>. See <a href="../run-with-docker/#health-check">Running with Docker</a></td>
+</tr>
 </tbody>
 </table>
 

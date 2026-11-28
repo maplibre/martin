@@ -1126,6 +1126,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#docker-images-have-no-shell-and-run-as-a-non-root-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Docker images have no shell and run as a non-root user
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cargo-features-were-merged" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1234,7 +1245,7 @@
 <p>Use this guide to update an existing Martin setup after a major release. See the <a href="../changelog/">changelog</a> for other changes.</p>
 <h2 id="from-1x-to-20">From 1.x to 2.0</h2>
 <p>Martin 2.0 removes deprecated options and changes several defaults. Existing routes and legacy URL redirects remain available when their Cargo features are enabled. The configuration file format is unchanged apart from the keys and substitution syntax below.</p>
-<p>Review the <a href="#postgresql-sources-need-postgresql-15-and-postgis-35">database versions</a>, <a href="#martin-cp-is-now-martin-cp"><code>martin cp</code></a>, the <a href="#the-terminal-dashboard-is-on-by-default">terminal dashboard</a>, the <a href="#the-web-ui-is-served-to-localhost-by-default">web UI</a>, <a href="#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default">archive tile caching</a>, <a href="#cache-sizes-have-one-spelling">cache keys</a> and the <a href="#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data">MBTiles schema</a> even if 1.x showed no deprecation warnings.</p>
+<p>Review the <a href="#postgresql-sources-need-postgresql-15-and-postgis-35">database versions</a>, <a href="#martin-cp-is-now-martin-cp"><code>martin cp</code></a>, the <a href="#the-terminal-dashboard-is-on-by-default">terminal dashboard</a>, the <a href="#the-web-ui-is-served-to-localhost-by-default">web UI</a>, <a href="#pmtiles-and-mbtiles-tiles-attach-the-cache-control-header-by-default">archive tile caching</a>, <a href="#cache-sizes-have-one-spelling">cache keys</a>, the <a href="#normalized-mbtiles-files-use-tiles_shallow-and-tiles_data">MBTiles schema</a> and the <a href="#docker-images-have-no-shell-and-run-as-a-non-root-user">Docker images</a> even if 1.x showed no deprecation warnings.</p>
 <h3 id="martin-cp-is-now-martin-cp"><code>martin-cp</code> is now <code>martin cp</code></h3>
 <p>Replace <code>martin-cp</code> with <code>martin cp</code> in scripts and commands.
 The copy options and configuration file still apply, subject to the changes below. Release tarballs, Docker and Homebrew no longer include a separate <code>martin-cp</code> binary.
@@ -1477,6 +1488,81 @@ Raster tiles and <a href="../ogc-api/#maps">OGC API - Maps</a> images still draw
 <p>The prebuilt x86_64 binaries, Debian package and Docker images are built for the x86-64-v3 feature level (AVX2, BMI2, FMA; Intel Haswell / AMD Excavator, 2015 or newer).
 On older CPUs they fail with an illegal instruction error. aarch64 builds are unaffected.</p>
 <p>To run Martin on an older CPU, use the <code>martin-x86_64-unknown-linux-musl-legacycpu.tar.gz</code> release asset or the <code>:latest-legacycpu</code> Docker image, or <a href="../development/">build it from source</a> without <code>-C target-cpu=x86-64-v3</code>.</p>
+<h3 id="docker-images-have-no-shell-and-run-as-a-non-root-user">Docker images have no shell and run as a non-root user</h3>
+<p>The Docker images contain Martin and the <a href="https://wolfi.dev">Wolfi</a> packages Martin loads, on an empty <code>scratch</code> base.
+They have no shell and no package manager, and run as a non-root user.
+Image scanners such as Trivy report fewer vulnerabilities because the images contain fewer packages.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>1.x</th>
+<th>2.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Base</td>
+<td>Ubuntu 24.04</td>
+<td>Wolfi packages on <code>scratch</code></td>
+</tr>
+<tr>
+<td>User</td>
+<td><code>root</code></td>
+<td><code>nonroot</code>, uid and gid <code>65532</code></td>
+</tr>
+<tr>
+<td><code>HEALTHCHECK</code></td>
+<td><code>wget --spider http://127.0.0.1:3000/health</code></td>
+<td><code>martin health</code></td>
+</tr>
+<tr>
+<td>Shell, <code>apt-get</code></td>
+<td>yes</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Tags</td>
+<td><code>:&lt;version&gt;</code>, <code>:latest</code></td>
+<td>also <code>:2</code> and <code>:2.0</code>, which every stable release moves</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>-full</code> and <code>-legacycpu</code> variants get the same tags with their suffix, such as <code>:2-full</code>.
+Update your setup if it relies on any of the following 1.x behaviors:</p>
+<ul>
+<li>
+<p><strong>Shell health checks.</strong> A health check that runs a shell command, such as <code>wget --spider ...</code> or any <code>docker run --health-cmd</code>, fails with <code>exec: "/bin/sh": ... no such file or directory</code>.
+  Remove it and rely on the image's <code>HEALTHCHECK</code>.
+  If Martin listens on a port other than <code>3000</code>, set <code>MARTIN_HEALTH_URL=http://127.0.0.1:&lt;port&gt;/health</code>.
+  See <a href="../run-with-docker/#health-check">Health Check</a> for what <code>martin health</code> checks.
+  A health check of your own must run <code>martin health</code> in exec form:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">healthcheck</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">test</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"CMD"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"/usr/local/bin/martin"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"health"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--url"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"http://127.0.0.1:8080/health"</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+</li>
+<li>
+<p><strong>Writing to bind mounts.</strong> Martin runs as uid <code>65532</code>, so it fails with a permission error when it writes into a bind-mounted directory that this uid cannot write to.
+  This affects the output of <code>martin cp</code> and <code>--save-config</code>.
+  Run the container as your own user with <code>--user "$(id -u):$(id -g)"</code>, or as root with <code>--user 0</code> as in 1.x.
+  Files that Martin serves must be readable by the user the container runs as.</p>
+</li>
+<li>
+<p><strong>Derived images.</strong> A Dockerfile that starts <code>FROM ghcr.io/maplibre/martin</code> cannot <code>RUN</code> commands, because the image has no shell.
+  Copy the binaries into your own base image instead:</p>
+<div class="language-dockerfile highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">FROM</span><span class="w"> </span><span class="s">your-base-image</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">COPY</span><span class="w"> </span>--from<span class="o">=</span>ghcr.io/maplibre/martin:2<span class="w"> </span>/usr/local/bin/martin<span class="w"> </span>/usr/local/bin/
+</span></code></pre></div>
+<p>The default binaries need glibc 2.39 or newer.
+The <code>-full</code> binary also needs Mesa's <code>libEGL.so.1</code>.
+The <code>-legacycpu</code> binaries are static and need no shared libraries.</p>
+</li>
+<li>
+<p><strong>Interactive shells.</strong> <code>docker exec &lt;container&gt; sh</code> fails because the image has no shell.
+  Binaries in the image still run, such as <code>docker exec &lt;container&gt; /usr/local/bin/martin health</code>.
+  To inspect a running container with a shell, use <code>docker debug &lt;container&gt;</code>, which needs Docker Desktop.</p>
+</li>
+</ul>
 <h3 id="cargo-features-were-merged">Cargo features were merged</h3>
 <p>If you build Martin or <code>martin-core</code> yourself with <code>--features</code> or <code>--no-default-features</code>, rename the features:</p>
 <table>
@@ -1506,10 +1592,10 @@ On older CPUs they fail with an illegal instruction error. aarch64 builds are un
 </tbody>
 </table>
 <p>All are enabled by default, so default builds, release binaries and Docker images keep their features and now also serve <a href="../sources-cog-files/">COG sources</a>. <code>metrics</code>, <code>webui</code>, <code>tui</code>, <code>lambda</code> and the source features <code>postgres</code>, <code>pmtiles</code>, <code>mbtiles</code> and <code>passthrough</code> keep their names.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 1.x</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,fonts,sprites,styles
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># 2.0</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,resources
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># 1.x</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,fonts,sprites,styles
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="c1"># 2.0</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked<span class="w"> </span>--no-default-features<span class="w"> </span>--features<span class="w"> </span>postgres,resources
 </span></code></pre></div>
 <h3 id="for-users-of-the-crates">For users of the crates</h3>
 <ul>
