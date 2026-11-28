@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-beta.9](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.8...martin-v2.0.0-beta.9) - 2026-11-28
+
+### Added
+
+- *(rendering)* render styles on macOS and Windows ([#4096](https://github.com/maplibre/martin/pull/4096))
+- *(cli)* add `martin health` ([#4087](https://github.com/maplibre/martin/pull/4087))
+- *(rendering)* [**breaking**] render through mln-rs instead of maplibre-native-ffi ([#3951](https://github.com/maplibre/martin/pull/3951))
+- *(core)* intern source names and alias sets as 4-byte ids ([#4077](https://github.com/maplibre/martin/pull/4077))
+
+### Fixed
+
+- *(deps)* update dependency @maplibre/maplibre-gl-style-spec to v27 ([#4107](https://github.com/maplibre/martin/pull/4107))
+- re-point the symlinks the crates/ move left dangling ([#4063](https://github.com/maplibre/martin/pull/4063))
+- *(cache)* weigh cache entries by the memory they use, not just the payload ([#4075](https://github.com/maplibre/martin/pull/4075))
+
+### Other
+
+- format the justfiles and keep them formatted with a prek hook ([#4100](https://github.com/maplibre/martin/pull/4100))
+- *(cache)* key fonts and sprites by interned ids, resolved before keying ([#4079](https://github.com/maplibre/martin/pull/4079))
+- *(cache)* key tiles by interned source ids instead of names ([#4078](https://github.com/maplibre/martin/pull/4078))
+- *(deps)* update pre-commit hook biomejs/pre-commit to v2.6.9 ([#4108](https://github.com/maplibre/martin/pull/4108))
+- release ([#3936](https://github.com/maplibre/martin/pull/3936))
+- *(deps)* update npm dependencies ([#4060](https://github.com/maplibre/martin/pull/4060))
+- move all crates under crates/ ([#4059](https://github.com/maplibre/martin/pull/4059))
+- *(deps)* update mln-rs to 0.0.18 ([#4094](https://github.com/maplibre/martin/pull/4094))
+- *(cache)* key tiles by a packed 8-byte coordinate ([#4076](https://github.com/maplibre/martin/pull/4076))
+- *(nightly)* ship `--format mlt2` in the nightlies and update mlt-core to 0.24.0 ([#4073](https://github.com/maplibre/martin/pull/4073))
+
 ## [2.0.0-beta.8](https://github.com/maplibre/martin/compare/martin-v2.0.0-beta.7...martin-v2.0.0-beta.8) - 2026-11-25
 
 > [!NOTE]

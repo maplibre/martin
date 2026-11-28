@@ -26,11 +26,11 @@ windows-sys = { version = "0.61", features = ["Win32_System_Console", "Win32_Sys
 
 [dependencies]
 backon.workspace = true
+blazediff.workspace = true
 brotli.workspace = true
 flate2.workspace = true
 geojson.workspace = true
 image.workspace = true
-blazediff.workspace = true
 jxl-oxide.workspace = true
 martin-tile-utils.workspace = true
 mlt-core.workspace = true

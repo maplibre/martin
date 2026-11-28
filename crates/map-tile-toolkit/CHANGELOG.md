@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2](https://github.com/maplibre/martin/compare/map-tile-toolkit-v0.4.1...map-tile-toolkit-v0.4.2) - 2026-11-28
+
+### Fixed
+
+- *(ci)* cookie RUSTSEC-2026-0594, crates/ move leftovers, hotpath relay action ([#4070](https://github.com/maplibre/martin/pull/4070))
+
+### Other
+
+- format the justfiles and keep them formatted with a prek hook ([#4100](https://github.com/maplibre/martin/pull/4100))
+- move all crates under crates/ ([#4059](https://github.com/maplibre/martin/pull/4059))
+
 ## [0.4.1](https://github.com/maplibre/martin/compare/map-tile-toolkit-v0.4.0...map-tile-toolkit-v0.4.1) - 2026-11-04
 
 ### Other

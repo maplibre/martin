@@ -15,7 +15,7 @@ file as a reference
 ```yml
 services:
   martin:
-    image: ghcr.io/maplibre/martin:2.0.0-beta.8
+    image: ghcr.io/maplibre/martin:2.0.0-beta.9
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -60,7 +60,7 @@ If Martin listens on a port other than `3000`, set `MARTIN_HEALTH_URL` to the he
 ```yml
 services:
   martin:
-    image: ghcr.io/maplibre/martin:2.0.0-beta.8
+    image: ghcr.io/maplibre/martin:2.0.0-beta.9
     ports:
       - "8080:8080"
     command:

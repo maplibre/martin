@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/maplibre/martin/compare/python-cog-tiles-v0.1.5...python-cog-tiles-v0.1.6) - 2026-11-28
+
+### Added
+
+- *(cli)* add `martin health` ([#4087](https://github.com/maplibre/martin/pull/4087))
+
+### Fixed
+
+- *(cache)* weigh cache entries by the memory they use, not just the payload ([#4075](https://github.com/maplibre/martin/pull/4075))
+
+### Other
+
+- update Cargo.lock dependencies
+- move all crates under crates/ ([#4059](https://github.com/maplibre/martin/pull/4059))
+
 ## [0.1.5](https://github.com/maplibre/martin/compare/python-cog-tiles-v0.1.4...python-cog-tiles-v0.1.5) - 2026-11-25
 
 ### Other
