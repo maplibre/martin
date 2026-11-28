@@ -407,6 +407,7 @@ jobs:
         with:
           context: .
           file: .github/files/multi-platform.Dockerfile
+          target: static
           load: true
           tags: ${{ github.repository }}:linux-legacycpu
           platforms: linux/amd64
@@ -426,6 +427,7 @@ jobs:
           sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
+          target: static
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
@@ -456,12 +458,12 @@ jobs:
           - variant: base
             suffix: ''
             flavor: latest=false
-            extra_packages: ''
+            target: glibc
             description: Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
           - variant: full
             suffix: '-full'
             flavor: latest=false,suffix=-full,onlatest=true
-            extra_packages: libegl1 libgles2 libegl-mesa0
+            target: full
             description: Martin tile server with server-side style rendering (batteries-included)
     permissions:
       id-token: write
@@ -609,7 +611,7 @@ jobs:
           sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
-          build-args: EXTRA_PACKAGES=${{ matrix.extra_packages }}
+          target: ${{ matrix.target }}
           push: false
           load: true
           tags: ${{ github.repository }}:linux${{ matrix.suffix }}
@@ -635,7 +637,7 @@ jobs:
           TAG=${{ github.repository }}:linux${{ matrix.suffix }}
           export MARTIN_BIN=".github/files/docker-bin.sh linux/amd64 $TAG /usr/local/bin/martin"
           export MBTILES_BIN=".github/files/docker-bin.sh linux/amd64 $TAG /usr/local/bin/mbtiles"
-          cargo nextest run --package martin-e2e-tests --features "test-pg,$NIGHTLY_E2E_FEATURES"
+          cargo nextest run --package martin-e2e-tests --features "test-pg,$NIGHTLY_E2E_FEATURES${{ matrix.variant == 'full' && ',test-rendering' || '' }}"
         env:
           TMPDIR: /tmp
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
@@ -661,7 +663,7 @@ jobs:
           sbom: true
           context: .
           file: .github/files/multi-platform.Dockerfile
-          build-args: EXTRA_PACKAGES=${{ matrix.extra_packages }}
+          target: ${{ matrix.target }}
           push: true
           load: false
           tags: ${{ steps.docker_meta.outputs.tags }}

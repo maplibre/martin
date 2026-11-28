@@ -116,6 +116,7 @@ nextest
 nixpkgs
 nodata
 nonlatin
+nonroot
 notnull
 noto
 NZTM
@@ -209,6 +210,7 @@ vsigs
 vsis
 wagyu
 webui
+wolfi
 workspaced
 worktrees
 zensical
