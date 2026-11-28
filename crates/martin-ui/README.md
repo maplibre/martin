@@ -46,6 +46,7 @@ Common development tasks can be run with [just](https://github.com/casey/just):
 # From within this directory (martin-ui/)
 just            # list all available recipes
 just test       # run frontend tests
+just e2e        # run the end-to-end tests in Chromium (needs Docker)
 just biome      # run BiomeJS formatter and linter
 just type-check # TypeScript type checking
 just clean      # remove dist/ and node_modules/
@@ -53,6 +54,21 @@ just bless      # update test snapshots
 
 # From the repository root (martin/)
 just ui::test
+just ui::e2e
 just ui::biome
 just ui::type-check
 ```
+
+## End-to-end tests
+
+`just e2e` builds the UI, serves it with `vite preview` and runs [Playwright](https://playwright.dev) against it.
+Every request that is not for the UI bundle goes to a martin serving `tests/fixtures`, so the pages talk to a real server.
+That martin is the published `ghcr.io/maplibre/martin:nightly` image, so the tests never compile Rust.
+
+| Variable           | Description                                   | Default                           |
+|--------------------|-----------------------------------------------|-----------------------------------|
+| `MARTIN_E2E_IMAGE` | Docker image to serve the fixtures with       | `ghcr.io/maplibre/martin:nightly` |
+| `MARTIN_BIN`       | Local martin binary to use instead of Docker  | unset                             |
+
+Each test fails on any console error or warning, uncaught exception, failed or 4xx/5xx request, or request to a host other than martin.
+On failure, `npx playwright show-trace` opens the trace saved under `test-results/`.

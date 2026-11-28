@@ -33,7 +33,9 @@ cache.sqlite*
 config.yml
 coverage
 pg_data/
+playwright-report/
 target/
+test-results/
 test_log*
 tmp/
 tsconfig.tsbuildinfo

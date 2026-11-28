@@ -1,0 +1,54 @@
+{
+  "center": [0, 0],
+  "glyphs": "/font/{fontstack}/{range}",
+  "layers": [
+    {
+      "id": "background",
+      "paint": { "background-color": "#f2efe9" },
+      "type": "background"
+    },
+    {
+      "id": "relief",
+      "paint": { "raster-opacity": 0.6 },
+      "source": "relief",
+      "type": "raster"
+    },
+    {
+      "filter": ["==", ["geometry-type"], "Polygon"],
+      "id": "areas",
+      "paint": { "fill-color": "#ffb800", "fill-opacity": 0.5 },
+      "source": "features",
+      "source-layer": "feature_collection_2",
+      "type": "fill"
+    },
+    {
+      "filter": ["==", ["geometry-type"], "LineString"],
+      "id": "lines",
+      "paint": { "line-color": "#222222", "line-width": 2 },
+      "source": "features",
+      "source-layer": "feature_collection_2",
+      "type": "line"
+    },
+    {
+      "filter": ["==", ["geometry-type"], "Point"],
+      "id": "labels",
+      "layout": {
+        "icon-image": "bear",
+        "text-field": ["get", "name"],
+        "text-font": ["Overpass Mono Regular"],
+        "text-offset": [0, 1.5]
+      },
+      "source": "features",
+      "source-layer": "feature_collection_2",
+      "type": "symbol"
+    }
+  ],
+  "name": "Local fixtures",
+  "sources": {
+    "features": { "type": "vector", "url": "/feature_collection_2" },
+    "relief": { "type": "raster", "url": "/png" }
+  },
+  "sprite": "/sprite/src1",
+  "version": 8,
+  "zoom": 1
+}

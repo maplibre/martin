@@ -36,6 +36,11 @@ clean:
 gen-ui-types: _npm-install
     npm run gen-types
 
+# Run the end-to-end tests in Chromium against a prebuilt martin: the nightly Docker image, or `MARTIN_BIN`
+e2e *args: _npm-install
+    npx playwright install chromium
+    npx playwright test {{ args }}
+
 # Run frontend tests
 test:
     npm run test

@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.9",
+    "@playwright/test": "1.65.1",
     "@rolldown/plugin-babel": "^0.3.0",
     "@tailwindcss/postcss": "^4.3.1",
     "@testing-library/react": "16.3.3",
@@ -66,6 +67,7 @@
     "test": "vitest",
     "test:browser": "vitest --workspace=vitest.workspace.ts",
     "test:coverage": "vitest --coverage",
+    "test:e2e": "playwright test",
     "test:ui": "vitest --ui",
     "test:update-snapshots": "vitest --update --run",
     "test:watch": "vitest --watch",
