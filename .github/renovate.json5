@@ -8,7 +8,7 @@
   automerge: true,
   // replaces pre-commit.ci autoupdate for .pre-commit-config.yaml revs
   'pre-commit': { enabled: true },
-  prConcurrentLimit: 10,
+  prConcurrentLimit: 2,
   prHourlyLimit: 0,
   packageRules: [
     {
