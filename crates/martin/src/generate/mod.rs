@@ -38,11 +38,10 @@ use tracing::{debug, info, warn};
 
 use crate::StartupError;
 use crate::config::args::{Args, ArgsError, ExtraArgs, MetaArgs, SrvArgs};
-use crate::config::file::MltEncoderConfig;
 use crate::config::file::postgres::resolver::{linear_geometry, row_filter};
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresInfo as _, SourceSpec, TableInfo};
 use crate::config::file::process::{MltProcessConfig, ProcessConfig};
-use crate::config::file::{Config, ConfigFileError, TileGrids, read_config};
+use crate::config::file::{Config, ConfigFileError, MltEncoderConfig, TileGrids, read_config};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::env::OsEnv;
 use crate::cp::{CopierArgs, CopyArgs, CopyFormat, MartinCpError, MvtQuirk, check_bboxes};

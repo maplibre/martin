@@ -206,10 +206,9 @@ mod tests {
     use std::path::Path;
 
     use super::*;
-    use crate::Progress;
-    use crate::TileId;
     use crate::sort::record::{EncodedProps, Geom, encode};
     use crate::sort::{LayerId, SortConfig, SortKey, Sorter};
+    use crate::{Progress, TileId};
 
     fn record(geom: Geom<'_>) -> Vec<u8> {
         let mut bytes = Vec::new();

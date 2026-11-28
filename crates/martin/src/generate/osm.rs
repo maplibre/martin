@@ -1,11 +1,10 @@
 //! The OpenStreetMap sources of `martin cp --mode bulk`: PBF files from the config's `osm` section.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use martin_tilegen::osm::{NodeStore, Objects, OsmSource, OsmTable, columns};
 use martin_tilegen::plan::{ColumnDef, RelationSetDef, TableDef};
-
-use std::sync::Arc;
 
 use super::layers::{LowerOptions, OutputLayers, SourceSettings, lower_source};
 use super::postgres::scan_bbox;

@@ -4,12 +4,11 @@ use std::io::Write as _;
 
 use indoc::formatdoc;
 use martin::generate::spec::backend::TestBackend as _;
-use martin::generate::spec::check;
 use martin::generate::spec::file::yaml;
 use martin::generate::spec::files::Files;
 use martin::generate::spec::report::Reporter;
-use martin::generate::spec::review;
 use martin::generate::spec::shapefile::Shapefiles;
+use martin::generate::spec::{check, review};
 
 #[tokio::test]
 async fn one_spec_has_cases_of_shapefile_records_and_osm_objects() {
