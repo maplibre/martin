@@ -485,7 +485,7 @@ env-info:
     node --version
 
 # Reformat all code `cargo fmt`. If nightly is available, use it for better results
-fmt: fetch
+fmt:
     #!/usr/bin/env bash
     set -euo pipefail
     if (rustup toolchain list | grep nightly && rustup component list --toolchain nightly | grep rustfmt) &> /dev/null; then
