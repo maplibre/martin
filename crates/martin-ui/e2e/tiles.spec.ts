@@ -1,14 +1,10 @@
 import { expect, test } from './test';
 
-test('a source starting above zoom 0 gets its thumbnail from inside its zoom range', async ({
-  page,
-  request,
-}) => {
-  const tileJson = await (await request.get('/usda_naip_256_lzw_z3')).json();
-  const zooms: number[] = [];
+test('a source starting at zoom 16 gets its thumbnail from a zoom 16 tile', async ({ page }) => {
+  const requested: string[] = [];
   page.on('request', (r) => {
-    const match = r.url().match(/\/usda_naip_256_lzw_z3\/(\d+)\/\d+\/\d+$/);
-    if (match) zooms.push(Number(match[1]));
+    const path = new URL(r.url()).pathname;
+    if (path.startsWith('/usda_naip_256_lzw_z3/')) requested.push(path);
   });
   await page.goto('/?tab=tiles');
 
@@ -16,6 +12,5 @@ test('a source starting above zoom 0 gets its thumbnail from inside its zoom ran
   await card.scrollIntoViewIfNeeded();
 
   await expect(card.locator('img')).toBeVisible();
-  expect(Math.min(...zooms)).toBeGreaterThanOrEqual(tileJson.minzoom);
-  expect(Math.max(...zooms)).toBeLessThanOrEqual(tileJson.maxzoom);
+  expect(requested).toEqual(['/usda_naip_256_lzw_z3/16/10677/24336']);
 });

@@ -70,7 +70,6 @@ async function thumbCandidates(
       if (!candidates.includes(tile)) candidates.push(tile);
     }
   } catch {
-    // Without a TileJSON the world tile is the only guess
     candidates.push('0/0/0');
   }
   return { candidates, zooms };
