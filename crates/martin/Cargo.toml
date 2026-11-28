@@ -272,7 +272,6 @@ serde_with.workspace = true
 similar = { workspace = true, optional = true }
 smallvec = { version = "1.15", features = ["const_new", "union"] }
 strum = { workspace = true, optional = true }
-tempfile = { workspace = true, optional = true }
 thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
@@ -299,6 +298,10 @@ walkdir = { workspace = true, optional = true }
 webp = { workspace = true, optional = true }
 wkt = { workspace = true, optional = true }
 xxhash-rust = { workspace = true, optional = true }
+
+# Only the Mesa shader cache, which is Linux-only, needs a temp dir outside tests.
+[target.'cfg(target_os = "linux")'.dependencies]
+tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true
