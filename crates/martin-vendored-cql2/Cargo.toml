@@ -47,7 +47,7 @@ version = "1.0.0"
 version = "1.1.0"
 
 [dependencies.jsonschema]
-version = "0.61.2"
+version = "0.62.0"
 default-features = false
 
 [dependencies.lazy_static]
