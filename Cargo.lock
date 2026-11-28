@@ -6242,7 +6242,7 @@ dependencies = [
  "sqlparser",
  "thiserror 2.0.21",
  "unaccent",
- "wkt 0.14.0",
+ "wkt 0.15.0",
 ]
 
 [[package]]
