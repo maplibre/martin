@@ -163,22 +163,39 @@ jobs:
       - name: Run the OpenMapTiles examples test, which debug builds skip
         run: just test-omt
   test-rendering:
-    name: Style rendering tests
+    name: Style rendering tests (${{ matrix.os }})
     permissions:
       contents: read
-    runs-on: ubuntu-26.04
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     needs:
       - lint-rust
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS and Windows only with run-heavy, like the other platforms
+        os: ${{ inputs.run-heavy && fromJSON('["ubuntu-26.04", "macos-latest", "windows-latest"]') || fromJSON('["ubuntu-26.04"]') }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - uses: $/.github/actions/setup-rust
-        with: { tools: 'just,nextest', rendering: true, cache: true, coverage: true }
+        with:
+          tools: 'just,nextest'
+          rendering: true
+          cache: true
+          coverage: ${{ matrix.os == 'ubuntu-26.04' }}
       - name: Run rendering tests
         run: just test-rendering
-      - uses: $/.github/actions/upload-coverage
+      - name: Upload the renders that differed from their reference
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rendering-mismatches-${{ matrix.os }}
+          path: tests/fixtures/**/*.actual.*
+          if-no-files-found: ignore
+      - if: matrix.os == 'ubuntu-26.04'
+        uses: $/.github/actions/upload-coverage
         with: { suite: rendering }
   test-ogc:
     name: OGC API - Tiles conformance

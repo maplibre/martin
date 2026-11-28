@@ -3,12 +3,12 @@
 mod model;
 pub use model::*;
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 mod error;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 pub use error::ApplyError;
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 mod apply;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 pub use apply::{AppliedOverlay, apply_to_style};

@@ -19,6 +19,7 @@ const MIN_JPEG_SIMILARITY: f64 = 0.95;
 /// it and committing the file.
 /// On CI it is a failure instead, keeping a render nothing has ever looked at from becoming its own
 /// expectation there.
+/// A render that differs is written next to its reference as `<name>.actual.<ext>`, for inspection.
 ///
 /// # Panics
 /// If `body` is not a decodable image, if it differs from the reference, or if the reference is
@@ -45,6 +46,11 @@ pub fn assert_image_matches(path: impl AsRef<Path>, body: &[u8]) {
         MIN_SIMILARITY
     };
     let similarity = similarity(&reference.image, &rendered.image);
+    if similarity < minimum {
+        let extension = path.extension().expect("a reference image has an extension");
+        let actual = path.with_extension(format!("actual.{}", extension.display()));
+        fs::write(&actual, body).unwrap_or_else(|e| panic!("failed to write {}: {e}", actual.display()));
+    }
     assert!(
         similarity >= minimum,
         "{} differs from what was rendered: similarity {similarity:.4} < {minimum}; \

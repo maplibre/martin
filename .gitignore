@@ -30,5 +30,8 @@ site/
 #### Above content must match .dockerignore ####
 ####
 
+# Renders that differed from their reference image, written by the e2e tests
+tests/fixtures/**/*.actual.*
+
 # QGIS project built by `just toolkit::visualize-tests`
 crates/map-tile-toolkit/tests/visualize.qgz

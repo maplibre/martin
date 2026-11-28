@@ -1,9 +1,9 @@
 //! Raster tiles and static images rendered from `MapLibre` styles, off a [`Cassette`] of what the
 //! styles point at.
 //!
-//! Binary has to be built with `rendering`, which serves these routes on Linux only.
+//! Binary has to be built with `rendering`.
 
-#![cfg(all(feature = "test-rendering", target_os = "linux"))]
+#![cfg(feature = "test-rendering")]
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -88,6 +88,7 @@ async fn a_style_renders_as_a_png_tile(#[case] path: &str) {
     cassette.assert_no_misses();
 }
 
+#[cfg(target_os = "linux")]
 #[tokio::test]
 async fn mesa_caches_shaders_in_a_private_directory_when_its_default_is_read_only() {
     fn cache_files(dir: &Path) -> Vec<String> {
@@ -175,6 +176,7 @@ async fn maplibre_logs_under_its_own_target() {
     insta::assert_snapshot!(martin.take_log_lines("style spec version 8").join("\n"), @" WARN current renderer implementation only supports style spec version 8; using an outdated style will cause rendering errors");
 }
 
+#[cfg(target_os = "linux")]
 #[tokio::test]
 async fn mesa_caches_shaders_in_a_private_directory_when_its_cache_home_is_a_file() {
     let cassette = Cassette::serving(UPSTREAMS).await;
@@ -1518,7 +1520,7 @@ async fn a_webp_quality_outside_1_to_100_fails_startup() {
         panic!("expected an early exit, got: {error}");
     };
     assert!(!status.success(), "exit status must be a failure: {status}");
-    insta::with_settings!({filters => vec![(r"/\S*/config\.yaml", "[CONFIG]")]}, {
+    insta::with_settings!({filters => vec![(r"[^\s\[]*\.tmp\w+[/\\]config\.yaml", "[CONFIG]")]}, {
         insta::assert_snapshot!(log, @r#"
         ERROR martin::config::yaml (https://maplibre.org/martin/config-file/)
 

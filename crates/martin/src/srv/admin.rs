@@ -56,10 +56,8 @@ impl Catalog {
             #[cfg(feature = "resources")]
             styles: state.styles.get_catalog(),
             settings: CatalogSettings {
-                #[cfg(all(feature = "rendering", feature = "resources", target_os = "linux"))]
+                #[cfg(all(feature = "rendering", feature = "resources"))]
                 rendering: state.styles.is_rendering_enabled(),
-                #[cfg(all(feature = "rendering", feature = "resources", not(target_os = "linux")))]
-                rendering: false,
             },
         })
     }

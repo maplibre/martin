@@ -53,7 +53,7 @@ struct Conformance {
 )]
 pub async fn get_conformance(
     #[cfg_attr(
-        not(all(feature = "rendering", target_os = "linux")),
+        not(feature = "rendering"),
         expect(unused_variables, reason = "only maps depend on the request")
     )]
     req: HttpRequest,
@@ -62,7 +62,7 @@ pub async fn get_conformance(
     let mut conforms_to = TILES_CONFORMS_TO.to_vec();
     #[cfg(feature = "resources")]
     conforms_to.extend(STYLES_CONFORMS_TO);
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     if super::map::renders_maps(&req) {
         conforms_to.extend(super::map::MAPS_CONFORMS_TO);
     }

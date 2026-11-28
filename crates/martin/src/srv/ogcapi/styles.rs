@@ -39,10 +39,7 @@ async fn style_description(
         .ok()
         .and_then(|content| serde_json::from_str::<Style>(&content).ok())
         .and_then(|style| style.other.get("name")?.as_str().map(ToOwned::to_owned));
-    #[cfg_attr(
-        not(all(feature = "rendering", target_os = "linux")),
-        expect(unused_mut, reason = "only maps add links")
-    )]
+    #[cfg_attr(not(feature = "rendering"), expect(unused_mut, reason = "only maps add links"))]
     let mut links = vec![Link {
         href: ogc_url(req, srv_config, &format!("/styles/{}", path_segment(id))),
         rel: "stylesheet",
@@ -50,7 +47,7 @@ async fn style_description(
         title: "MapLibre style",
         templated: false,
     }];
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     if super::map::renders_maps(req) {
         links.extend(super::map::map_links(
             &ogc_url(req, srv_config, &format!("/styles/{}/map", path_segment(id))),

@@ -34,9 +34,9 @@ use crate::srv::ogcapi;
 use crate::srv::sprites;
 #[cfg(feature = "resources")]
 use crate::srv::styles;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use crate::srv::styles_rendering;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use crate::srv::styles_static;
 #[cfg(feature = "_tiles")]
 use crate::srv::tiles;
@@ -186,7 +186,7 @@ fn register_services(
         .service(ogcapi::get_tile);
     #[cfg(all(feature = "ogcapi", feature = "resources"))]
     cfg.service(ogcapi::get_styles);
-    #[cfg(all(feature = "ogcapi", feature = "rendering", target_os = "linux"))]
+    #[cfg(all(feature = "ogcapi", feature = "rendering"))]
     cfg.service(ogcapi::get_style_map)
         .service(ogcapi::get_collection_map)
         .service(ogcapi::get_dataset_map)
@@ -237,7 +237,7 @@ fn register_services(
     cfg.service(styles::get_style_json).service(styles::redirect_styles);
 
     // `.jpeg` redirects must register before the main routes so they win.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     cfg.service(styles_static::redirect_static_jpeg)
         .service(styles_static::get_rendered_static_style)
         .service(styles_static::post_rendered_static_style)

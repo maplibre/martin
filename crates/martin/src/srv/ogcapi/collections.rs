@@ -131,10 +131,7 @@ fn collection(
         .zip(crs(grid))
         .map(|(storage_bbox, storage)| [storage.bbox(storage_bbox)]);
     let segment = path_segment(id);
-    #[cfg_attr(
-        not(all(feature = "rendering", target_os = "linux")),
-        expect(unused_mut, reason = "only maps add links")
-    )]
+    #[cfg_attr(not(feature = "rendering"), expect(unused_mut, reason = "only maps add links"))]
     let mut links = vec![
         Link::json(
             ogc_url(req, srv_config, &format!("/collections/{segment}")),
@@ -147,7 +144,7 @@ fn collection(
             "Tilesets",
         ),
     ];
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     if super::map::renders_maps(req) && super::map::can_draw(entry) {
         links.extend(super::map::map_links(
             &ogc_url(req, srv_config, &format!("/collections/{segment}/map")),
