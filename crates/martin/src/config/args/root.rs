@@ -1,9 +1,8 @@
 use std::path::PathBuf;
 
-use clap::Parser;
-use clap::Subcommand;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
+use clap::{Parser, Subcommand};
 
 use crate::config::args::ArgsError::ConfigAndConnections;
 use crate::config::args::ArgsResult;

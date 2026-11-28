@@ -14,10 +14,9 @@ use std::sync::Arc;
 
 use clap::Parser as _;
 use martin::StartupResult;
-use martin::config::args::Args;
-use martin::config::args::Command;
 #[cfg(feature = "webui")]
 use martin::config::args::WebUiMode;
+use martin::config::args::{Args, Command};
 #[cfg(any(
     feature = "mbtiles",
     feature = "cog",
