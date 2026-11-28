@@ -43,12 +43,12 @@ function tileAt(lng: number, lat: number, z: number) {
   return `${z}/${Math.min(Math.max(x, 0), n - 1)}/${Math.min(Math.max(y, 0), n - 1)}`;
 }
 
-/** World tile first, then the tile under the source's own center: sparse sources often only have data there. */
+/** Tiles under the source's center from its lowest zoom up, all inside its zoom range: sparse sources often only have data there. */
 async function thumbCandidates(
   name: string,
   signal: AbortSignal,
 ): Promise<{ candidates: string[]; zooms?: ZoomRange }> {
-  const candidates = ['0/0/0'];
+  const candidates: string[] = [];
   let zooms: ZoomRange | undefined;
   try {
     const response = await fetch(buildMartinUrl(`/${name}`), { signal });
@@ -57,6 +57,7 @@ async function thumbCandidates(
     const lng = tileJson.center?.[0] ?? (west + east) / 2;
     const lat = tileJson.center?.[1] ?? (south + north) / 2;
     const minzoom = tileJson.minzoom ?? 0;
+    const maxzoom = tileJson.maxzoom ?? Number.POSITIVE_INFINITY;
     if (tileJson.maxzoom !== undefined) {
       zooms = {
         max: tileJson.maxzoom,
@@ -64,15 +65,12 @@ async function thumbCandidates(
         worldwide: east - west >= 359 && north - south >= 160,
       };
     }
-    for (const z of [
-      Math.max(minzoom, 2),
-      Math.min(tileJson.center?.[2] ?? 4, tileJson.maxzoom ?? 4, 6),
-    ]) {
-      const tile = tileAt(lng, lat, z);
+    for (const z of [minzoom, 2, Math.min(tileJson.center?.[2] ?? 4, 6)]) {
+      const tile = tileAt(lng, lat, Math.min(Math.max(z, minzoom), maxzoom));
       if (!candidates.includes(tile)) candidates.push(tile);
     }
   } catch {
-    // The world tile alone is a fine fallback
+    candidates.push('0/0/0');
   }
   return { candidates, zooms };
 }
@@ -330,7 +328,11 @@ function TileCard({
       ? source.description
       : undefined;
   return (
-    <Card className="group flex min-w-0 flex-col transition-shadow hover:shadow-card-hover">
+    <Card
+      aria-label={name}
+      className="group flex min-w-0 flex-col transition-shadow hover:shadow-card-hover"
+      role="article"
+    >
       <CardHeader className="flex-row items-start gap-3 pb-3">
         <TileThumb contentType={source.content_type} name={name} onZooms={setZooms} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
