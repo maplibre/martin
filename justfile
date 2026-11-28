@@ -18,27 +18,27 @@ full_features := stable_features + ',rendering'
 
 # Release binaries for x86_64 require at least x86-64-v3 (Intel Haswell / AMD Excavator, 2015+)
 # Set LEGACY_CPU=1 to build for the baseline x86-64 instead (the `legacycpu` release artefacts)
-x86_cpu_flag := if env('LEGACY_CPU', '') != '' {''} else {'-C target-cpu=x86-64-v3'}
+x86_cpu_flag := if env('LEGACY_CPU', '') != '' { '' } else { '-C target-cpu=x86-64-v3' }
 # Benchmarks build for the host, so they must use the same CPU level as the release binaries to measure what users get
-bench_rustflags := if arch() == 'x86_64' {x86_cpu_flag} else {''}
-extra_features := if env('EXTRA_FEATURES', '') != '' {'--features ' + quote(env('EXTRA_FEATURES'))} else {''}
+bench_rustflags := if arch() == 'x86_64' { x86_cpu_flag } else { '' }
+extra_features := if env('EXTRA_FEATURES', '') != '' { '--features ' + quote(env('EXTRA_FEATURES')) } else { '' }
 
 # How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 # cargo-binstall needs a workaround due to caching when used in CI
-binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
+binstall_args := if env('CI', '') != '' { '--no-confirm --no-track --disable-telemetry' } else { '' }
 insta_test := 'cargo insta test --test-runner nextest --disable-nextest-doctest --accept --force-update-snapshots'
 
 # if running in CI, treat warnings as errors by setting CARGO_BUILD_WARNINGS to 'deny' unless it is already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current value of CARGO_BUILD_WARNINGS
-ci_mode := if env('CI', '') != '' {'1'} else {''}
-export CARGO_BUILD_WARNINGS := env('CARGO_BUILD_WARNINGS', if ci_mode == '1' {'deny'} else {'warn'})
-export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
+ci_mode := if env('CI', '') != '' { '1' } else { '' }
+export CARGO_BUILD_WARNINGS := env('CARGO_BUILD_WARNINGS', if ci_mode == '1' { 'deny' } else { 'warn' })
+export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' { '1' } else { '0' })
 
 # Build in release mode by default. Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 # Use `RELEASE_MODE= just build-release <target>` to build in debug mode locally.
-release_mode := if env('RELEASE_MODE', '1') != '' {'1'} else {''}
+release_mode := if env('RELEASE_MODE', '1') != '' { '1' } else { '' }
 
 #export RUST_LOG := 'debug'
 #export RUST_LOG := 'sqlx::query=info,trace'
@@ -56,40 +56,40 @@ export CARGO_TERM_COLOR := 'always'
 export AWS_REGION := 'eu-central-1'
 
 @_default:
-    {{just}} --list
+    {{ just }} --list
 
 # Run benchmark tests
 bench: fetch
-    RUSTFLAGS="$RUSTFLAGS {{bench_rustflags}}" cargo bench --bench sources
-    RUSTFLAGS="$RUSTFLAGS {{bench_rustflags}}" cargo bench -p martin-core --bench geojson_tiles
+    RUSTFLAGS="$RUSTFLAGS {{ bench_rustflags }}" cargo bench --bench sources
+    RUSTFLAGS="$RUSTFLAGS {{ bench_rustflags }}" cargo bench -p martin-core --bench geojson_tiles
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`.
-bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
+bench-http requests='10m' pg_requests='500k': (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
     oha --latency-correction -n 200            --no-tui http://localhost:3000/feature_collection_1/0/0/0 > /dev/null
-    oha --latency-correction -n {{requests}}            http://localhost:3000/feature_collection_1/0/0/0
+    oha --latency-correction -n {{ requests }}            http://localhost:3000/feature_collection_1/0/0/0
     oha --latency-correction -n 100            --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
-    oha --latency-correction -n {{pg_requests}}         http://localhost:3000/function_zxy_query/18/235085/122323
+    oha --latency-correction -n {{ pg_requests }}         http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -n 100            --no-tui -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
-    oha --latency-correction -n {{pg_requests}}         -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323
+    oha --latency-correction -n {{ pg_requests }}         -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -n 200            --no-tui http://localhost:3000/png/0/0/0 > /dev/null
-    oha --latency-correction -n {{requests}}            http://localhost:3000/png/0/0/0
+    oha --latency-correction -n {{ requests }}            http://localhost:3000/png/0/0/0
     oha --latency-correction -n 200            --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
-    oha --latency-correction -n {{requests}}            http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+    oha --latency-correction -n {{ requests }}            http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Start release-compiled Martin server and a test database
 bench-server: fetch start prepare-mbtiles
-    RUSTFLAGS="$RUSTFLAGS {{bench_rustflags}}" cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson {{quote(DATABASE_URL)}}
+    RUSTFLAGS="$RUSTFLAGS {{ bench_rustflags }}" cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson {{ quote(DATABASE_URL) }}
 
 # Build martin with hotpath profiling support (pass e.g. `--features hotpath-cloud`)
 build-hotpath *args: fetch
-    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable {{bench_rustflags}}" cargo build --release --features hotpath {{args}}
+    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable {{ bench_rustflags }}" cargo build --release --features hotpath {{ args }}
 
 # Run one hotpath benchmark, or all of them (see tests/bench/justfile). Extra args go to the build, e.g. `--features hotpath-cloud`. Used by the hotpath benchmark CI workflow.
 bench-hotpath scenario='all' *args: start (build-hotpath args) prepare-mbtiles (cargo-install 'oha')
-    {{just}} --justfile tests/bench/justfile --working-directory . {{scenario}}
+    {{ just }} --justfile tests/bench/justfile --working-directory . {{ scenario }}
 
 # Regenerate configs' JSON Schema, HTTP OpenAPI spec, and TS types
 gen-schemas: fetch
@@ -111,7 +111,7 @@ gen-schemas: fetch
     # Regenerate `crates/martin-ui/src/lib/types.gen.ts` from the freshly
     # written `crates/martin/openapi.json`. Kept after the cargo runs so the spec
     # is up-to-date by the time `openapi-typescript` reads it.
-    {{just}} ui::gen-ui-types
+    {{ just }} ui::gen-ui-types
     crates/martin-ui/node_modules/.bin/biome check --write schemas/config.json crates/martin/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
@@ -192,50 +192,50 @@ bless:
     echo "Blessing unit tests"
     for target in restart bless-insta toolkit::bless ui::bless bless-pg; do
       echo "::group::just $target"
-      {{just}} $target
+      {{ just }} $target
       echo "::endgroup::"
     done
 
     echo "Blessing end-to-end tests"
     for target in bless-e2e bless-cog bless-duckdb {{ if os() == "linux" { "bless-rendering" } else { "" } }}; do
       echo "::group::just $target"
-      {{just}} $target
+      {{ just }} $target
       echo "::endgroup::"
     done
 
 # Run insta snapshot tests and save their output as the new expected output.
-bless-insta *args:  fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} --all-targets --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{args}}
+bless-insta *args: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
+    {{ insta_test }} --all-targets --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{ args }}
 
 # Bless the end-to-end tests, including the ones that need the PostgreSQL database
 bless-e2e *args: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
-    {{insta_test}} --package martin-e2e-tests --features test-pg,test-mlt-v2 {{args}}
+    {{ insta_test }} --package martin-e2e-tests --features test-pg,test-mlt-v2 {{ args }}
 
 bless-pg: fetch start (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
-    {{insta_test}} --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
-    {{insta_test}} --features test-pg --package martin-core --no-default-features --lib
+    {{ insta_test }} --features test-pg,unstable-mlt-v2 --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
+    {{ insta_test }} --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib
+    {{ insta_test }} --features test-pg --package martin-core --no-default-features --lib
 
 # Bless the COG/GeoTIFF tests, including the end-to-end ones
 bless-cog: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} -p cog-tiles --all-features
-    {{insta_test}} -p martin --features cog --no-default-features --lib
-    {{insta_test}} -p martin-core --features cog --no-default-features --lib
+    {{ insta_test }} -p cog-tiles --all-features
+    {{ insta_test }} -p martin --features cog --no-default-features --lib
+    {{ insta_test }} -p martin-core --features cog --no-default-features --lib
     cargo build --package martin --no-default-features --features cog
-    {{insta_test}} --package martin-e2e-tests --features test-cog --test cog
+    {{ insta_test }} --package martin-e2e-tests --features test-cog --test cog
 
 # Bless the DuckDB/GeoParquet tests, including the end-to-end ones
 bless-duckdb: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
-    {{insta_test}} -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
+    {{ insta_test }} -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --lib --test duckdb_test
     cargo build -p martin -p martin-core --no-default-features --features martin/test-duckdb,martin-core/unstable-duckdb --bin martin --test duckdb_test
-    {{insta_test}} --package martin-e2e-tests --features test-duckdb --test duckdb
+    {{ insta_test }} --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Bless the style rendering and OGC API - Maps tests end-to-end
 [linux]
 bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-insta')
     cargo build --package martin --no-default-features --features ogcapi,cog,mbtiles,pmtiles,rendering
-    {{insta_test}} --package martin-e2e-tests --features test-rendering,test-ogc-maps --test rendering --test ogc_maps
+    {{ insta_test }} --package martin-e2e-tests --features test-rendering,test-ogc-maps --test rendering --test ogc_maps
 
 # Build binaries for a target. Always strips debug info and the symbol table.
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -243,17 +243,17 @@ bless-rendering: fetch (cargo-install 'cargo-nextest') (cargo-install 'cargo-ins
 build-release target pgo='false': fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
-    pgo={{quote(pgo)}}
+    pgo={{ quote(pgo) }}
     # on debian we need to build a deb package
     if [[ "$pgo" == true ]]; then
-        {{just}} pgo-build {{quote(target)}}
-    elif [[ "{{target}}" == "debian-x86_64" ]]; then
-        {{just}} build-deb target/debian/debian-x86_64.deb
+        {{ just }} pgo-build {{ quote(target) }}
+    elif [[ "{{ target }}" == "debian-x86_64" ]]; then
+        {{ just }} build-deb target/debian/debian-x86_64.deb
     else
-        rustup target add {{target}}
-        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols {{if target =~ '^x86_64' {x86_cpu_flag} else {''} }}'
-        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked {{extra_features}}
+        rustup target add {{ target }}
+        export CARGO_TARGET_{{ shoutysnakecase(target) }}_RUSTFLAGS='-C strip=symbols {{ if target =~ '^x86_64' { x86_cpu_flag } else { '' } }}'
+        cargo build {{ if release_mode == '1' { '--release' } else { '' } }} --target {{ target }} --package mbtiles --locked
+        cargo build {{ if release_mode == '1' { '--release' } else { '' } }} --target {{ target }} --package martin --locked {{ extra_features }}
     fi
 
 # Install PGO tooling on native Ubuntu/Debian hosts. x86 BOLT matches Rust's LLVM.
@@ -261,7 +261,7 @@ build-release target pgo='false': fetch ui::build
 pgo-install target:
     #!/usr/bin/env bash
     set -euo pipefail
-    target={{quote(target)}}
+    target={{ quote(target) }}
     rustup component add llvm-tools-preview
     cargo install cargo-pgo --version 0.3.0 --locked
     sudo apt-get update
@@ -284,7 +284,7 @@ pgo-install target:
 pgo-build target: fetch ui::build prepare-mbtiles
     #!/usr/bin/env bash
     set -euo pipefail
-    target={{quote(target)}}
+    target={{ quote(target) }}
     target_dir="${CARGO_TARGET_DIR:-target}"
     binary="$target_dir/$target/release/martin"
     export RUSTFLAGS="${RUSTFLAGS:-} -C strip=none"
@@ -292,16 +292,16 @@ pgo-build target: fetch ui::build prepare-mbtiles
         export RUSTFLAGS="$RUSTFLAGS -C target-cpu=x86-64-v3"
     fi
     cargo build --release --target "$target" --package mbtiles --locked
-    cargo pgo build -- --target "$target" --package martin --bin martin --locked {{extra_features}}
-    {{just}} pgo-train "$binary"
+    cargo pgo build -- --target "$target" --package martin --bin martin --locked {{ extra_features }}
+    {{ just }} pgo-train "$binary"
     # BOLT rejects ARM Cortex-A53 linker veneers. Keep the ARM image on PGO.
     if [[ "$target" == x86_64-unknown-linux-gnu ]]; then
-        cargo pgo bolt build --with-pgo -- --target "$target" --package martin --bin martin --locked {{extra_features}}
-        {{just}} pgo-train "$binary-bolt-instrumented"
-        cargo pgo bolt optimize --with-pgo -- --target "$target" --package martin --bin martin --locked {{extra_features}}
+        cargo pgo bolt build --with-pgo -- --target "$target" --package martin --bin martin --locked {{ extra_features }}
+        {{ just }} pgo-train "$binary-bolt-instrumented"
+        cargo pgo bolt optimize --with-pgo -- --target "$target" --package martin --bin martin --locked {{ extra_features }}
         binary="$binary-bolt-optimized"
     else
-        cargo pgo optimize -- --target "$target" --package martin --bin martin --locked {{extra_features}}
+        cargo pgo optimize -- --target "$target" --package martin --bin martin --locked {{ extra_features }}
     fi
     mkdir -p target_releases
     cp "$binary" target_releases/martin
@@ -314,7 +314,7 @@ pgo-train binary:
     #!/usr/bin/env bash
     set -euo pipefail
     target_dir="${CARGO_TARGET_DIR:-target}"
-    {{quote(binary)}} --cache-size 0 --workers 2 --shutdown-timeout 5 tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson "$DATABASE_URL" > "$target_dir/pgo-training.log" 2>&1 &
+    {{ quote(binary) }} --cache-size 0 --workers 2 --shutdown-timeout 5 tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson "$DATABASE_URL" > "$target_dir/pgo-training.log" 2>&1 &
     server=$!
     trap 'kill -TERM "$server" 2>/dev/null || true; wait "$server" || true' EXIT
     for _attempt in {1..60}; do
@@ -323,7 +323,7 @@ pgo-train binary:
         sleep 1
     done
     curl -fsS http://localhost:3000/health > /dev/null
-    {{just}} bench-http 20000 20000
+    {{ just }} bench-http 20000 20000
     kill -TERM "$server"
     wait "$server"
     trap - EXIT
@@ -332,16 +332,16 @@ pgo-train binary:
 build-release-full target: fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
-    rustup target add {{target}}
-    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols {{if target =~ '^x86_64' {x86_cpu_flag} else {''} }}'
-    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}} {{extra_features}}
+    rustup target add {{ target }}
+    export CARGO_TARGET_{{ shoutysnakecase(target) }}_RUSTFLAGS='-C strip=symbols {{ if target =~ '^x86_64' { x86_cpu_flag } else { '' } }}'
+    cargo build {{ if release_mode == '1' { '--release' } else { '' } }} --target {{ target }} --package mbtiles --locked
+    cargo build {{ if release_mode == '1' { '--release' } else { '' } }} --target {{ target }} --package martin --locked --no-default-features --features {{ full_features }} {{ extra_features }}
 
 # Build debian package
 # Note: the rendering feature is not packaged yet.
 build-deb output: fetch ui::build (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    RUSTFLAGS='-C strip=symbols {{x86_cpu_flag}}' cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}} {{extra_features}}
+    RUSTFLAGS='-C strip=symbols {{ x86_cpu_flag }}' cargo deb -v -p martin {{ if release_mode == '1' { '' } else { '--profile dev' } }} --output {{ output }} -- --no-default-features --features {{ stable_features }} {{ extra_features }}
 
 # Cross-compile for a musl or FreeBSD target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -351,42 +351,40 @@ build-deb output: fetch ui::build (cargo-install 'cargo-deb')
 build-release-zig target: fetch ui::build
     #!/usr/bin/env bash
     set -euo pipefail
-    rustup target add {{target}}
-    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=symbols -A linker_messages {{if target =~ '^x86_64' {x86_cpu_flag} else {''} }}'
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}} {{extra_features}}
-
+    rustup target add {{ target }}
+    export CARGO_TARGET_{{ shoutysnakecase(target) }}_RUSTFLAGS='-C strip=symbols -A linker_messages {{ if target =~ '^x86_64' { x86_cpu_flag } else { '' } }}'
+    cargo zigbuild {{ if release_mode == '1' { '--release' } else { '' } }} --target {{ target }} --package mbtiles --locked
+    cargo zigbuild {{ if release_mode == '1' { '--release' } else { '' } }} --target {{ target }} --package martin --locked --no-default-features --features {{ stable_features }} {{ extra_features }}
 
 # Move build artifacts to target_releases directory
 move-artifacts target:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p target_releases
-    build_dir={{if release_mode == '1' {'release'} else {'debug'} }}
+    build_dir={{ if release_mode == '1' { 'release' } else { 'debug' } }}
 
-    if [[ "{{target}}" == "debian-x86_64" ]]; then
+    if [[ "{{ target }}" == "debian-x86_64" ]]; then
         mv target/debian/*.deb target_releases/
     else
-        if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
-            mv target/{{target}}/"$build_dir"/martin.exe target_releases/
-            mv target/{{target}}/"$build_dir"/mbtiles.exe target_releases/
+        if [[ "{{ target }}" == "x86_64-pc-windows-msvc" ]]; then
+            mv target/{{ target }}/"$build_dir"/martin.exe target_releases/
+            mv target/{{ target }}/"$build_dir"/mbtiles.exe target_releases/
         else
-            mv target/{{target}}/"$build_dir"/martin target_releases/
-            mv target/{{target}}/"$build_dir"/mbtiles target_releases/
+            mv target/{{ target }}/"$build_dir"/martin target_releases/
+            mv target/{{ target }}/"$build_dir"/mbtiles target_releases/
         fi
     fi
 
-
 # Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
 check *args: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_object_store,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath-cloud,hotpath-callgrind,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{args}}
+    cargo hack --exclude-features _tiles,_catalog,_file_kinds,_object_store,_process,_raster,_neighbourhood,hotpath,hotpath-alloc,hotpath-cloud,hotpath-callgrind,hotpath_tui,unstable-schemas,test-duckdb,test-s3,test-pg check --all-targets --each-feature --workspace --exclude martin-e2e-tests {{ args }}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
     cargo binstall martin --manifest-path crates/martin/Cargo.toml --dry-run --no-confirm
 
 # Test documentation generation
-check-doc:  (docs-build)
+check-doc: docs-build
 
 # Run all tests as expected by CI
 ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
@@ -398,7 +396,7 @@ clean: stop ui::clean
 
 # Run cargo clippy to lint the code (with `rendering` on Linux, the only platform it builds on)
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb{{ if os() == "linux" { ",martin/rendering" } else { "" } }} {{args}}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb{{ if os() == "linux" { ",martin/rendering" } else { "" } }} {{ args }}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -409,7 +407,7 @@ clippy-md:
 coverage_ignore_regex := '^crates/e2e-tests/src/'
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
-coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clean start
+coverage *args='--no-clean --open': fetch (cargo-install 'cargo-llvm-cov') clean start
     #!/usr/bin/env bash
     set -euo pipefail
     if ! rustup component list | grep llvm-tools-preview > /dev/null; then \
@@ -421,18 +419,18 @@ coverage *args='--no-clean --open':  fetch (cargo-install 'cargo-llvm-cov') clea
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just}} test-cargo --all-targets
-    {{just}} toolkit::test
-    {{just}} test-pg
+    {{ just }} test-cargo --all-targets
+    {{ just }} toolkit::test
+    {{ just }} test-pg
     echo "::endgroup::"
 
     # echo "::group::Documentation tests"
-    # {{just}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    # {{ just }} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
     # echo "::endgroup::"
 
-    {{just}} test-e2e
+    {{ just }} test-e2e
 
-    cargo llvm-cov report --ignore-filename-regex {{quote(coverage_ignore_regex)}} {{args}}
+    cargo llvm-cov report --ignore-filename-regex {{ quote(coverage_ignore_regex) }} {{ args }}
 
 # Append the cargo-llvm-cov environment to `file` ($GITHUB_ENV), instrumenting every later CI step
 coverage-env file: fetch (cargo-install 'cargo-llvm-cov')
@@ -444,28 +442,28 @@ coverage-env file: fetch (cargo-install 'cargo-llvm-cov')
     fi
 
     cargo llvm-cov clean --profraw-only
-    cargo llvm-cov show-env | sed "s/'//g" >> {{quote(file)}}
+    cargo llvm-cov show-env | sed "s/'//g" >> {{ quote(file) }}
 
 # Write the coverage recorded since `coverage-env` to `target/lcov-<suite>.info`
 coverage-report suite:
-    cargo llvm-cov report --lcov --ignore-filename-regex {{quote(coverage_ignore_regex)}} --output-path target/lcov-{{suite}}.info
+    cargo llvm-cov report --lcov --ignore-filename-regex {{ quote(coverage_ignore_regex) }} --output-path target/lcov-{{ suite }}.info
 
 # Merge the per-suite lcov reports in `dir` into one Cobertura report, unioning their hits
 coverage-merge dir='target/coverage' out='target/cobertura.xml': (cargo-install 'grcov')
-    grcov {{quote(dir)}} --source-dir . --output-types cobertura --output-path {{quote(out)}}
+    grcov {{ quote(dir) }} --source-dir . --output-types cobertura --output-path {{ quote(out) }}
 
 # Bulk copy tiles into an mbtiles file
 cp *args: fetch
-    cargo run --bin martin -- cp {{args}}
+    cargo run --bin martin -- cp {{ args }}
 
 # Start Martin server and open a test page (not the integrated UI)
 debug-page *args: start
     open tests/debug.html  # run will not exit, so open debug page first
-    {{just}} run {{args}}
+    {{ just }} run {{ args }}
 
 # Build and run martin docker image
 docker-run *args=quote(DATABASE_URL):
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.8 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:2.0.0-beta.8 {{ args }}
 
 # Build and run martin documentation
 docs:
@@ -476,9 +474,9 @@ docs-build:
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build --strict
 # Print environment info
 env-info:
-    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} / {{if release_mode == '1' {'release mode'} else {'debug mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD {{justfile_directory()}}"
-    {{just}} --version
+    @echo "Running {{ if ci_mode == '1' { 'in CI mode' } else { 'in dev mode' } }} / {{ if release_mode == '1' { 'release mode' } else { 'debug mode' } }} on {{ os() }} / {{ arch() }}"
+    @echo "PWD {{ justfile_directory() }}"
+    {{ just }} --version
     rustc --version
     cargo --version
     @if [ "$(uname)" != "FreeBSD" ]; then rustup --version; fi
@@ -501,7 +499,7 @@ fmt: fetch
 
 # Spellcheck the docs using cspell
 spellcheck *args:
-    npx --yes cspell@10.1.1 lint --no-progress {{args}}
+    npx --yes cspell@10.1.1 lint --no-progress {{ args }}
 
 # Reformat markdown files using markdownlint-cli2
 fmt-md:
@@ -514,12 +512,12 @@ fmt-sql:
 
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args: (cargo-install 'cargo-sort')
-    cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies {{args}}
+    cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies {{ args }}
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
 git *args: start
-    git {{args}}
+    git {{ args }}
 
 # Show help for new contributors
 help:
@@ -553,38 +551,38 @@ lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml spellcheck
 
 # Run mbtiles command
 mbtiles *args: fetch
-    cargo run -p mbtiles -- {{args}}
+    cargo run -p mbtiles -- {{ args }}
 
 # Run the fast-mvt `mvt` CLI, e.g. `just mvt dump tile.pbf` to dump a vector tile as readable text
 mvt *args: install-mvt
-    mvt {{args}}
+    mvt {{ args }}
 
 # Create assets package
 package-assets target:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p target/files
-    cd target/{{target}}
-    if [[ '{{target}}' == 'debian-x86_64' ]]; then
+    cd target/{{ target }}
+    if [[ '{{ target }}' == 'debian-x86_64' ]]; then
         mv *.deb ../files/
         exit 0
     fi
     # `-full` only changes martin, its mbtiles is the one packaged for the plain target
     bins=(martin)
-    if [[ '{{target}}' != *-full ]]; then
+    if [[ '{{ target }}' != *-full ]]; then
         bins+=(mbtiles)
     fi
     cp ../../martin.spdx.json martin.spdx.json
     for bin in "${bins[@]}"; do
         if [[ "$bin" == mbtiles ]]; then
-            {{just}} sbom-mbtiles '{{target}}'
-            mv ../mbtiles-{{target}}.spdx.json mbtiles.spdx.json
+            {{ just }} sbom-mbtiles '{{ target }}'
+            mv ../mbtiles-{{ target }}.spdx.json mbtiles.spdx.json
         fi
-        if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
-            7z a "../files/$bin-{{target}}.zip" "$bin.exe" "$bin.spdx.json"
+        if [[ '{{ target }}' == 'x86_64-pc-windows-msvc' ]]; then
+            7z a "../files/$bin-{{ target }}.zip" "$bin.exe" "$bin.spdx.json"
         else
             chmod +x "$bin"
-            tar czvf "../files/$bin-{{target}}.tar.gz" "$bin" "$bin.spdx.json"
+            tar czvf "../files/$bin-{{ target }}.tar.gz" "$bin" "$bin.spdx.json"
         fi
     done
 
@@ -592,11 +590,11 @@ package-assets target:
 sbom-mbtiles target: (cargo-install 'cargo-cyclonedx')
     #!/usr/bin/env bash
     set -euo pipefail
-    name=mbtiles-{{target}}
+    name=mbtiles-{{ target }}
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
     # cargo-cyclonedx writes one file into every workspace member, only the mbtiles one is kept
-    cargo cyclonedx --manifest-path crates/mbtiles/Cargo.toml --format json --target {{quote(trim_end_match(target, '-legacycpu'))}} --no-build-deps --override-filename "$name" --quiet
+    cargo cyclonedx --manifest-path crates/mbtiles/Cargo.toml --format json --target {{ quote(trim_end_match(target, '-legacycpu')) }} --no-build-deps --override-filename "$name" --quiet
     mv "crates/mbtiles/$name.json" "$tmp/sbom.cdx.json"
     rm -f */"$name.json"
     syft convert "$tmp/sbom.cdx.json" --output "spdx-json=$tmp/sbom.spdx.json"
@@ -604,7 +602,7 @@ sbom-mbtiles target: (cargo-install 'cargo-cyclonedx')
 
 # Run pg_dump utility against the test database
 pg_dump *args:
-    pg_dump {{args}} {{quote(DATABASE_URL)}}
+    pg_dump {{ args }} {{ quote(DATABASE_URL) }}
 
 # Update the offline `.sqlx` query cache for the mbtiles crate.
 # Build the .mbtiles fixtures from their .sql sources. The tests build their own copies in
@@ -642,41 +640,41 @@ prepare-sqlite: fetch install-sqlx
 
 # Print the connection string for the test database
 print-conn-str:
-    @echo {{quote(DATABASE_URL)}}
+    @echo {{ quote(DATABASE_URL) }}
 
 # Run PSQL utility against the test database
 psql *args:
-    psql {{args}} {{quote(DATABASE_URL)}}
+    psql {{ args }} {{ quote(DATABASE_URL) }}
 
 # Restart the test database
 restart:
     # sometimes Just optimizes targets, so here we force stop & start by using external just executable
-    {{just}} stop
-    {{just}} start
+    {{ just }} stop
+    {{ just }} start
 
 # Start Martin server
 run *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch ui::build
-    cargo run -p martin -- {{args}}
+    cargo run -p martin -- {{ args }}
 
 # Start release-compiled Martin server and a test database
 run-release *args=('--webui enable-for-all ' + quote(DATABASE_URL)): fetch ui::build start
-    cargo run -p martin --release -- {{args}}
+    cargo run -p martin --release -- {{ args }}
 
 # Check semver compatibility with prior published version. Install it with `cargo install cargo-semver-checks`
-semver *args:  fetch (cargo-install 'cargo-semver-checks')
-    cargo semver-checks {{args}}
+semver *args: fetch (cargo-install 'cargo-semver-checks')
+    cargo semver-checks {{ args }}
 
 # Start a test database
-start:  (docker-up 'db') docker-is-ready
+start: (docker-up 'db') docker-is-ready
 
 # Start a legacy test database
-start-legacy:  (docker-up 'db-legacy') docker-is-ready
+start-legacy: (docker-up 'db-legacy') docker-is-ready
 
 # Start an ssl-enabled test database
-start-ssl:  (docker-up 'db-ssl') docker-is-ready
+start-ssl: (docker-up 'db-ssl') docker-is-ready
 
 # Start an ssl-enabled test database that requires a client certificate
-start-ssl-cert:  (docker-up 'db-ssl-cert') docker-is-ready
+start-ssl-cert: (docker-up 'db-ssl-cert') docker-is-ready
 
 # Stop the test database
 stop:
@@ -684,24 +682,24 @@ stop:
 
 # runs cargo-shear to lint Rust dependencies
 shear *args: fetch
-    cargo shear {{args}}
+    cargo shear {{ args }}
     # in the future: add --deny-warnings
     # https://github.com/Boshen/cargo-shear/pull/386
 
 # Run all tests using a test database
 test: fetch start
-    {{just}} test-cargo --all-targets
-    {{just}} test-pg
-    {{just}} test-doc
-    {{just}} toolkit::test
-    {{just}} ui::test
-    {{just}} test-e2e
+    {{ just }} test-cargo --all-targets
+    {{ just }} test-pg
+    {{ just }} test-doc
+    {{ just }} toolkit::test
+    {{ just }} ui::test
+    {{ just }} test-e2e
 
 # Run PostgreSQL-requiring tests only
 test-pg: fetch start (cargo-install 'cargo-nextest')
     cargo nextest run --features test-pg,unstable-mlt-v2 --no-default-features --package martin --lib --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test --test pg_generate_test --test pg_where_pushdown_test --test pg_engine_serve_test --test pg_test_command_test
     cargo nextest run --features test-pg --package martin-core --no-default-features --lib
-    {{just}} test-e2e-pg
+    {{ just }} test-e2e-pg
 
 # Run MinIO/S3-requiring tests only (Docker required)
 test-s3: fetch (cargo-install 'cargo-nextest')
@@ -744,7 +742,7 @@ test-rendering *args: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build --package martin --no-default-features --features rendering
-    cargo nextest run --package martin-e2e-tests --features test-rendering --test rendering {{args}}
+    cargo nextest run --package martin-e2e-tests --features test-rendering --test rendering {{ args }}
 
 # Run the OGC API - Tiles conformance suite (Docker) against the world_cities fixture
 [linux]
@@ -760,20 +758,20 @@ test-ogc-maps: fetch (cargo-install 'cargo-nextest') (docker-up 'ogc-ets-maps')
 
 # Run Rust unit tests, except map-tile-toolkit (see `just toolkit::test`)
 test-cargo *args: fetch (cargo-install 'cargo-nextest')
-    cargo nextest run --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{args}}
+    cargo nextest run --workspace --exclude map-tile-toolkit --features martin/unstable-mlt-v2,martin-e2e-tests/test-mlt-v2 {{ args }}
 
 # Run unit tests for each package in dependency order
 test-packages-ci: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo nextest run --package martin-tile-utils
-    {{just}} toolkit::test
+    {{ just }} toolkit::test
     cargo nextest run --package mbtiles --no-default-features
     cargo nextest run --package mbtiles
     cargo nextest run --package martin-core
     cargo nextest run --package martin-tilegen
     cargo nextest run --package martin --features unstable-mlt-v2
-    {{just}} test-e2e
+    {{ just }} test-e2e
 
 # Run the OpenMapTiles examples test, which debug builds skip as too slow
 test-omt: fetch (cargo-install 'cargo-nextest')
@@ -782,16 +780,16 @@ test-omt: fetch (cargo-install 'cargo-nextest')
 # Run the end-to-end tests that drive the compiled martin and mbtiles binaries
 test-e2e *args: fetch (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
-    cargo nextest run --package martin-e2e-tests --features test-mlt-v2 {{args}}
+    cargo nextest run --package martin-e2e-tests --features test-mlt-v2 {{ args }}
 
 # Run the end-to-end tests that need the PostgreSQL database
 test-e2e-pg *args: fetch start (cargo-install 'cargo-nextest')
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
-    cargo nextest run --package martin-e2e-tests --features test-pg,test-mlt-v2 --test config_file --test engine_serve --test martin_cp --test martin_cp_bulk --test martin_test_generate --test postgres --test process {{args}}
+    cargo nextest run --package martin-e2e-tests --features test-pg,test-mlt-v2 --test config_file --test engine_serve --test martin_cp --test martin_cp_bulk --test martin_test_generate --test postgres --test process {{ args }}
 
 # Run Rust doc tests, except map-tile-toolkit (see `just toolkit::test`) and the vendored crates (their doctests need upstream files)
 test-doc *args: fetch
-    cargo test --doc --workspace --exclude map-tile-toolkit --exclude cog-tiles-py --exclude martin-vendored-cql2 {{args}}
+    cargo test --doc --workspace --exclude map-tile-toolkit --exclude cog-tiles-py --exclude martin-vendored-cql2 {{ args }}
 
 # Test code formatting
 test-fmt: fetch (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
@@ -810,7 +808,7 @@ test-lambda martin_bin='target/debug/martin':
     fi
     # `sam build` will copy the _entire_ context to a temporary directory, so just give it the files we need
     mkdir -p .github/files/lambda-layer/bin/
-    if ! install {{quote(martin_bin)}} .github/files/lambda-layer/bin/; then
+    if ! install {{ quote(martin_bin) }} .github/files/lambda-layer/bin/; then
       echo "Specify the binary, e.g. 'just test-lambda target/x86_64-linux-unknown-musl/release/martin'"
       echo "Alternatively, build the binary with 'cargo build -p martin' and it will be used by default"
       exit 1
@@ -847,10 +845,10 @@ test-lambda martin_bin='target/debug/martin':
 test-freebsd-binaries host='freebsd' bin_dir='target_releases':
     #!/usr/bin/env bash
     set -euo pipefail
-    host={{quote(host)}}
+    host={{ quote(host) }}
     dir=$(ssh "$host" mktemp -d)
     trap 'ssh "$host" rm -rf "$dir" || true' EXIT
-    tar cf - -C {{quote(bin_dir)}} martin mbtiles -C {{quote(justfile_directory())}} \
+    tar cf - -C {{ quote(bin_dir) }} martin mbtiles -C {{ quote(justfile_directory()) }} \
         tests/fixtures/pmtiles/png.pmtiles tests/fixtures/cog tests/fixtures/fonts tests/fixtures/sprites/src1 \
         | ssh "$host" tar xf - -C "$dir"
     # FreeBSD has no bash, and its `fetch` stands in for curl. martin is killed on any failure so that ssh can return.
@@ -891,7 +889,7 @@ test-ssl: start-ssl (cargo-install 'cargo-nextest') (test-cargo "--all-targets")
 
 # Install the nextest test runner if not already installed.
 [private]
-install-nextest:  (cargo-install 'cargo-nextest')
+install-nextest: (cargo-install 'cargo-nextest')
     cargo nextest run --package martin-e2e-tests --features test-pg
 
 # Run all tests using an SSL connection with client cert to a test database
@@ -907,8 +905,8 @@ test-ssl-cert: start-ssl-cert (cargo-install 'cargo-nextest')
     export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
-    {{just}} test-cargo --all-targets
-    {{just}} test-doc
+    {{ just }} test-cargo --all-targets
+    {{ just }} test-doc
     cargo build --package martin --package mbtiles --features martin/unstable-mlt-v2
     cargo nextest run --package martin-e2e-tests --features test-pg
 
@@ -917,7 +915,7 @@ update: fetch
     cargo +nightly -Z unstable-options update --breaking
     # static-files is a direct dep, so reset its manifest cap after --breaking (synced with deny.toml)
     sed 's/^static-files = .*/static-files = "0.2"/' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
-    {{just}} update-lockfile
+    {{ just }} update-lockfile
 
 # Update Cargo.lock to the latest compatible versions, keeping the crates banned in deny.toml pinned
 update-lockfile: fetch
@@ -1006,11 +1004,11 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
         echo "$COMMAND could not be found. Installing..."
         if ! command -v cargo-binstall > /dev/null; then
             set -x
-            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{ args }}
             { set +x; } 2>/dev/null
         else
             set -x
-            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{ binstall_args }} --locked
             { set +x; } 2>/dev/null
         fi
     fi
@@ -1042,12 +1040,12 @@ docker-is-ready:
 # Start a specific test database, e.g. db or db-legacy; CI builds only missing images, as its runners start with no build cache
 [private]
 docker-up name:
-    docker compose up -d {{ if ci_mode == '1' { '' } else { '--build' } }} {{name}}
+    docker compose up -d {{ if ci_mode == '1' { '' } else { '--build' } }} {{ name }}
 
 # Install SQLX cli if not already installed.
 [private]
-install-sqlx:  (cargo-install 'cargo-sqlx' 'sqlx-cli' '--no-default-features' '--features' 'sqlite,native-tls')
+install-sqlx: (cargo-install 'cargo-sqlx' 'sqlx-cli' '--no-default-features' '--features' 'sqlite,native-tls')
 
 # Install mvt cli if not already installed.
 [private]
-install-mvt:  (cargo-install 'mvt' 'fast-mvt' '--features=cli')(cargo-install 'cargo-nextest')
+install-mvt: (cargo-install 'mvt' 'fast-mvt' '--features=cli') (cargo-install 'cargo-nextest')

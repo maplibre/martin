@@ -12,7 +12,7 @@ clean:
     rm -rf frontend/node_modules
 
 frontend *ARGS:
-    docker compose up frontend {{ARGS}}
+    docker compose up frontend {{ ARGS }}
 
 [no-exit-message]
 frontend-sh:
