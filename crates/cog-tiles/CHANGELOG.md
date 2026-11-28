@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/maplibre/martin/compare/cog-tiles-v0.3.1...cog-tiles-v0.3.2) - 2026-11-28
+
+### Added
+
+- *(cli)* add `martin health` ([#4087](https://github.com/maplibre/martin/pull/4087))
+
+### Fixed
+
+- *(cache)* weigh cache entries by the memory they use, not just the payload ([#4075](https://github.com/maplibre/martin/pull/4075))
+
+### Other
+
+- move all crates under crates/ ([#4059](https://github.com/maplibre/martin/pull/4059))
+
 ## [0.3.1](https://github.com/maplibre/martin/compare/cog-tiles-v0.3.0...cog-tiles-v0.3.1) - 2026-11-11
 
 ### Fixed

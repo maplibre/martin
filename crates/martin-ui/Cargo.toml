@@ -1,6 +1,6 @@
 [package]
 name = "martin-ui"
-version = "2.0.0-beta.8"
+version = "2.0.0-beta.9"
 authors = ["Frank Elsinga <fr.elsinga+martin@gmail.com>", "MapLibre contributors"]
 description = "Prebuilt web UI of the Martin tile server, embedded as static files"
 keywords = ["maps", "tiles", "martin", "webui"]

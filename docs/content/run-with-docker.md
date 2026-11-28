@@ -33,7 +33,7 @@ Mount the directory that holds your files with `-v` and pass its path inside the
 docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:2.0.0-beta.8 \
+  ghcr.io/maplibre/martin:2.0.0-beta.9 \
   /files
 ```
 
@@ -47,7 +47,7 @@ By default, Martin serves the web UI only to connections from localhost, which i
 docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:2.0.0-beta.8 \
+  ghcr.io/maplibre/martin:2.0.0-beta.9 \
   --webui enable-for-all \
   /files
 ```
@@ -63,7 +63,7 @@ Pass the connection string after the image name:
 ```bash
 docker run \
   -p 3000:3000 \
-  ghcr.io/maplibre/martin:2.0.0-beta.8 \
+  ghcr.io/maplibre/martin:2.0.0-beta.9 \
   postgres://postgres@postgres.example.org/db
 ```
 
@@ -76,7 +76,7 @@ You do not need `-p`, because Martin listens on the host network directly.
 ```bash
 docker run \
   --net=host \
-  ghcr.io/maplibre/martin:2.0.0-beta.8 \
+  ghcr.io/maplibre/martin:2.0.0-beta.9 \
   postgres://postgres@localhost/db
 ```
 
@@ -87,7 +87,7 @@ On macOS, use `host.docker.internal` as the hostname of a PostgreSQL server on `
 ```bash
 docker run \
   -p 3000:3000 \
-  ghcr.io/maplibre/martin:2.0.0-beta.8 \
+  ghcr.io/maplibre/martin:2.0.0-beta.9 \
   postgres://postgres@host.docker.internal/db
 ```
 
@@ -98,7 +98,7 @@ On Windows, use `docker.for.win.localhost` as the hostname of a PostgreSQL serve
 ```bash
 docker run \
   -p 3000:3000 \
-  ghcr.io/maplibre/martin:2.0.0-beta.8 \
+  ghcr.io/maplibre/martin:2.0.0-beta.9 \
   postgres://postgres@docker.for.win.localhost/db
 ```
 
@@ -112,7 +112,7 @@ To write files that you own into a bind mount, run the container as your own use
 docker run \
   --user "$(id -u):$(id -g)" \
   -v "$PWD:/data" \
-  ghcr.io/maplibre/martin:2.0.0-beta.8 \
+  ghcr.io/maplibre/martin:2.0.0-beta.9 \
   cp --source world --max-zoom 10 --output-file /data/world.mbtiles /data/world.pmtiles
 ```
 
@@ -140,7 +140,7 @@ docker run \
   -p 8080:8080 \
   -e MARTIN_HEALTH_URL=http://127.0.0.1:8080/health \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:2.0.0-beta.8 \
+  ghcr.io/maplibre/martin:2.0.0-beta.9 \
   --listen-addresses 0.0.0.0:8080 \
   /files
 ```

@@ -2,7 +2,7 @@
 [package]
 edition = "2021"
 name = "martin-vendored-cql2"
-version = "0.6.1"
+version = "0.6.2"
 authors = [
     "David Bitner <bitner@dbspatial.com>",
     "Pete Gadomski <pete.gadomski@gmail.com>",

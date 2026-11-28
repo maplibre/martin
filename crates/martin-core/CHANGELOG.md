@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0](https://github.com/maplibre/martin/compare/martin-core-v0.18.0...martin-core-v0.19.0) - 2026-11-28
+
+### Added
+
+- *(rendering)* render styles on macOS and Windows ([#4096](https://github.com/maplibre/martin/pull/4096))
+- *(cli)* add `martin health` ([#4087](https://github.com/maplibre/martin/pull/4087))
+- *(rendering)* [**breaking**] render through mln-rs instead of maplibre-native-ffi ([#3951](https://github.com/maplibre/martin/pull/3951))
+- *(core)* intern source names and alias sets as 4-byte ids ([#4077](https://github.com/maplibre/martin/pull/4077))
+
+### Fixed
+
+- *(cache)* weigh cache entries by the memory they use, not just the payload ([#4075](https://github.com/maplibre/martin/pull/4075))
+
+### Other
+
+- *(deps)* update mln-rs to 0.0.18 ([#4094](https://github.com/maplibre/martin/pull/4094))
+- *(cache)* key fonts and sprites by interned ids, resolved before keying ([#4079](https://github.com/maplibre/martin/pull/4079))
+- *(cache)* key tiles by interned source ids instead of names ([#4078](https://github.com/maplibre/martin/pull/4078))
+- *(cache)* key tiles by a packed 8-byte coordinate ([#4076](https://github.com/maplibre/martin/pull/4076))
+- *(nightly)* ship `--format mlt2` in the nightlies and update mlt-core to 0.24.0 ([#4073](https://github.com/maplibre/martin/pull/4073))
+
 ## [0.18.0](https://github.com/maplibre/martin/compare/martin-core-v0.17.0...martin-core-v0.18.0) - 2026-11-25
 
 ### Breaking changes

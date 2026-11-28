@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.1](https://github.com/maplibre/martin/compare/mbtiles-v0.24.0...mbtiles-v0.24.1) - 2026-11-28
+
+### Fixed
+
+- *(cache)* weigh cache entries by the memory they use, not just the payload ([#4075](https://github.com/maplibre/martin/pull/4075))
+
+### Other
+
+- *(cache)* key tiles by a packed 8-byte coordinate ([#4076](https://github.com/maplibre/martin/pull/4076))
+
 ## [0.24.0](https://github.com/maplibre/martin/compare/mbtiles-v0.23.0...mbtiles-v0.24.0) - 2026-11-25
 
 ### Added

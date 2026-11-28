@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/maplibre/martin/compare/martin-tilegen-v0.3.0...martin-tilegen-v0.3.1) - 2026-11-28
+
+### Other
+
+- format the justfiles and keep them formatted with a prek hook ([#4100](https://github.com/maplibre/martin/pull/4100))
+- *(expr)* compile each matches() pattern once per thread ([#4082](https://github.com/maplibre/martin/pull/4082))
+- *(osm)* look up condition columns by name in a hash map ([#4084](https://github.com/maplibre/martin/pull/4084))
+- *(render)* skip zooms whose kept tiles a feature cannot reach, before simplifying ([#4085](https://github.com/maplibre/martin/pull/4085))
+- *(expr)* evaluate `x in [literals]` without the interpreter ([#4083](https://github.com/maplibre/martin/pull/4083))
+- *(nightly)* ship `--format mlt2` in the nightlies and update mlt-core to 0.24.0 ([#4073](https://github.com/maplibre/martin/pull/4073))
+
 ## [0.3.0](https://github.com/maplibre/martin/compare/martin-tilegen-v0.2.1...martin-tilegen-v0.3.0) - 2026-11-25
 
 ### Added
