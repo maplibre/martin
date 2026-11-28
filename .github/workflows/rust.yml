@@ -927,10 +927,10 @@ jobs:
           df -h /
           # Deleting these takes 1-2 minutes, so it runs alongside the next steps.
           sudo nohup rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup > /dev/null 2>&1 &
-      - name: Set up sqlite3-tools
-        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,nextest,fast-mvt', rendering: true, cache: true, coverage: true }
+      - name: Set up sqlite3-tools
+        run: just apt-install sqlite3-tools
       - parallel: &init-postgis-variants
           - name: Init pg15-alpine database
             run: tests/fixtures/initdb.sh
@@ -981,10 +981,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - name: Set up sqlite3-tools
-        run: sudo apt-get update && sudo apt-get install -y sqlite3-tools
       - uses: $/.github/actions/setup-rust
         with: { tools: 'just,nextest,fast-mvt', cache: true }
+      - name: Set up sqlite3-tools
+        run: just apt-install sqlite3-tools
       - parallel: *init-postgis-variants
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
