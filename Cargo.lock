@@ -1490,6 +1490,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "blazediff"
+version = "8.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8cc06834ca7148bf5cbe966e6f3a58dc37908ffdc66273e64bc26d92a1dbef38"
+dependencies = [
+ "blazediff-shared",
+ "serde",
+]
+
+[[package]]
+name = "blazediff-shared"
+version = "7.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e4302b6dec064abec5fb757be4363471b9dce4bba501a33a7f95737e9381ecb"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4836,18 +4855,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "image-compare"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "176623a137baf75908084aff53578d6336cbd932bffaf12fabe26b343eb13338"
-dependencies = [
- "image",
- "itertools 0.14.0",
- "rayon",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "image-webp"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6106,12 +6113,12 @@ version = "0.0.0"
 dependencies = [
  "approx",
  "backon",
+ "blazediff",
  "brotli 9.1.3",
  "flate2",
  "geo",
  "geojson 1.0.0",
  "image",
- "image-compare",
  "image-webp",
  "indoc",
  "insta",
