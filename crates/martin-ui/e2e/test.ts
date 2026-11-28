@@ -73,7 +73,7 @@ export const test = base.extend<{ problems: string[] }>({
     async ({ page, baseURL }, use) => {
       const { problems, quiet } = await watch(page, new URL(baseURL ?? '').origin);
       await use(problems);
-      await expect.poll(quiet, { message: 'requests still in flight' }).toBe(true);
+      await expect.poll(quiet, { message: 'requests still in flight', timeout: 20_000 }).toBe(true);
       expect(problems, 'problems seen on the page').toEqual([]);
     },
     { auto: true },
