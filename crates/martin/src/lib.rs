@@ -13,8 +13,8 @@ pub mod health;
 pub mod logging;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod mesa_shader_cache;
-// `rendering` pulls in `tiff` for the OGC API map renderer, which also needs `ogcapi` on Linux.
-#[cfg(all(feature = "rendering", not(all(feature = "ogcapi", target_os = "linux"))))]
+// `rendering` pulls in `tiff` for the OGC API map renderer, which also needs `ogcapi`.
+#[cfg(all(feature = "rendering", not(feature = "ogcapi")))]
 use tiff as _;
 
 #[cfg(feature = "_tiles")]

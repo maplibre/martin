@@ -113,12 +113,15 @@ impl Runtime {
     }
 }
 
-/// The backend that `MARTIN_MLN_BACKEND` names: `gl` (default), `vulkan` or `webgpu`.
-fn backend() -> BackendType {
+/// The backend that `MARTIN_MLN_BACKEND` names, or `None` to let mln-rs pick the platform's first working one.
+fn backend() -> Option<BackendType> {
     match std::env::var("MARTIN_MLN_BACKEND").as_deref() {
-        Ok("vulkan") => BackendType::Vulkan,
-        Ok("webgpu") => BackendType::WebGPU,
-        _ => BackendType::OpenGL,
+        Ok("gl") => Some(BackendType::OpenGL),
+        Ok("vulkan") => Some(BackendType::Vulkan),
+        Ok("metal") => Some(BackendType::Metal),
+        Ok("d3d12") => Some(BackendType::D3D12),
+        _ if cfg!(target_os = "linux") => Some(BackendType::OpenGL),
+        _ => None,
     }
 }
 
@@ -136,7 +139,11 @@ impl WorkerDevice {
             gl_single_context: true,
             ..DeviceOptions::default()
         };
-        let device = Device::with_backend(backend(), options).map_err(|err| StyleError::GraphicsUnavailable {
+        let device = match backend() {
+            Some(backend) => Device::with_backend(backend, options),
+            None => Device::new(options),
+        }
+        .map_err(|err| StyleError::GraphicsUnavailable {
             reason: err.to_string(),
         })?;
         Ok(Self { runtime, device })

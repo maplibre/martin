@@ -187,8 +187,9 @@ cargo install martin --locked --features=unstable-duckdb
 The currently available unstable feature is `unstable-duckdb` for [DuckDB / GeoParquet sources](sources-duckdb.md).
 
 Server-side style [rendering](sources-styles/rendering.md) is also left out of the default feature set.
-To include it (Linux only), add the `rendering` feature.
-Building it needs nothing extra, but running it needs EGL and OpenGL ES (`just install-dependencies` installs them on Debian and Ubuntu).
+To include it, add the `rendering` feature.
+Building it needs nothing extra.
+On Linux, running it needs EGL and OpenGL ES (`just install-dependencies` installs them on Debian and Ubuntu).
 
 ```bash
 cargo install martin --locked --features rendering
@@ -201,11 +202,3 @@ and Martin refuses to start if that provider is not in FIPS mode.
 ```bash
 cargo install martin --locked --features fips
 ```
-
-#### Platform-Specific Build Notes
-
-##### Windows
-
-When building from source on Windows, please note the following feature limitations:
-
-- **`rendering`**: This feature is **not available on Windows**. Martin renders only on Linux so far.

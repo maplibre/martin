@@ -1,4 +1,4 @@
-#![cfg(all(feature = "resources", feature = "rendering", target_os = "linux"))]
+#![cfg(all(feature = "resources", feature = "rendering"))]
 
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
@@ -69,7 +69,7 @@ async fn catalog_multiple_styles() {
     });
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn catalog_settings_with_rendering_feature() {

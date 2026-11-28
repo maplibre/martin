@@ -18,7 +18,7 @@
 // and its tests build without maplibre. The only non-test caller is
 // `styles_static` (rendering + linux), so dead-code is only meaningful - and
 // thus only enforced - in that configuration.
-#![cfg_attr(not(all(feature = "rendering", target_os = "linux")), allow(dead_code))]
+#![cfg_attr(not(feature = "rendering"), allow(dead_code))]
 
 use martin_core::overlay::{Color, LineCap, LineJoin, OverlayFeature, OverlayProperties, OverlaySpec};
 use serde::Deserialize;

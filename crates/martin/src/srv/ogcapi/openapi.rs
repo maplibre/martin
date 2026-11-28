@@ -121,14 +121,14 @@ fn serves(req: &HttpRequest, feature: &str) -> bool {
 }
 
 /// Whether the server answering `req` renders styles, built with rendering and with it enabled.
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 fn renders_styles(req: &HttpRequest) -> bool {
     req.app_data::<Data<martin_core::styles::StyleSources>>()
         .is_some_and(|styles| styles.is_rendering_enabled())
 }
 
 /// Whether the server answering `req` renders styles, which a build without rendering never does.
-#[cfg(not(all(feature = "rendering", target_os = "linux")))]
+#[cfg(not(feature = "rendering"))]
 fn renders_styles(_req: &HttpRequest) -> bool {
     false
 }

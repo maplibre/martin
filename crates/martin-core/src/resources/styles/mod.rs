@@ -15,7 +15,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Debug;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::path::PathBuf;
 
@@ -25,24 +25,24 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{info, warn};
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 mod error;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 pub use error::StyleError;
 
 /// Worker pool for map image rendering.
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 pub mod render_pool;
 /// One `MapLibre` map rendering still images.
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 pub(crate) mod renderer;
 
 /// A rendered tile or static image, in straight (not premultiplied) RGBA.
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 pub type StaticImage = image::RgbaImage;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use render_pool::RenderPools;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 pub use render_pool::{DEFAULT_RENDERERS_PER_WORKER, DEFAULT_STATIC_RENDERERS_PER_WORKER, RenderParams, RenderStyle};
 
 #[cfg(feature = "rendering")]
@@ -111,16 +111,16 @@ pub type StyleCatalog = BTreeMap<String, CatalogStyleEntry>;
 #[derive(Debug, Clone, Default)]
 pub struct StyleSources {
     sources: DashMap<String, StyleSource>,
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     pools: Option<RenderPools>,
     /// Pixel ratios served by the tile and static endpoints.
     #[cfg(feature = "rendering")]
     pixel_ratios: PixelRatios,
     /// Encode rendered PNGs with a palette of at most this many colours. `None` keeps RGBA.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     png_max_colors: Option<u16>,
     /// Quality rendered WebP and JPEG images are encoded at.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     image_quality: ImageQualities,
 }
 
@@ -165,7 +165,7 @@ impl StyleSources {
     }
 
     /// Whether server-side style rendering is currently enabled.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[must_use]
     pub const fn is_rendering_enabled(&self) -> bool {
         self.pools.is_some()
@@ -208,7 +208,7 @@ impl StyleSources {
     }
 
     /// Renders a slippy tile of the configured [`TileSize`] via the dedicated tile renderer.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     pub async fn render(
         &self,
         style: impl Into<RenderStyle>,
@@ -220,7 +220,7 @@ impl StyleSources {
     }
 
     /// Renders a slippy tile at `pixel_ratio` times the pixels of [`Self::render`].
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     pub async fn render_with_pixel_ratio(
         &self,
         style: impl Into<RenderStyle>,
@@ -237,7 +237,7 @@ impl StyleSources {
     }
 
     /// Renders a slippy tile of `tile_size` instead of the configured [`TileSize`], at `pixel_ratio` times its pixels.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     pub async fn render_of_size(
         &self,
         style: impl Into<RenderStyle>,
@@ -255,7 +255,7 @@ impl StyleSources {
     }
 
     /// Render a map image with free camera control.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     pub async fn render_static(&self, params: RenderParams) -> Result<StaticImage, StyleError> {
         self.pools
             .as_ref()
@@ -271,7 +271,7 @@ impl StyleSources {
     /// # Errors
     ///
     /// Returns the [`StyleError`] from [`RenderPools::new`] if the pools cannot start.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     pub fn enable_rendering(
         &mut self,
         workers: Option<NonZeroUsize>,
@@ -304,32 +304,32 @@ impl StyleSources {
     }
 
     /// Disable rendering. Subsequent render calls return [`StyleError::RenderingIsDisabled`].
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     pub fn disable_rendering(&mut self) {
         self.pools = None;
     }
 
     /// Encode rendered PNGs with a palette of at most `max_colors` colours (`None` keeps RGBA).
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     pub fn set_png_max_colors(&mut self, max_colors: Option<u16>) {
         self.png_max_colors = max_colors;
     }
 
     /// Palette size for rendered PNGs, if palette encoding is enabled.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[must_use]
     pub fn png_max_colors(&self) -> Option<u16> {
         self.png_max_colors
     }
 
     /// Encode rendered WebP and JPEG images at `quality`.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     pub fn set_image_quality(&mut self, quality: ImageQualities) {
         self.image_quality = quality;
     }
 
     /// Quality rendered WebP and JPEG images are encoded at.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[must_use]
     pub fn image_quality(&self) -> ImageQualities {
         self.image_quality

@@ -96,9 +96,8 @@ gen-schemas: fetch
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    # `rendering` only builds on Linux, the platform CI regenerates on, so the
-    # spec covers the static-render routes a `-full` release build serves.
-    cargo build --quiet --features unstable-schemas{{ if os() == "linux" { ",rendering" } else { "" } }} --bin gen-schemas
+    # With `rendering`, the spec covers the static-render routes a `-full` release build serves.
+    cargo build --quiet --features unstable-schemas,rendering --bin gen-schemas
     gen="${CARGO_TARGET_DIR:-target}/debug/gen-schemas"
     "$gen" --target config      > schemas/config.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is
@@ -344,7 +343,7 @@ build-deb output: fetch ui::build (cargo-install 'cargo-deb')
 
 # Cross-compile for a musl or FreeBSD target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
-# Note: the rendering feature is excluded; it renders on Linux-gnu only so far.
+# Note: the rendering feature is excluded; it is untested on musl and FreeBSD.
 # -A linker_messages: rustc passes -Wl,-O1 to cc-flavored linkers at opt-level 2+, and zig's linker has no -O levels so it always warns on it.
 # Unfixed rustc bug, remove once closed: https://github.com/rust-lang/rust/issues/158192
 build-release-zig target: fetch ui::build
@@ -393,9 +392,9 @@ clean: stop ui::clean
     cargo clean -p static-files
     cargo clean
 
-# Run cargo clippy to lint the code (with `rendering` on Linux, the only platform it builds on)
+# Run cargo clippy to lint the code
 clippy *args: fetch
-    cargo clippy --workspace --all-targets --features martin/unstable-duckdb{{ if os() == "linux" { ",martin/rendering" } else { "" } }} {{ args }}
+    cargo clippy --workspace --all-targets --features martin/unstable-duckdb,martin/rendering {{ args }}
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
@@ -563,11 +562,11 @@ apt-install +packages:
 
 [macos]
 install-dependencies:
-    @echo "rendering styles is only supported on Linux"
+    @echo "rendering needs nothing extra on macOS: it draws through Metal"
 
 [windows]
 install-dependencies:
-    @echo "rendering styles is only supported on Linux"
+    @echo "rendering needs nothing extra on Windows: it draws through Vulkan or Direct3D 12"
 
 # Run common lints
 lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml spellcheck

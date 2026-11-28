@@ -1,13 +1,3 @@
-#![cfg_attr(
-    not(target_os = "linux"),
-    expect(
-        dead_code,
-        unused_variables,
-        clippy::unused_async,
-        reason = "the routes are registered on Linux only, the module is compiled so utoipa can describe them"
-    )
-)]
-
 use std::future::Future;
 use std::num::NonZeroU8;
 use std::pin::Pin;
@@ -20,12 +10,10 @@ use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
 use martin_core::overlay::OverlaySpec;
-#[cfg(target_os = "linux")]
 use martin_core::styles::RenderParams;
 use martin_core::styles::{PixelRatios, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
-#[cfg(target_os = "linux")]
 use tracing::error;
 use tracing::{debug, warn};
 
@@ -34,7 +22,6 @@ use crate::srv::overlay_body::StaticStyleOverlay;
 use crate::srv::overlay_body::parse_overlay;
 use crate::srv::server::DebouncedWarning;
 use crate::srv::styles_rendering::ImageFormatRequest;
-#[cfg(target_os = "linux")]
 use crate::srv::styles_rendering::encode_image_response;
 
 #[derive(Deserialize, Debug)]
@@ -387,14 +374,10 @@ async fn handle_static_request(
         "Rendering static image"
     );
 
-    #[cfg(target_os = "linux")]
-    let response = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
+    match render_with_overlays(styles, style_path, &camera, size, overlays).await {
         Ok(image) => encode_image_response(image, path.format, styles.png_max_colors(), styles.image_quality()).await,
         Err(resp) => *resp,
-    };
-    #[cfg(not(target_os = "linux"))]
-    let response = rendering_disabled();
-    response
+    }
 }
 
 fn rendering_disabled() -> HttpResponse {
@@ -474,7 +457,6 @@ fn bbox_to_center_zoom(
     (center_lon, center_lat, zoom)
 }
 
-#[cfg(target_os = "linux")]
 async fn render_with_overlays(
     styles: &StyleSources,
     style_path: std::path::PathBuf,

@@ -123,7 +123,7 @@ pub enum ConfigFileError {
     #[error("Failed to list objects under {1}: {0}")]
     ObjectStoreList(object_store::Error, String),
 
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[error("Failed to start style render pool: {0}")]
     RendererPoolSpawnFailed(#[source] martin_core::styles::StyleError),
 
@@ -353,7 +353,7 @@ impl Diagnostic for ConfigFileError {
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
             #[cfg(any(feature = "pmtiles", feature = "cog"))]
             Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
-            #[cfg(all(feature = "rendering", target_os = "linux"))]
+            #[cfg(feature = "rendering")]
             Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
             #[cfg(feature = "_tiles")]
             Self::TileGridRedefinesBuiltIn(_) => "martin::config::tile_grids::redefines_built_in",
@@ -431,7 +431,7 @@ impl Diagnostic for ConfigFileError {
             }
             #[cfg(any(feature = "pmtiles", feature = "cog"))]
             Self::ObjectStoreUrlParsing(..) | Self::ObjectStoreList(..) => return None,
-            #[cfg(all(feature = "rendering", target_os = "linux"))]
+            #[cfg(feature = "rendering")]
             Self::RendererPoolSpawnFailed(_) => return None,
             #[cfg(feature = "_tiles")]
             Self::TileGridRedefinesBuiltIn(_) => {
@@ -878,7 +878,7 @@ mod tests {
         ");
     }
 
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(feature = "rendering")]
     #[test]
     fn renderer_pool_spawn_failed() {
         let err = ConfigFileError::RendererPoolSpawnFailed(std::io::Error::other("boom").into());

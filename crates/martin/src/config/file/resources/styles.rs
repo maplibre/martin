@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::{env, mem};
 
 use martin_core::styles::StyleSources;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(feature = "rendering")]
 use martin_core::styles::{DEFAULT_RENDERERS_PER_WORKER, DEFAULT_STATIC_RENDERERS_PER_WORKER};
 #[cfg(feature = "rendering")]
 use martin_core::styles::{ImageQualities, ImageQuality, LossyQuality, PixelRatios, TileSize};
@@ -215,9 +215,9 @@ pub type StyleConfig = FileConfig<InnerStyleConfig>;
 
 impl StyleConfig {
     pub fn resolve(&mut self) -> ConfigFileResult<StyleSources> {
-        #[cfg_attr(not(all(feature = "rendering", target_os = "linux")), expect(unused_mut))]
+        #[cfg_attr(not(feature = "rendering"), expect(unused_mut))]
         let mut results = StyleSources::default();
-        #[cfg(all(feature = "rendering", target_os = "linux"))]
+        #[cfg(feature = "rendering")]
         match self.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.disable_rendering(),
             OptBoolObj::Object(ref o) if !o.enabled => results.disable_rendering(),
@@ -247,14 +247,6 @@ impl StyleConfig {
                 results.set_pixel_ratios(o.pixel_ratios.unwrap_or_default());
                 results.set_png_max_colors(o.png_max_colors());
                 results.set_image_quality(o.image_quality());
-            }
-        }
-        #[cfg(all(feature = "rendering", not(target_os = "linux")))]
-        match self.custom.rendering {
-            OptBoolObj::NoValue | OptBoolObj::Bool(false) => {}
-            OptBoolObj::Object(ref o) if !o.enabled => {}
-            OptBoolObj::Bool(true) | OptBoolObj::Object(_) => {
-                warn!("rendering is configured, but only available in Linux builds. Ignoring it.");
             }
         }
 
