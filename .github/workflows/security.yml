@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
       - name: Run zizmor
-        uses: zizmorcore/zizmor-action@bd12b495c90993a4301c73398142281a61499af3 # v0.9.0
+        uses: zizmorcore/zizmor-action@1b4550e929643b8b26a62303c6bd64814271a4f1 # v0.9.2
   audit:
     if: inputs.run-cargo-deps
     runs-on: ubuntu-26.04
@@ -111,7 +111,7 @@ jobs:
           warn-on-openssf-scorecard-level: 5
           allow-ghsas: GHSA-cq8v-f236-94qc # rand@0.7.3 unsoundness with custom logger; pinned by probabilistic-collections 0.7.0, cannot be upgraded
       # actions/dependency-review-action does not find all licenses -> we use cargo-deny for this in addition to dependency-review-action
-      - uses: EmbarkStudios/cargo-deny-action@17aeb3c839e42274e2b8adf721c8c65edfdc74dd # v2.1.3
+      - uses: EmbarkStudios/cargo-deny-action@bb119f768ea239e765aeaef5769558d4f21213aa # v2.1.5
         with:
           command: check bans licenses sources
   codeql:
@@ -139,7 +139,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with: { persist-credentials: false }
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+      uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
       with:
         languages: ${{ matrix.language }}
         build-mode: none
@@ -164,7 +164,7 @@ jobs:
         list=$(cargo metadata --no-deps --format-version 1 | jq -r '[.packages[] | .name as $p | .features | keys[] | select(contains("hotpath") | not) | "\($p)/\(.)"] | join(",")')
         echo "list=$list" >> "$GITHUB_OUTPUT"
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+      uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
       env:
         CODEQL_EXTRACTOR_RUST_OPTION_CARGO_TARGET_DIR: ${{ runner.temp }}/codeql-cargo-target
         CODEQL_EXTRACTOR_RUST_OPTION_CARGO_FEATURES: ${{ steps.rust-features.outputs.list }}
