@@ -759,7 +759,6 @@ test-duckdb: fetch (cargo-install 'cargo-nextest')
     cargo nextest run --package martin-e2e-tests --features test-duckdb --test duckdb
 
 # Run the style rendering tests end-to-end, replaying tests/fixtures/render_cassette
-[linux]
 test-rendering *args: fetch (cargo-install 'cargo-nextest')
     #!/usr/bin/env bash
     set -euo pipefail
