@@ -4,16 +4,15 @@ Martin can render a [style](<https://maplibre.org/martin/sources-styles/index.md
 
 > [!WARNING]
 >
-> Rendering is **not** part of the default build. It renders with [mln-rs](<https://github.com/louwers/mln-rs>), a Rust rewrite of MapLibre Native, which needs EGL and OpenGL ES at runtime. It renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's `llvmpipe` otherwise. We only ship it where we control the runtime environment. You get it by either:
+> Rendering is **not** part of the default build. It renders with [mln-rs](<https://github.com/louwers/mln-rs>), a Rust rewrite of MapLibre Native. On Linux, it needs EGL and OpenGL ES at runtime, and renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's `llvmpipe` otherwise. On macOS, it renders through Metal, and on Windows through Vulkan or Direct3D 12. We only ship it where we control the runtime environment. You get it by either:
 >
 > - using the **`-full` Docker image** variant, tagged `:latest-full`, or the matching `-full` Linux-gnu release tarball, or
-> - building from source with the `rendering` feature enabled (Linux only): `cargo install martin --features rendering`.
+> - building from source with the `rendering` feature enabled on Linux, macOS or Windows: `cargo install martin --features rendering`.
 >
 > The default Docker image, the default release binaries, and `cargo install martin` do **not** include rendering.
 >
 > Limitations of our current implementation:
 >
-> - Rendering support is currently only available on Linux.
 > - Martin does not cache rendered requests.
 
 To enable rendering, you need a build that includes it (see above) and to turn it on in the configuration file:
@@ -139,15 +138,16 @@ MapLibre Native keeps the tiles, glyphs and sprites its renderers fetch over the
 
 ### Graphics backend
 
-Renderers draw through OpenGL ES by default. To draw through another graphics backend, set the `MARTIN_MLN_BACKEND` environment variable before starting Martin:
+On Linux, renderers draw through OpenGL ES by default. On macOS, they draw through Metal. On Windows, they draw through the first of Vulkan, Direct3D 12 and OpenGL ES that has a working driver. To draw through another graphics backend, set the `MARTIN_MLN_BACKEND` environment variable before starting Martin:
 
-| `MARTIN_MLN_BACKEND` | Backend |
-| --- | --- |
-| unset or `gl` | OpenGL ES |
-| `vulkan` | Vulkan |
-| `webgpu` | WebGPU |
+| `MARTIN_MLN_BACKEND` | Backend | Platforms |
+| --- | --- | --- |
+| `gl` | OpenGL ES | Linux, Windows |
+| `vulkan` | Vulkan | Linux, Windows |
+| `metal` | Metal | macOS |
+| `d3d12` | Direct3D 12 | Windows |
 
-Martin treats any other value as `gl`.
+Martin treats any other value as unset.
 
 Vulkan needs a Vulkan loader and driver (`libvulkan1` and `mesa-vulkan-drivers` on Debian and Ubuntu). Vulkan pays off on a GPU with several workers: with 8 workers on an NVIDIA GPU, it rendered about 12 times as many z14 tiles per second as OpenGL ES. On the CPU, both backends render about as fast.
 
@@ -181,7 +181,7 @@ MapLibre logs its own messages under targets starting with `mln` (such as `mln_s
 
 > [!WARNING]
 >
-> Static rendering shares the limitations listed above (Linux only, no caching).
+> Static rendering shares the limitations listed above (no caching).
 
 Martin can render a single PNG/JPEG/WebP of a style at a chosen camera. The same URL is served by two methods:
 

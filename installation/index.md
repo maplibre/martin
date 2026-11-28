@@ -144,7 +144,7 @@ cargo install martin --locked --features=unstable-duckdb
 
 The currently available unstable feature is `unstable-duckdb` for [DuckDB / GeoParquet sources](<https://maplibre.org/martin/sources-duckdb/index.md>).
 
-Server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) is also left out of the default feature set. To include it (Linux only), add the `rendering` feature. Building it needs nothing extra, but running it needs EGL and OpenGL ES (`just install-dependencies` installs them on Debian and Ubuntu).
+Server-side style [rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) is also left out of the default feature set. To include it, add the `rendering` feature. Building it needs nothing extra. On Linux, running it needs EGL and OpenGL ES (`just install-dependencies` installs them on Debian and Ubuntu).
 
 ```bash
 cargo install martin --locked --features rendering
@@ -155,11 +155,3 @@ For FIPS 140-3 compliant TLS, add the `fips` feature. It makes rustls use the FI
 ```bash
 cargo install martin --locked --features fips
 ```
-
-#### Platform-Specific Build Notes
-
-##### Windows
-
-When building from source on Windows, please note the following feature limitations:
-
-- **`rendering`**: This feature is **not available on Windows**. Martin renders only on Linux so far.

@@ -33,6 +33,6 @@ styles:
 
 ### Server-side raster tile rendering
 
-On Linux, Martin can also render a style server-side into raster images - both as XYZ tiles and as a single static image at a chosen camera, with an optional GeoJSON overlay.
+Martin can also render a style server-side into raster images - both as XYZ tiles and as a single static image at a chosen camera, with an optional GeoJSON overlay.
 
 See [Server-side raster tile rendering](<https://maplibre.org/martin/sources-styles/rendering/index.md>) for how to enable it, the endpoints, and the static-image overlay API.

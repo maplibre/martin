@@ -2507,18 +2507,18 @@ as XYZ tiles, or as a single static image at a chosen camera.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Rendering is <strong>not</strong> part of the default build.
-It renders with <a href="https://github.com/louwers/mln-rs">mln-rs</a>, a Rust rewrite of MapLibre Native, which needs EGL and OpenGL ES at runtime.
-It renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's <code>llvmpipe</code> otherwise.
+It renders with <a href="https://github.com/louwers/mln-rs">mln-rs</a>, a Rust rewrite of MapLibre Native.
+On Linux, it needs EGL and OpenGL ES at runtime, and renders on the GPU when an EGL driver for it is installed, and on the CPU with Mesa's <code>llvmpipe</code> otherwise.
+On macOS, it renders through Metal, and on Windows through Vulkan or Direct3D 12.
 We only ship it where we control the runtime environment.
 You get it by either:</p>
 <ul>
 <li>using the <strong><code>-full</code> Docker image</strong> variant, tagged <code>:latest-full</code>, or the matching <code>-full</code> Linux-gnu release tarball, or</li>
-<li>building from source with the <code>rendering</code> feature enabled (Linux only): <code>cargo install martin --features rendering</code>.</li>
+<li>building from source with the <code>rendering</code> feature enabled on Linux, macOS or Windows: <code>cargo install martin --features rendering</code>.</li>
 </ul>
 <p>The default Docker image, the default release binaries, and <code>cargo install martin</code> do <strong>not</strong> include rendering.</p>
 <p>Limitations of our current implementation:</p>
 <ul>
-<li>Rendering support is currently only available on Linux.</li>
 <li>Martin does not cache rendered requests.</li>
 </ul>
 </div>
@@ -2642,31 +2642,42 @@ A cached resource spares a request only while its <code>Cache-Control</code> say
 When the style's sources are Martin's own, the tiles are already a local read away, so <code>ambient_cache_size_mb: 0</code> saves that work.
 Keep it for styles that fetch from other servers.</p>
 <h3 id="graphics-backend">Graphics backend</h3>
-<p>Renderers draw through OpenGL ES by default.
+<p>On Linux, renderers draw through OpenGL ES by default.
+On macOS, they draw through Metal.
+On Windows, they draw through the first of Vulkan, Direct3D 12 and OpenGL ES that has a working driver.
 To draw through another graphics backend, set the <code>MARTIN_MLN_BACKEND</code> environment variable before starting Martin:</p>
 <table>
 <thead>
 <tr>
 <th><code>MARTIN_MLN_BACKEND</code></th>
 <th>Backend</th>
+<th>Platforms</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>unset or <code>gl</code></td>
+<td><code>gl</code></td>
 <td>OpenGL ES</td>
+<td>Linux, Windows</td>
 </tr>
 <tr>
 <td><code>vulkan</code></td>
 <td>Vulkan</td>
+<td>Linux, Windows</td>
 </tr>
 <tr>
-<td><code>webgpu</code></td>
-<td>WebGPU</td>
+<td><code>metal</code></td>
+<td>Metal</td>
+<td>macOS</td>
+</tr>
+<tr>
+<td><code>d3d12</code></td>
+<td>Direct3D 12</td>
+<td>Windows</td>
 </tr>
 </tbody>
 </table>
-<p>Martin treats any other value as <code>gl</code>.</p>
+<p>Martin treats any other value as unset.</p>
 <p>Vulkan needs a Vulkan loader and driver (<code>libvulkan1</code> and <code>mesa-vulkan-drivers</code> on Debian and Ubuntu).
 Vulkan pays off on a GPU with several workers: with 8 workers on an NVIDIA GPU, it rendered about 12 times as many z14 tiles per second as OpenGL ES.
 On the CPU, both backends render about as fast.</p>
@@ -2696,7 +2707,7 @@ We are working on adding this feature and are very open to contributions if you 
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Static rendering shares the limitations listed above (Linux only, no caching).</p>
+<p>Static rendering shares the limitations listed above (no caching).</p>
 </div>
 <p>Martin can render a single PNG/JPEG/WebP of a style at a chosen camera.
 The same URL is served by two methods:</p>
