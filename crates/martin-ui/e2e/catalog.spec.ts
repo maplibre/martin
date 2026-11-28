@@ -1,24 +1,40 @@
 import { expect, test } from './test';
 
-const TABS = [
-  { key: 'tiles', noun: ['tile source', 'tile sources'] },
-  { key: 'styles', noun: ['style', 'styles'] },
-  { key: 'fonts', noun: ['font', 'fonts'] },
-  { key: 'sprites', noun: ['sprite sheet', 'sprite sheets'] },
-] as const;
+test('the tiles tab lists every tile source martin serves', async ({ page }) => {
+  await page.goto('/?tab=tiles');
 
-for (const { key, noun } of TABS) {
-  test(`the ${key} tab lists every ${noun[0]} martin serves`, async ({ page, catalog }) => {
-    const names = Object.keys(catalog[key] ?? {});
-    expect(names.length).toBeGreaterThan(0);
+  await expect(page.getByRole('heading', { name: '11 tile sources' })).toBeVisible();
+  await expect(page.getByText('bare_geometry', { exact: true })).toBeVisible();
+  await expect(page.getByText('clip', { exact: true })).toBeVisible();
+  await expect(page.getByText('feature_1', { exact: true })).toBeVisible();
+  await expect(page.getByText('feature_collection_1', { exact: true })).toBeVisible();
+  await expect(page.getByText('feature_collection_2', { exact: true })).toBeVisible();
+  await expect(page.getByText('feature_collection_3', { exact: true })).toBeVisible();
+  await expect(page.getByText('multi_geometries', { exact: true })).toBeVisible();
+  await expect(page.getByText('png', { exact: true })).toBeVisible();
+  await expect(page.getByText('properties', { exact: true })).toBeVisible();
+  await expect(page.getByText('stamen_toner__raster_CC-BY-ODbL_z3', { exact: true })).toBeVisible();
+  await expect(page.getByText('usda_naip_256_lzw_z3', { exact: true })).toBeVisible();
+});
 
-    const heading = `${names.length} ${names.length === 1 ? noun[0] : noun[1]}`;
+test('the styles tab lists every style martin serves', async ({ page }) => {
+  await page.goto('/?tab=styles');
 
-    await page.goto(`/?tab=${key}`);
+  await expect(page.getByRole('heading', { name: '1 style' })).toBeVisible();
+  await expect(page.getByText('local', { exact: true })).toBeVisible();
+});
 
-    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
-    for (const name of names) {
-      await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
-    }
-  });
-}
+test('the fonts tab lists every font martin serves', async ({ page }) => {
+  await page.goto('/?tab=fonts');
+
+  await expect(page.getByRole('heading', { name: '2 fonts' })).toBeVisible();
+  await expect(page.getByText('Overpass Mono Light', { exact: true })).toBeVisible();
+  await expect(page.getByText('Overpass Mono Regular', { exact: true })).toBeVisible();
+});
+
+test('the sprites tab lists every sprite sheet martin serves', async ({ page }) => {
+  await page.goto('/?tab=sprites');
+
+  await expect(page.getByRole('heading', { name: '1 sprite sheet' })).toBeVisible();
+  await expect(page.getByText('src1', { exact: true })).toBeVisible();
+});

@@ -1,5 +1,4 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import type { Catalog } from '../src/lib/types.gen';
 
 /** Hosts the UI may contact besides martin, answered with a blank tile so the tests stay offline. */
 const STUBBED_HOSTS = ['tile.openstreetmap.org'];
@@ -48,13 +47,8 @@ async function watchProblems(page: Page, origin: string): Promise<string[]> {
   return problems;
 }
 
-/** Playwright `test` whose pages fail the test on any problem, plus the catalog martin serves. */
-export const test = base.extend<{ catalog: Catalog; problems: string[] }>({
-  catalog: async ({ request }, use) => {
-    const response = await request.get('/catalog');
-    expect(response.ok()).toBe(true);
-    await use(await response.json());
-  },
+/** Playwright `test` whose pages fail the test on any problem. */
+export const test = base.extend<{ problems: string[] }>({
   problems: [
     async ({ page, baseURL }, use) => {
       const problems = await watchProblems(page, new URL(baseURL ?? '').origin);

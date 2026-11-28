@@ -2,6 +2,13 @@
 
 set shell := ['bash', '-c']
 
+# Docker image the end-to-end tests serve the fixtures with
+martin_image := env('MARTIN_E2E_IMAGE', 'ghcr.io/maplibre/martin:nightly')
+# Repository root, mounted into the martin container
+repo_dir := canonicalize(justfile_directory() / '../..')
+# Sources the end-to-end tests expect martin to serve, relative to the repository root
+e2e_fixtures := 'tests/fixtures/geojson tests/fixtures/pmtiles tests/fixtures/cog/usda_naip_256_lzw_z3.tif --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts --style crates/martin-ui/e2e/fixtures/styles'
+
 @_default:
     just --list
 
@@ -40,6 +47,17 @@ gen-ui-types: _npm-install
 e2e *args: _npm-install
     npx playwright install chromium
     npx playwright test {{ args }}
+
+# Serve the end-to-end fixtures on `port` with the martin Docker image
+[working-directory('../..')]
+e2e-martin port='3010':
+    docker rm --force martin-ui-e2e-{{ port }} >/dev/null 2>&1 || true
+    exec docker run --rm --init --name martin-ui-e2e-{{ port }} --publish 127.0.0.1:{{ port }}:3000 --volume {{ quote(repo_dir) }}:/work:ro --workdir /work {{ martin_image }} {{ e2e_fixtures }}
+
+# Serve the end-to-end fixtures on `port` with a local martin binary
+[working-directory('../..')]
+e2e-martin-bin bin port='3010':
+    exec {{ quote(bin) }} {{ e2e_fixtures }} --listen-addresses 127.0.0.1:{{ port }}
 
 # Run frontend tests
 test:

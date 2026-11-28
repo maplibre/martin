@@ -18,8 +18,9 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'e2e/martin.sh',
-      env: { MARTIN_E2E_PORT: String(martinPort) },
+      command: process.env.MARTIN_BIN
+        ? `just e2e-martin-bin ${process.env.MARTIN_BIN} ${martinPort}`
+        : `just e2e-martin ${martinPort}`,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 5000 },
       name: 'martin',
       reuseExistingServer: !process.env.CI,
