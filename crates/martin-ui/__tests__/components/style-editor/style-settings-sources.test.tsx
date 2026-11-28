@@ -1,4 +1,5 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -9,8 +10,6 @@ import {
 } from '@/components/style-editor/style-resources';
 import { ResourcesSection } from '@/components/style-editor/style-settings/resources-section';
 import { SourcesSection } from '@/components/style-editor/style-settings/sources-section';
-
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
 
 let recorded: { label: string; style: StyleSpecification }[] = [];
 
@@ -29,6 +28,7 @@ function renderSection(
     <StyleResourcesProvider value={resources}>
       <Section apply={apply} map={null} style={style} />
     </StyleResourcesProvider>,
+    { wrapper: TooltipProvider },
   );
 }
 

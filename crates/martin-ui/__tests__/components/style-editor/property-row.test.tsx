@@ -6,8 +6,6 @@ import { PropertyRow } from '@/components/style-editor/inspector/property-row';
 import { layerProperties, type PropertyEntry } from '@/components/style-editor/style-spec';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
-
 function ControlledRow({
   layer,
   entry,

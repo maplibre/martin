@@ -1,10 +1,9 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { Map as MapLibre } from 'maplibre-gl';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { StyleSettings } from '@/components/style-editor/style-settings/style-settings';
-
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
 
 function setup(style: StyleSpecification, map: MapLibre | null = null) {
   const edits: StyleSpecification[] = [];
@@ -13,7 +12,7 @@ function setup(style: StyleSpecification, map: MapLibre | null = null) {
     recipe(draft);
     edits.push(draft);
   };
-  render(<StyleSettings apply={apply} map={map} style={style} />);
+  render(<StyleSettings apply={apply} map={map} style={style} />, { wrapper: TooltipProvider });
   return edits;
 }
 

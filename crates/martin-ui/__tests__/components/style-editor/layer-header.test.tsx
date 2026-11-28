@@ -8,8 +8,6 @@ import {
 } from '@/components/style-editor/inspector/layer-inspector';
 import { StyleResourcesProvider } from '@/components/style-editor/style-resources';
 
-vi.mock('lucide-react', async (importOriginal) => importOriginal());
-
 const SOURCE_LAYERS: Record<string, string[]> = {
   extra: ['water', 'places'],
   openmaptiles: ['water', 'transportation'],
